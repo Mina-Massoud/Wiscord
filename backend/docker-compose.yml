@@ -1,0 +1,22 @@
+services:
+  mongo:
+    image: mongo:8
+    container_name: wiscord-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: wiscord
+      MONGO_INITDB_ROOT_PASSWORD: wiscord
+      MONGO_INITDB_DATABASE: wiscord
+    ports:
+      - "27017:27017"
+    volumes:
+      - wiscord-mongodata:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  wiscord-mongodata:
+    name: wiscord-mongodata

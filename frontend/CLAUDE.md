@@ -52,6 +52,31 @@ Project context lives in [`../docs/`](../docs). Read [`../docs/overview.md`](../
 - When a component crosses the line, split it — into subcomponents, hooks, or `*.parts.tsx` files
 - Filename should reflect a single responsibility; banned generic names: `utils.ts`, `helpers.ts`, `common.ts`
 
+### Design first — use the `frontend-design` skill
+
+Before building or restyling any user-facing surface, invoke the **`frontend-design`** skill and let it shape the visual direction. The point is to keep the product looking coherent across screens — same rhythm, same hierarchy, same warmth — instead of drifting one component at a time.
+
+The skill is required for:
+
+- A new page or major surface (sign-in, onboarding, app shell, settings, room view)
+- Any visual refresh of an existing surface
+- Adding a marketing or empty-state illustration
+- Anything that the user describes as "the design feels off"
+
+### Human, not API — UI voice rules
+
+We are building a product for students, not a developer console. Every screen should feel like a person made it for another person.
+
+- **Copy first, fields second.** Lead with a warm question or invitation (`Where will you study?`), not a noun-labeled form (`Workspace setup`). The heading does emotional work; the placeholder does the literal labeling.
+- **Drop redundant labels.** If the heading + placeholder already explain the field (`Invite code` heading + `abc-xyz-123` placeholder), do not also stack a `<FormLabel>Invite code</FormLabel>` on top. One signal per field.
+- **Errors talk like a friend.** `Couldn't join. Double-check the code?` beats `Invalid invite_code: redemption failed`. Never surface backend error strings raw — translate them in the catch block.
+- **Buttons commit to verbs, not nouns.** `Create room` / `Join room` / `Send magic link` — not `Submit`, `OK`, `Continue` (unless `Continue` is genuinely the right CTA).
+- **Soften the chrome.** Avoid nested bordered boxes ("card-in-a-card") — they read as JSON. Use whitespace, a single divider, or a softly tinted icon chip to separate regions instead.
+- **One accent per surface.** The blurple is the focal CTA. Don't paint every action blurple — a secondary action takes `variant="secondary"` or `variant="ghost"`, so the primary stays primary.
+- **Animate transitions, not just states.** When a step adds more controls (e.g. onboarding workspace step), the container should expand smoothly — not snap to a new width. Width / size transitions are an allowed exception to the `transform/opacity/filter` rule on auth and onboarding surfaces (not hot paths).
+- **Icons must mean something literal.** Reserve "magic" icons — `Sparkles`, `Wand`, `Wand2`, `WandSparkles`, `Stars`, `Brain`, `Bot`, `Atom`, anything with motion lines or twinkles — exclusively for surfaces where the work is genuinely AI-powered (the `ai-ask` flow, AI summaries, AI citations). Using them on plain CRUD actions like "Create a room" makes the product read like an AI demo instead of a study app. For non-AI actions pick the most literal lucide icon available: `Plus` for create, `Users` for join/people, `Hash` for channels, `Pin` for pin, `Search` for search, `Settings` for settings. If unsure, no icon is better than a misleading one.
+- **Only offer "back" when the prior step is actually undoable.** A `ChevronLeft + Back` affordance is only honest when the previous step has *not* yet committed to the backend — i.e. it lives entirely in client state until a final submit. Once a step has written to Supabase (created a profile, redeemed an invite, sent an email), going "back" would lie to the user because we can't undo the write. In those cases, omit the back button. Don't paper over irreversible state with reversible-looking UI. Same rule applies to server-creation wizards, settings deep-links, anything multi-step.
+
 ### UI matches `docs/design.md`
 
 - All colors, radii, spacing, motion durations come from Tailwind tokens defined in `tailwind.config.ts`, which mirror the values in `docs/design.md`
@@ -94,6 +119,23 @@ Project context lives in [`../docs/`](../docs). Read [`../docs/overview.md`](../
 8. **DevTools** enabled in dev only (`import.meta.env.DEV`)
 9. **No nested queries inside components** — compose at hook level, render the joined result
 10. **Pagination by default** — every list query has a `limit()`. Default page sizes documented per query (messages: 50, channels: 100, members: 100). Infinite-scroll uses `useInfiniteQuery`. No unbounded `select * from <table>`.
+
+### Failure modes — think twice before shipping any async surface
+
+I have a habit of writing the happy path and calling it done. The result is screens that *technically* compile but get stuck spinning, lie about state, or strand the user when something drifts. **Before merging any component that reads or writes data, walk this list out loud and either handle each case or explain in a comment why it's impossible here.**
+
+1. **Stale JWT / deleted user.** The browser has a token for a user that no longer exists on the server (DB reset, account deleted, project restored from backup). `getSession()` reads localStorage — it does **not** validate. Anything past the auth gate must either (a) be wrapped by a boot-time `getUser()` validation that signs the user out on failure, or (b) handle a 401/403 from the first server call by signing out, not by retrying.
+2. **Query settled empty vs. query loading.** `data === undefined` and `data === null` mean different things. A "still loading" branch that only checks `!data` will spin forever the moment the server returns a legitimate empty result. Branch on `isLoading` / `isFetching`, not on truthiness of the data.
+3. **Retry exhaustion.** Profile-style queries with `retry: 3` will *eventually* settle. After that, "still no data" is signal, not noise — render an actionable error, not the skeleton again.
+4. **Orphaned realtime subscription.** A channel subscribed to a row that was just deleted will silently stop emitting. The component must check on mount that the underlying entity still exists, and unsubscribe cleanly on unmount.
+5. **Optimistic update with no rollback.** Every `onMutate` that writes to the cache needs an `onError` that puts the previous value back. The "I clicked send but the message vanished" bug always traces back here.
+6. **Partial commit across steps.** Multi-step flows that write to the backend mid-flow (onboarding, server creation) must be re-entrant: if the user reloads after step 1's commit, step 1's UI should detect the existing state and skip itself instead of trying to write again.
+7. **Realtime + cache drift.** A Supabase Realtime CDC handler that writes to `queryClient` must respect the same key shape as the query — otherwise the UI and the cache disagree silently. Always test by mutating from a second tab.
+8. **Network offline / 5xx.** The user toggles airplane mode for two seconds. The mutation throws. Does the UI surface a retry, or just stare at the user? `toast.error` + button-reset is the minimum.
+9. **Trigger race on first sign-up.** `handle_new_user` writes the profile row asynchronously. A race-condition retry is fine for the *first* sign-up, but is a smell on any later read. Don't retry forever — log and bail.
+10. **Time zones and clock skew.** Anything that displays "X minutes ago" or expires after N seconds must source time from the server response (or `Date.now()` synchronously, never a stale prop). The user's laptop clock is a lie.
+
+If you can't tick a case off or rule it out, the surface is not done.
 
 ### Three states per async surface
 
@@ -210,14 +252,17 @@ useEffect(() => {
 - Errors render inline next to the field, never as a global toast for validation
 - Submission errors (network, server) **do** surface as toasts (see Toasts rule below)
 
-### Toasts — `sonner` only
+### Toasts — `lib/toast.ts` (custom)
 
-- Single toast library: `sonner` (shadcn's default). No alternatives.
+- Single toast surface: the custom store in `src/lib/toast.ts` rendered by `src/components/ui/toaster.tsx`. Do **not** install or re-introduce `sonner` or any other toast library — the custom implementation is the source of truth so toasts always match `docs/design.md` (surface-2 background, four-depth stack, blurple accent, motion tokens)
+- Import the singleton: `import { toast } from '@/lib/toast'`
 - Patterns:
   - `toast.success("Server created")`
   - `toast.error("Couldn't send message. Try again.")`
-  - `toast.loading("Joining channel…")`
-  - `toast.promise(promise, { loading, success, error })` for async actions
+  - `toast.info("Joined #general")`
+  - `toast.loading("Joining channel…")` — does not auto-dismiss; capture the returned id and call `toast.dismiss(id)` when the work resolves
+- Optional second arg: `{ description?: string; duration?: number }`. Default durations: success/info 4s, error 5s, loading none
+- Toast variants render an accent stripe matching semantic color: success → success, error → destructive, info → blurple, loading → ink-muted
 - Never use `alert()`, `confirm()`, or browser dialogs. Use shadcn `Dialog` / `AlertDialog`
 
 ### Dates — `Intl.*` or `lib/date.ts`
@@ -233,6 +278,28 @@ useEffect(() => {
 - `queries/` may import from `queries/`, `types/`, and `@supabase/supabase-js` (only `queries/client.ts`)
 - `lib/` is **pure** — no imports of `@supabase/*`, `react`, or anything I/O
 - `hooks/` may import from `queries/`, `lib/`, and `react` — never from `components/`
+
+### Static assets (`public/`)
+
+All static assets live under `frontend/public/` organized by **type subfolder** — never loose at the root.
+
+```
+public/
+├── background/    # full-bleed wallpapers, scene art
+├── logo/          # wordmarks, marks, app icon variants
+├── icon/          # decorative icons not part of lucide-react
+├── illustration/  # empty-state art, onboarding scenes
+└── og/            # social share / OpenGraph cards
+```
+
+Rules:
+
+- **Every image asset under `public/` and `src/assets/` must be `.webp`.** No `.png` / `.jpg` / `.jpeg` checked in. WebP averages 30–80% smaller than PNG at equivalent visual quality and is supported everywhere we ship.
+- **Convert before committing** with the repo script: `scripts/img-to-webp.sh <path> --replace` (recurses into directories; `--replace` deletes the source after a successful conversion).
+- **Reference assets by their subfolder path** from components: `<img src="/logo/logo-text.webp" />`, `<img src="/background/auth-bg.webp" />`. Never hot-link external images for assets we control.
+- **Always set explicit `width` / `height`** on `<img>` to prevent CLS — values come from the source dimensions, CSS controls the rendered size.
+- **Above-the-fold imagery** uses `loading="eager"` + `fetchpriority="high"` (per the perf rule). Everything else is `loading="lazy"`.
+- **SVGs** are fine as-is — they're already vector. Logos and icons that ship as raster go through the webp pipeline.
 
 ### Accessibility
 

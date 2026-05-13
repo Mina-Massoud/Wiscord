@@ -14,12 +14,14 @@ export const qk = {
     root: ['profiles'] as const,
     byId: (id: string) => ['profiles', id] as const,
     me: () => ['profiles', 'me'] as const,
+    usernameCheck: (candidate: string) => ['profiles', 'username-check', candidate] as const,
   },
 
   servers: {
     root: ['servers'] as const,
     all: () => ['servers', 'all'] as const,
     byId: (id: string) => ['servers', id] as const,
+    mine: () => ['servers', 'mine'] as const,
   },
 
   members: {

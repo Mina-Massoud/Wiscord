@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Wiscord — Features</title>
+<style>
+  @page {
+    size: A4;
+    margin: 22mm 18mm 22mm 18mm;
+    @bottom-right {
+      content: counter(page) " / " counter(pages);
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 9pt;
+      color: #6b7280;
+    }
+    @bottom-left {
+      content: "Wiscord — Features";
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 9pt;
+      color: #6b7280;
+    }
+  }
+
+  :root {
+    --ink: #0b1020;
+    --muted: #4b5563;
+    --line: #e5e7eb;
+    --accent: #4f46e5;
+    --tag-bg: #eef2ff;
+    --tag-fg: #3730a3;
+    --tag-border: #c7d2fe;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    color: var(--ink);
+    font-family: "Inter", "Helvetica Neue", Helvetica, Arial, ui-sans-serif, system-ui, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  header.cover {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 14pt;
+    margin-bottom: 18pt;
+  }
+
+  .eyebrow {
+    font-size: 9pt;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 6pt;
+  }
+
+  h1 {
+    font-size: 26pt;
+    line-height: 1.15;
+    margin: 0 0 6pt 0;
+    letter-spacing: -0.01em;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    font-size: 11pt;
+    margin: 0;
+    max-width: 60ch;
+  }
+
+  .legend {
+    margin-top: 12pt;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6pt 10pt;
+    font-size: 9pt;
+    color: var(--muted);
+  }
+
+  .legend .tag { margin-right: 4pt; }
+
+  h2 {
+    font-size: 14pt;
+    margin: 22pt 0 8pt 0;
+    padding-bottom: 4pt;
+    border-bottom: 1px solid var(--line);
+    letter-spacing: -0.005em;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  li {
+    padding: 6pt 0;
+    border-bottom: 1px dashed var(--line);
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  li:last-child { border-bottom: none; }
+
+  .title {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .desc {
+    color: var(--muted);
+  }
+
+  .tags {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 4pt;
+    margin-left: 6pt;
+    vertical-align: middle;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 1pt 6pt;
+    font-size: 8pt;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--tag-fg);
+    background: var(--tag-bg);
+    border: 1px solid var(--tag-border);
+    border-radius: 4pt;
+    line-height: 1.4;
+  }
+
+  footer.claim {
+    margin-top: 28pt;
+    padding-top: 12pt;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 9.5pt;
+  }
+  footer.claim h3 {
+    margin: 0 0 4pt 0;
+    font-size: 11pt;
+    color: var(--ink);
+  }
+</style>
+</head>
+<body>
+
+<header class="cover">
+  <div class="eyebrow">Wiscord · Engineering</div>
+  <h1>Feature Backlog</h1>
+  <p class="subtitle">Pick one. Each feature is full-stack — own the schema, the API, the realtime wiring, and the UI.</p>
+  <div class="legend">
+    <span><span class="tag">DB</span> database</span>
+    <span><span class="tag">RT</span> realtime</span>
+    <span><span class="tag">AUTH</span> auth / RLS</span>
+    <span><span class="tag">UI</span> frontend</span>
+    <span><span class="tag">AI</span> AI</span>
+    <span><span class="tag">VO</span> voice</span>
+  </div>
+</header>
+
+<section>
+  <h2>Servers</h2>
+  <ul>
+    <li><span class="title">Server list rail</span> — <span class="desc">left sidebar with all joined servers, switch active</span><span class="tags"><span class="tag">UI</span></span></li>
+    <li><span class="title">Create server (in-app)</span> — <span class="desc">modal/dialog from the rail, post-onboarding</span><span class="tags"><span class="tag">DB</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Invite links — generate &amp; revoke</span> — <span class="desc">server settings UI + RPC</span><span class="tags"><span class="tag">DB</span><span class="tag">AUTH</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Leave / delete server</span> — <span class="desc">with confirm + ownership transfer</span><span class="tags"><span class="tag">DB</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Server settings</span> — <span class="desc">rename, change icon, manage invites</span><span class="tags"><span class="tag">DB</span><span class="tag">UI</span></span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>Channels</h2>
+  <ul>
+    <li><span class="title">Create channel</span> — <span class="desc">text or voice type, per server</span><span class="tags"><span class="tag">DB</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Channel sidebar</span> — <span class="desc">list channels grouped by type</span><span class="tags"><span class="tag">UI</span></span></li>
+    <li><span class="title">Rename / delete channel</span> — <span class="desc">admin only</span><span class="tags"><span class="tag">DB</span><span class="tag">AUTH</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Channel switcher</span> — <span class="desc">keyboard nav, unread indicator</span><span class="tags"><span class="tag">UI</span></span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>Chat</h2>
+  <ul>
+    <li><span class="title">Send &amp; receive messages</span> — <span class="desc">realtime via Supabase channel</span><span class="tags"><span class="tag">DB</span><span class="tag">RT</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Message history</span> — <span class="desc">paginated load on scroll</span><span class="tags"><span class="tag">DB</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Edit / delete own message</span> — <span class="desc">soft delete</span><span class="tags"><span class="tag">DB</span><span class="tag">AUTH</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Markdown rendering</span> — <span class="desc">bold, italic, code, links</span><span class="tags"><span class="tag">UI</span></span></li>
+    <li><span class="title">Mentions</span> — <span class="desc">@user with highlight + notification</span><span class="tags"><span class="tag">DB</span><span class="tag">RT</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Typing indicator</span> — <span class="desc">ephemeral presence broadcast</span><span class="tags"><span class="tag">RT</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Reactions</span> — <span class="desc">emoji reactions on messages</span><span class="tags"><span class="tag">DB</span><span class="tag">RT</span><span class="tag">UI</span></span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>Pomodoro (Synchronized Timer)</h2>
+  <ul>
+    <li><span class="title">Start session</span> — <span class="desc">anyone in channel can start, sets duration</span><span class="tags"><span class="tag">DB</span><span class="tag">RT</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Set goal at start</span> — <span class="desc">short text input per user</span><span class="tags"><span class="tag">DB</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Live countdown</span> — <span class="desc">synced across all clients in channel</span><span class="tags"><span class="tag">RT</span><span class="tag">UI</span></span></li>
+    <li><span class="title">End-of-session check-off</span> — <span class="desc">did you hit your goal?</span><span class="tags"><span class="tag">DB</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Break timer</span> — <span class="desc">auto-rolls into break phase</span><span class="tags"><span class="tag">RT</span><span class="tag">UI</span></span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>Presence</h2>
+  <ul>
+    <li><span class="title">Status tracking</span> — <span class="desc">Focusing / On break / Idle</span><span class="tags"><span class="tag">DB</span><span class="tag">RT</span></span></li>
+    <li><span class="title">Member panel</span> — <span class="desc">right column, grouped by status</span><span class="tags"><span class="tag">UI</span></span></li>
+    <li><span class="title">Auto-status from Pomodoro</span> — <span class="desc">focus phase = Focusing</span><span class="tags"><span class="tag">RT</span></span></li>
+    <li><span class="title">Manual override</span> — <span class="desc">user can force status</span><span class="tags"><span class="tag">UI</span></span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>Voice Lounges</h2>
+  <ul>
+    <li><span class="title">Join / leave voice channel</span> — <span class="desc">LiveKit token from Edge Function</span><span class="tags"><span class="tag">VO</span><span class="tag">AUTH</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Mute / unmute</span> — <span class="desc">local + broadcasted</span><span class="tags"><span class="tag">VO</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Speaking indicator</span> — <span class="desc">show who's talking</span><span class="tags"><span class="tag">VO</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Voice participant list</span> — <span class="desc">who's in the lounge</span><span class="tags"><span class="tag">VO</span><span class="tag">UI</span></span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>Notes</h2>
+  <ul>
+    <li><span class="title">Shared notes doc per channel</span> — <span class="desc">single textarea, realtime sync</span><span class="tags"><span class="tag">DB</span><span class="tag">RT</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Tabs in main pane</span> — <span class="desc">switch Chat / Notes</span><span class="tags"><span class="tag">UI</span></span></li>
+    <li><span class="title">Last-edited-by indicator</span> — <span class="desc">show whose cursor moved last</span><span class="tags"><span class="tag">RT</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Notes autosave</span> — <span class="desc">debounced write to DB</span><span class="tags"><span class="tag">DB</span><span class="tag">RT</span></span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>AI Assistant (Room-Scoped)</h2>
+  <ul>
+    <li><span class="title">Ask box per channel</span> — <span class="desc">"Ask anything about this room"</span><span class="tags"><span class="tag">AI</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Context builder</span> — <span class="desc">pull recent N messages + notes for channel</span><span class="tags"><span class="tag">AI</span><span class="tag">DB</span></span></li>
+    <li><span class="title">Streaming response</span> — <span class="desc">Claude Haiku via Edge Function</span><span class="tags"><span class="tag">AI</span><span class="tag">RT</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Citations</span> — <span class="desc">answer links back to source message IDs</span><span class="tags"><span class="tag">AI</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Prompt caching</span> — <span class="desc">cache stable system + room context</span><span class="tags"><span class="tag">AI</span></span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>Notifications</h2>
+  <ul>
+    <li><span class="title">In-app unread counts</span> — <span class="desc">per channel + per server</span><span class="tags"><span class="tag">DB</span><span class="tag">RT</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Mention badge</span> — <span class="desc">highlight when @mentioned</span><span class="tags"><span class="tag">RT</span><span class="tag">UI</span></span></li>
+    <li><span class="title">Sound toggle</span> — <span class="desc">opt-in chime on mention</span><span class="tags"><span class="tag">UI</span></span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>Layout &amp; Navigation</h2>
+  <ul>
+    <li><span class="title">Four-column shell</span> — <span class="desc">server rail / channel sidebar / main / members</span><span class="tags"><span class="tag">UI</span></span></li>
+    <li><span class="title">Responsive collapse</span> — <span class="desc">sidebars collapse on narrow screens</span><span class="tags"><span class="tag">UI</span></span></li>
+    <li><span class="title">Theme tokens</span> — <span class="desc">dark mode, indigo accent, four-tone bg</span><span class="tags"><span class="tag">UI</span></span></li>
+    <li><span class="title">Keyboard shortcuts</span> — <span class="desc">switch channel, focus composer, toggle mute</span><span class="tags"><span class="tag">UI</span></span></li>
+  </ul>
+</section>
+
+<section>
+  <h2>Infra &amp; Polish</h2>
+  <ul>
+    <li><span class="title">RLS policies</span> — <span class="desc">membership-gated reads/writes on all tables</span><span class="tags"><span class="tag">AUTH</span><span class="tag">DB</span></span></li>
+    <li><span class="title">Toast system</span> — <span class="desc">global toaster + helpers for success/error</span><span class="tags"><span class="tag">UI</span></span></li>
+    <li><span class="title">Loading skeletons</span> — <span class="desc">chat, members, notes</span><span class="tags"><span class="tag">UI</span></span></li>
+    <li><span class="title">Empty states</span> — <span class="desc">no servers, no channels, no messages</span><span class="tags"><span class="tag">UI</span></span></li>
+    <li><span class="title">E2E smoke tests</span> — <span class="desc">invite, join, send message, start pomodoro</span><span class="tags"><span class="tag">UI</span></span></li>
+  </ul>
+</section>
+
+<footer class="claim">
+  <h3>How to claim</h3>
+  Drop your name next to a feature, or open an issue titled <code>[feature] &lt;name&gt;</code>. Aim for one feature at a time end-to-end before grabbing another.
+</footer>
+
+</body>
+</html>

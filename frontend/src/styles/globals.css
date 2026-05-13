@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@config "../../tailwind.config.ts";
 
 /* ── shadcn/ui CSS variables (dark-native — Wiscord has no light mode in v1) ── */
 :root {
@@ -50,17 +51,23 @@ html {
 body {
   background-color: #313338;
   color: #DBDEE1;
-  font-family: 'GGSans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 16px;
-  line-height: 1.375;
+  font-family: 'Abcgintodiscord', 'Inter', 'GGSans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 1.125rem;
+  line-height: 1.33333;
   margin: 0;
   padding: 0;
 }
 
-/* ── Focus ring — keyboard-accessible ── */
-:focus-visible {
-  outline: 2px solid #5865F2;
-  outline-offset: 2px;
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Abcgintodiscordnord', 'Montserrat', Arial, sans-serif;
+}
+
+/* ── Focus ring — keyboard-accessible default; components may override ── */
+@layer base {
+  :focus-visible {
+    outline: 2px solid #5865F2;
+    outline-offset: 2px;
+  }
 }
 
 /* ── Scrollbar — Discord-style thin track ── */

@@ -1,114 +1,159 @@
 # Wiscord — Backend Rules
 
-Project context lives in [`../docs/`](../docs). Read [`../docs/overview.md`](../docs/overview.md), [`../docs/stack.md`](../docs/stack.md), and [`../docs/principles.md`](../docs/principles.md) before making changes.
+This is the **backend** folder (Node + Express + TypeScript + Mongoose + MongoDB). Frontend rules live in [`../frontend/CLAUDE.md`](../frontend/CLAUDE.md). Product context lives in [`../docs/`](../docs).
 
-This file is the rules for the **backend** folder only (Supabase: schema, RLS, Edge Functions). Frontend rules live in [`../frontend/CLAUDE.md`](../frontend/CLAUDE.md).
+The previous Supabase implementation is archived at [`./.legacy-supabase/`](./.legacy-supabase) for reference until the rest of the surface (channels, messages, realtime, AI, voice, storage) is re-implemented.
 
 ---
 
-## Shared rules (apply in both backend/ and frontend/)
+## Current scope
 
-### Tests are required
+This backend implements **auth and profile only**. CRUD for servers / channels / messages, realtime, AI streaming, LiveKit, and storage are deliberately not built yet — they'll come back behind their own endpoints when the time comes.
 
-- Every meaningful unit of behavior gets a test
-- Schema changes: write a SQL test (or at minimum a manual `psql` repro recipe in the migration's PR description) before pushing
-- Edge Function logic: write a Deno test alongside (`<function>.test.ts`) for any branching beyond happy-path
-- No coverage gate yet — quality of tests matters more than percentage
+Endpoints currently live:
+- `POST /auth/magic-link` — request a sign-in email
+- `GET /auth/callback?token=…` — verify token, set cookie, redirect to frontend
+- `POST /auth/signout` — clear cookie
+- `GET /auth/me` — current user (auth-gated)
+- `PATCH /auth/me` — update username / display name / avatar / onboarded_at (auth-gated)
+- `GET /auth/check-username?username=…` — availability probe
 
-### Pre-commit must pass
+---
 
-- Husky runs on commit: SQL lint (sqlfluff or equivalent), Deno `fmt --check` + `lint` on `supabase/functions/`
-- Pre-push runs the full check including any Deno tests
-- CI on PR mirrors pre-push exactly
+## Stack
 
-### Performance
+| Layer | Tech | Notes |
+|---|---|---|
+| Runtime | Node ≥20, ESM | `"type": "module"`. Imports use `.js` extensions even for `.ts` files. |
+| HTTP | Express 4 | Single `createApp()` factory in `src/app.ts`; `server.ts` boots and binds. |
+| DB | MongoDB 8 via Mongoose 9 | Local via `docker compose up -d mongo` on port 27017. |
+| Auth | Self-issued JWT in HttpOnly cookie | `jose` for sign/verify; magic-link tokens hashed at rest. |
+| Email | Resend REST API | Falls back to logging the URL when `RESEND_API_KEY` is unset (so dev sign-ins work without burning quota). |
+| Validation | Zod | At every system boundary — env, request body, request query. |
+| Logging | Pino + pino-http | Pretty in dev; JSON in prod. Request-id correlation header. |
+| Errors | `AppError` + Express error middleware | All responses ride a `{ success, data?, error? }` envelope. |
 
-- RLS policies must use helper functions (`is_server_member`, `is_channel_member`, `is_server_owner`) — never inline `EXISTS` joins in policy expressions (they bypass query-planner caching and cost ~5x on hot paths)
-- Indexes go in the same migration as the table that needs them
-- Never `SELECT *` from a function — list columns explicitly so adding a column doesn't silently widen function output
+---
 
-### Scope discipline
+## Conventions
 
-- Honor the v1 boundary in [`../docs/overview.md`](../docs/overview.md) and the single product test in [`../docs/principles.md`](../docs/principles.md)
-- Don't add tables, columns, or RLS branches for features that aren't in v1
+### Imports use `.js`, not `.ts`
+
+ESM + TS in Node requires explicit extensions in the *built* output. `tsx` resolves `.js` → `.ts` in dev; `tsc` emits files with the same names. Source code reads `import { foo } from './bar.js'` even when `bar.ts` is the source.
+
+### One thing per file
+
+- 200 lines is the soft limit, 500 is the hard limit.
+- No `utils.ts` / `helpers.ts` / `service.ts` (generic names) — be specific. The auth module's service file is `modules/auth/service.ts` and that's fine because it's scoped to the module.
+
+### Module structure
+
+Every feature module lives under `src/modules/<feature>/` with three files:
+```
+src/modules/auth/
+├── routes.ts     # Express.Router — HTTP shape only, calls service
+├── service.ts    # Pure business logic, talks to models
+└── schemas.ts    # Zod schemas for inputs/outputs
+```
+Routers attach in `src/app.ts`. Services never touch `req` / `res`.
+
+### Database access goes through Mongoose models, never raw
+
+- Models live in `src/db/models/<Name>.ts`, one per file.
+- Every schema runs `applySerialize(schema)` so `_id` → `id` in JSON output.
+- Indexes are declared in the schema, not in shell.
+- Each new model is re-exported from `src/db/models/index.ts`.
+
+### Validation at every boundary
+
+- Env: `src/lib/env.ts` — Zod schema, fails fast on bad config.
+- Request bodies & query strings: Zod schema in the module's `schemas.ts`, parsed inside the route handler. ZodErrors are caught by `errorHandler` middleware and rendered as `400 invalid_input` with field-level details.
+- DB writes: Mongoose schema validators (min/max/length/enum) plus app-level uniqueness checks for friendly error codes.
+
+### Error handling
+
+- Throw an `AppError` from `lib/errors.ts` for any expected failure (`badRequest('username_taken', ...)`, `forbidden()`, `notFound('server')`, etc.). The middleware maps it to the right HTTP status + envelope automatically.
+- Never `res.status(500).json(...)` directly. Either throw an `AppError` or let the error bubble — the middleware will render the right shape.
+- Never swallow errors. `try { ... } catch { /* ignore */ }` is forbidden. If you genuinely don't care about the error, log it at `warn` and continue.
+
+### Auth-gated routes use `requireAuth`
+
+```ts
+authRouter.get('/me', requireAuth, async (req, res, next) => {
+  const me = await getCurrentUser(req.userId!);
+  res.json(ok(me));
+});
+```
+`req.userId` is non-null inside `requireAuth`-protected handlers. The `!` is acceptable — TS can't follow middleware boundaries.
+
+### Cookies + JWT
+
+- Session JWT signed with HS256; secret from `JWT_SECRET` (32-byte minimum, validated by env loader).
+- Cookie name `wiscord_session`. HttpOnly + SameSite=Lax always; Secure in production only.
+- Default TTL 30 days, configurable via `SESSION_TTL_SECONDS`.
+- Signing/verifying lives in `src/lib/jwt.ts`; cookie helpers in `src/lib/cookies.ts`. Don't reach into `res.cookie` directly from feature code.
+
+### Magic-link tokens
+
+- 32 random bytes, url-safe base64. Raw token goes in the email **only**.
+- Stored as SHA-256 hex in `magic_link_tokens.tokenHash`. DB leak ≠ login compromise.
+- 15-minute TTL. Single-use — the consume step is an atomic `findOneAndUpdate({ usedAt: null }, { $set: { usedAt: now } })`. Replays fail because `usedAt != null` after the first hit.
+- 24-hour TTL index sweeps expired-but-unused rows automatically.
+
+### No `console.log`
+
+`console.error` / `console.warn` are reserved for genuine error reporting (and the seed script). Everywhere else use `logger.info` / `logger.warn` / `logger.error` from `src/lib/logger.js`. ESLint will fail any `console.log`.
+
+### Tests
+
+Test files live in `tests/`. Use Vitest + Supertest. Every meaningful unit of behavior gets a test:
+- Auth: full magic-link round-trip, expired token, replay protection, signout clears cookie.
+- Profile: username conflict, validation failures, partial PATCH.
+- Health: `/health` returns 200 even when the DB is unreachable (smoke).
+
+### Anti-enumeration
+
+`POST /auth/magic-link` always returns `200 { sent: true }`, even when the email isn't registered. The address gets a brand-new user row instead — which is fine because users are essentially defined by their email, and we don't want anonymous probes to confirm membership.
 
 ### Commit hygiene
 
-- **Conventional commits**: `feat:`, `fix:`, `chore:`, `refactor:`, `test:`, `docs:`, `perf:`, `ci:` — enforced by `commitlint` (Husky)
-- **Branch naming**: `feat/<slug>`, `fix/<slug>`, `chore/<slug>`, `refactor/<slug>` — lowercase, hyphenated
-- **No `--no-verify`, ever.** The gate exists for a reason. If a hook is wrong, fix the hook
-- **No `console.log` in committed code.** In Edge Functions, `console.error` / `console.warn` is acceptable for genuine error reporting; never `console.log` for debug breadcrumbs
+- Conventional commits: `feat`, `fix`, `chore`, `refactor`, `test`, `docs`, `perf`, `ci`.
+- Branch naming: `feat/<slug>`, `fix/<slug>`, etc.
+- No `--no-verify`, ever.
+- No secrets in code or `.env.example`. Real values live in `.env` (gitignored) and `supabase secrets set` (when Supabase is involved later).
 
 ---
 
-## Backend-specific rules
+## Local dev setup
 
-### Schema changes go through migrations only
+```bash
+cd backend
+npm install
+cp .env.example .env
+# generate a real JWT secret:
+node -e "console.log('JWT_SECRET=' + require('crypto').randomBytes(32).toString('hex'))" >> .env
+# bring up MongoDB:
+npm run db:up
+# (optional) seed a dev user:
+npm run db:seed
+# start the API on http://localhost:3001
+npm run dev
+```
 
-- Never edit schema in the Supabase dashboard
-- Every change is a new file in `supabase/migrations/`, named `YYYYMMDDHHMMSS_<descriptive_name>.sql`
-- Use `supabase migration new <name>` to create the file with the correct timestamp
-- **Migrations are append-only.** Once pushed, never edit a migration — write a follow-up that corrects the prior change. The migrations folder is a write-once log.
-- One logical concept per migration when reasonable. Smaller migrations are easier to review and to revert by writing the inverse.
+`docker info` must succeed before `db:up`. If you don't want Docker, point `MONGODB_URI` at a MongoDB Atlas free-tier cluster instead.
 
-### SQL style
-
-- Keywords lowercase: `select`, `from`, `where`, `inner join`, `create table`
-- Identifiers: snake_case
-- Explicit joins only — never comma-joins (`from a, b where a.id = b.a_id`)
-- Column comments when behavior or invariant isn't obvious: `comment on column <table>.<col> is '...';`
-- Never `select *` from a function (already in shared rules) — list columns explicitly
-
-### RLS is mandatory on every table
-
-- `alter table <t> enable row level security;` is part of the table's defining migration, not deferred
-- Every new table gets at least a `select` policy in the same migration
-- Use the helper functions (`is_server_member`, `is_channel_member`, `is_server_owner`) — don't repeat membership-check logic
-- If a table needs ungated access (rare), document why in a SQL comment above the table
-- **Never disable RLS, ever.** `alter table ... disable row level security` is banned. If something needs to bypass policy, write a `SECURITY DEFINER` function (see `redeem_invite` for the pattern)
-
-### Edge Functions (Deno)
-
-- Bare specifiers go in `supabase/functions/deno.json` `imports`; never use `npm:` directly in function code
-- Don't import across function directories with `.ts` paths — inline shared helpers instead (LSP cleanliness)
-- Editor-only types stay in `supabase/functions/types.d.ts`
-- Every function returns proper CORS preflight handling
-- Auth: validate `Authorization` header before any work; trust `supabase.auth.getUser()` only after that
-- Never expose `SUPABASE_SERVICE_ROLE_KEY` to user-facing code paths inside a function unless privilege escalation is the explicit intent
-
-### Anthropic / AI
-
-- Default model: `claude-haiku-4-5-20251001` for chat-context Q&A
-- Always pass `system` as an array with `cache_control: { type: "ephemeral" }` on the system prompt (saves ~90% on repeated context)
-- Stream responses as SSE — never wait for the full message before returning
-- Cap input context (last 50 messages + notes snapshot) — don't send unbounded history
-- Citations: instruct the model to use `[msg:<uuid>]` format so the frontend can render chips
-
-### Secrets management
-
-- No secret ever in code, in migrations, or in `.env.example`
-- Backend secrets live only in `supabase secrets set ...`
-- The auto-provided env vars (`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`) are the only ones a function should reference without explicit `supabase secrets set`
-- If a secret leaks, rotate immediately — don't try to scrub git history first
-
-### Realtime
-
-- Postgres CDC is opt-in per table via `alter publication supabase_realtime add table <t>;` inside the migration that creates the table
-- Don't enable CDC on tables that don't need it (every row update broadcasts to all subscribers — expensive)
-- Use Realtime **Broadcast** channels (not CDC) for ephemeral signals (typing, cursors) — those should never hit the DB
-
-### Storage
-
-- Each bucket gets its own RLS policies — never expose a bucket without them
-- Path convention: `<entity_id>/<filename>` so foldername-based policies work (`avatars/<uid>/...`, `server-icons/<server_id>/...`)
-- File size limits set on the bucket itself, not enforced client-side only
+In dev, leave `RESEND_API_KEY` empty — magic-link URLs print to the server log so you can paste them straight into the browser without touching email.
 
 ---
 
-## Reference
+## What's coming next (not in this scope)
 
-- Schema: [`supabase/migrations/20260512120000_initial_schema.sql`](./supabase/migrations/20260512120000_initial_schema.sql)
-- RLS policies: [`supabase/migrations/20260512120100_rls_policies.sql`](./supabase/migrations/20260512120100_rls_policies.sql)
-- AI assistant: [`supabase/functions/ai-ask/index.ts`](./supabase/functions/ai-ask/index.ts)
-- LiveKit token mint: [`supabase/functions/livekit-token/index.ts`](./supabase/functions/livekit-token/index.ts)
-- Frontend rules: [`../frontend/CLAUDE.md`](../frontend/CLAUDE.md)
+When we re-add the rest of the surface, each gets its own module under `src/modules/`:
+- `servers`, `channels`, `messages`, `members`, `invites` — REST CRUD with authz checks replacing RLS.
+- `focus`, `notes` — same shape.
+- `realtime` — Socket.IO gateway mounted on the same HTTP server.
+- `ai` — SSE port of the legacy `ai-ask` Edge Function.
+- `voice` — LiveKit JWT mint (legacy `livekit-token`).
+- `storage` — `multer` + local disk in dev, R2 later.
+
+The archived legacy implementations under `.legacy-supabase/` are the reference for what to port.

@@ -93,7 +93,15 @@ const config: Config = {
       },
 
       fontFamily: {
-        sans: ['GGSans', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+        sans: [
+          'Abcgintodiscord',
+          'Inter',
+          'GGSans',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'sans-serif',
+        ],
+        display: ['Abcgintodiscordnord', 'Montserrat', 'Arial', 'sans-serif'],
       },
 
       fontSize: {
