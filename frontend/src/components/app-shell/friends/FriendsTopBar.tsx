@@ -26,13 +26,13 @@ export function FriendsTopBar({
   onTabChange,
 }: FriendsTopBarProps): React.JSX.Element {
   return (
-    <header className="border-b-border flex h-12 shrink-0 items-center gap-4 border-b px-4">
+    <header className="border-b-glass-border flex h-12 shrink-0 items-center gap-4 border-b px-4">
       <div className="text-ink flex items-center gap-2">
         <Users className="text-ink-muted size-5" />
         <span className="text-subhead font-semibold">Friends</span>
       </div>
 
-      <span aria-hidden className="bg-border h-5 w-px" />
+      <span aria-hidden className="bg-glass-border h-5 w-px" />
 
       <nav aria-label="Friends tabs" className="flex items-center gap-0.5">
         {TABS.map((tab) => (
@@ -43,8 +43,8 @@ export function FriendsTopBar({
             className={cn(
               'text-tab flex items-center gap-1.5 rounded-md px-2 py-1 font-medium transition-colors',
               activeTab === tab.key
-                ? 'bg-surface-active text-ink'
-                : 'text-ink-muted hover:bg-surface-hover hover:text-ink',
+                ? 'bg-glass-active text-ink'
+                : 'text-ink-muted hover:bg-glass-hover hover:text-ink',
             )}
           >
             <span>{tab.label}</span>

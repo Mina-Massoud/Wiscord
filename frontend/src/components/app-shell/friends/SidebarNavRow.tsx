@@ -34,8 +34,8 @@ export function SidebarNavRow({
           'text-control mx-2 flex h-[42px] items-center gap-3 rounded-md px-2 font-medium transition-colors',
           'focus-visible:ring-blurple focus-visible:ring-2 focus-visible:outline-none',
           isActive || forceActive
-            ? 'bg-surface-active text-ink'
-            : 'text-ink-muted hover:bg-surface-hover hover:text-ink',
+            ? 'bg-glass-active text-ink'
+            : 'text-ink-muted hover:bg-glass-hover hover:text-ink',
         )
       }
     >

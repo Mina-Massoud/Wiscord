@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Info, Search, X } from 'lucide-react';
 import { fakeFriends } from '@/data/fake-shell';
+import { fakeFriendsAnnouncement, fakeFriendsTips } from '@/data/fake-active-now';
 import { FriendRow } from './FriendRow';
+import { AnnouncementBanner } from './showcase/AnnouncementBanner';
+import { TipChips } from './showcase/TipChips';
 import type { FriendsTab } from './FriendsTopBar';
 
 interface FriendsContentProps {
@@ -55,6 +58,12 @@ export function FriendsContent({ activeTab }: FriendsContentProps): React.JSX.El
         </div>
       ) : null}
 
+      {activeTab === 'online' || activeTab === 'all' ? (
+        <div className="px-4 pt-3">
+          <AnnouncementBanner announcement={fakeFriendsAnnouncement} />
+        </div>
+      ) : null}
+
       <div className="px-4 pt-3">
         <div className="relative">
           <Search className="text-ink-muted pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
@@ -63,7 +72,7 @@ export function FriendsContent({ activeTab }: FriendsContentProps): React.JSX.El
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search"
-            className="bg-surface-2 text-ink text-control placeholder:text-ink-subtle focus:border-blurple h-10 w-full rounded-md border border-transparent pr-3 pl-9 focus:outline-none"
+            className="bg-glass-surface-2 border-glass-border text-ink text-control placeholder:text-ink-subtle focus:border-blurple h-10 w-full rounded-md border pr-3 pl-9 focus:outline-none"
           />
         </div>
       </div>
@@ -72,13 +81,19 @@ export function FriendsContent({ activeTab }: FriendsContentProps): React.JSX.El
         {activeTab === 'online' ? 'Focusing now' : 'All study buddies'} — {visible.length}
       </h2>
 
-      <div className="mt-2 flex flex-col">
+      <div className="cv-auto mt-2 flex flex-col">
         {visible.length === 0 ? (
           <p className="text-ink-muted text-control px-4 py-8">No one matches that search.</p>
         ) : (
           visible.map((friend) => <FriendRow key={friend.user.id} friend={friend} />)
         )}
       </div>
+
+      {activeTab === 'online' || activeTab === 'all' ? (
+        <div className="mt-6 px-4 pb-6">
+          <TipChips tips={fakeFriendsTips} />
+        </div>
+      ) : null}
     </div>
   );
 }

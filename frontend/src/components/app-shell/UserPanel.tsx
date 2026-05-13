@@ -45,10 +45,10 @@ export function UserPanel(): React.JSX.Element {
   }
 
   return (
-    <div className="bg-surface-callout shadow-card h-user-panel mx-2 mb-2 flex shrink-0 items-center gap-1 rounded-lg px-2">
+    <div className="bg-glass-callout border-glass-border h-user-panel mx-2 mb-2 flex shrink-0 items-center gap-1 rounded-lg border px-2">
       <button
         type="button"
-        className="hover:bg-surface-hover flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left transition-colors"
+        className="hover:bg-glass-hover flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left transition-colors"
         aria-label="Open user profile (placeholder)"
         onClick={() => {
           /* static — no profile drawer in v1 */
@@ -57,7 +57,7 @@ export function UserPanel(): React.JSX.Element {
         <span className="relative shrink-0">
           <img src={avatarSrc} alt="" width={32} height={32} className="size-8 rounded-full" />
           <span className="absolute -right-0.5 -bottom-0.5">
-            <PresenceDot presence="online" size={12} ringClassName="ring-surface-callout" />
+            <PresenceDot presence="online" size={12} ringClassName="ring-glass-callout" />
           </span>
         </span>
         <span className="min-w-0 flex-1">
@@ -79,7 +79,7 @@ export function UserPanel(): React.JSX.Element {
         <Tooltip delayDuration={100}>
           <TooltipTrigger asChild>
             <DropdownMenuTrigger
-              className="text-ink-muted hover:bg-surface-hover hover:text-ink focus-visible:ring-blurple flex size-8 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none"
+              className="text-ink-muted hover:bg-glass-hover hover:text-ink focus-visible:ring-blurple flex size-8 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none"
               aria-label="User settings"
             >
               <Settings className="size-5" />
@@ -122,7 +122,7 @@ function ControlButton({ label, muted = false, children }: ControlButtonProps): 
           aria-label={label}
           className={cn(
             'flex size-8 items-center justify-center rounded-md transition-colors',
-            'hover:bg-surface-hover focus-visible:ring-blurple focus-visible:ring-2 focus-visible:outline-none',
+            'hover:bg-glass-hover focus-visible:ring-blurple focus-visible:ring-2 focus-visible:outline-none',
             muted ? 'text-destructive' : 'text-ink-muted hover:text-ink',
           )}
         >

@@ -10,7 +10,7 @@ interface AppTitleBarProps {
  */
 export function AppTitleBar({ title }: AppTitleBarProps): React.JSX.Element {
   return (
-    <header className="bg-surface-chrome h-app-titlebar text-ink-muted relative flex shrink-0 items-center justify-center px-3">
+    <header className="border-glass-border h-app-titlebar text-ink-muted relative flex shrink-0 items-center justify-center border-b px-3">
       <div className="text-ink flex items-center gap-1.5">
         <Users className="size-4" />
         <span className="text-control font-medium">{title}</span>

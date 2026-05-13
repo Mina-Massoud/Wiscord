@@ -23,7 +23,7 @@ export function FriendRow({ friend }: FriendRowProps): React.JSX.Element {
   const avatarSrc = getIdenticonDataUrl(user.avatarSeed);
 
   return (
-    <div className="group/friend hover:bg-surface-hover mx-2 flex h-[62px] cursor-pointer items-center gap-3 rounded-md px-3 transition-colors">
+    <div className="group/friend hover:bg-glass-hover mx-2 flex h-[62px] cursor-pointer items-center gap-3 rounded-md px-3 transition-colors">
       <span className="relative shrink-0">
         <img
           src={avatarSrc}
@@ -37,7 +37,7 @@ export function FriendRow({ friend }: FriendRowProps): React.JSX.Element {
           <PresenceDot
             presence={user.presence}
             size={12}
-            ringClassName="ring-canvas group-hover/friend:ring-surface-hover"
+            ringClassName="ring-glass-canvas group-hover/friend:ring-glass-hover"
           />
         </span>
       </span>
@@ -54,7 +54,7 @@ export function FriendRow({ friend }: FriendRowProps): React.JSX.Element {
           type="button"
           aria-label={`Message ${user.displayName}`}
           onClick={(e) => e.preventDefault()}
-          className="bg-surface-2 text-ink-muted hover:text-ink flex size-9 items-center justify-center rounded-full"
+          className="bg-glass-surface-2 border-glass-border text-ink-muted hover:text-ink flex size-9 items-center justify-center rounded-full border"
         >
           <MessageCircle className="size-5" />
         </button>
@@ -62,7 +62,7 @@ export function FriendRow({ friend }: FriendRowProps): React.JSX.Element {
           type="button"
           aria-label={`More options for ${user.displayName}`}
           onClick={(e) => e.preventDefault()}
-          className="bg-surface-2 text-ink-muted hover:text-ink flex size-9 items-center justify-center rounded-full"
+          className="bg-glass-surface-2 border-glass-border text-ink-muted hover:text-ink flex size-9 items-center justify-center rounded-full border"
         >
           <MoreVertical className="size-5" />
         </button>

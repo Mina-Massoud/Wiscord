@@ -21,7 +21,7 @@ export default function AuthLayout({
   size = 'default',
 }: AuthLayoutProps): React.JSX.Element {
   return (
-    <div className="bg-background relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+    <div className="bg-canvas relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12">
       {/* Wallpaper */}
       <img
         src="/background/auth-bg.webp"
@@ -31,12 +31,14 @@ export default function AuthLayout({
         fetchPriority="high"
         className="pointer-events-none absolute inset-0 h-full w-full object-cover"
       />
-      {/* Scrim — keeps the card legible regardless of wallpaper contrast */}
-      {/* <div aria-hidden="true" className="bg-background/70 pointer-events-none absolute inset-0" /> */}
+
+      {/* Veil — dark wash over the photo so glass surfaces read regardless of
+          local luminance. Sits between the photo and the card. */}
+      <div aria-hidden="true" className="bg-glass-veil pointer-events-none absolute inset-0" />
 
       <div
         className={cn(
-          'border-border bg-card/85 shadow-modal relative w-full rounded-md border p-8 backdrop-blur-md',
+          'bg-glass-shell shadow-glass backdrop-blur-glass border-glass-border relative w-full rounded-xl border p-8',
           'ease-wiscord transition-[max-width] duration-[350ms]',
           sizeClass[size],
         )}
@@ -51,7 +53,7 @@ export default function AuthLayout({
             className="h-10 w-auto select-none"
             draggable={false}
           />
-          {subtitle && <p className="text-muted-foreground text-center text-sm">{subtitle}</p>}
+          {subtitle && <p className="text-ink-muted text-center text-sm">{subtitle}</p>}
         </div>
 
         {children}

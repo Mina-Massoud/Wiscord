@@ -26,8 +26,8 @@ export function RoomRow({ room }: RoomRowProps): React.JSX.Element {
         cn(
           'mx-2 flex h-[42px] items-center gap-3 rounded-md px-2 transition-colors',
           isActive
-            ? 'bg-surface-active text-ink'
-            : 'text-ink-muted hover:bg-surface-hover hover:text-ink',
+            ? 'bg-glass-active text-ink'
+            : 'text-ink-muted hover:bg-glass-hover hover:text-ink',
         )
       }
     >
@@ -40,7 +40,7 @@ export function RoomRow({ room }: RoomRowProps): React.JSX.Element {
           className="size-8 rounded-md"
           loading="lazy"
         />
-        <span className="bg-surface-1 absolute -right-1 -bottom-1 flex size-4 items-center justify-center rounded-full">
+        <span className="bg-glass-surface-1 border-glass-border absolute -right-1 -bottom-1 flex size-4 items-center justify-center rounded-full border">
           <ChannelGlyph className="text-ink-muted size-3" />
         </span>
       </span>
@@ -50,9 +50,7 @@ export function RoomRow({ room }: RoomRowProps): React.JSX.Element {
         <span className="text-ink-subtle text-caption truncate">{room.serverName}</span>
       </span>
 
-      {room.hasUnread && room.unreadCount ? (
-        <UnreadBadge count={room.unreadCount} />
-      ) : null}
+      {room.hasUnread && room.unreadCount ? <UnreadBadge count={room.unreadCount} /> : null}
     </NavLink>
   );
 }

@@ -7,6 +7,10 @@
     <title>Wiscord</title>
     <link rel="icon" type="image/webp" href="/logo/colored-wiscord-icon-white.webp" />
 
+    <!-- Wallpaper preload — the app shell + auth pages float on top of this photo,
+         so the first paint already has the bg in flight. -->
+    <link rel="preload" as="image" href="/background/auth-bg.webp" fetchpriority="high" />
+
     <!-- Fonts: Inter (body) + Montserrat (display) — Ginto stand-ins until a real license is in place -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

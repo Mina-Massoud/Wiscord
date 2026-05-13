@@ -52,7 +52,7 @@ export function ServerRailIcon({
             aria-label={label}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              'bg-surface-1 text-ink relative flex size-8 items-center justify-center overflow-hidden',
+              'bg-glass-surface-1 text-ink relative flex size-8 items-center justify-center overflow-hidden',
               'duration-base ease-wiscord transition-[border-radius,background-color]',
               isActive
                 ? 'bg-blurple rounded-md'

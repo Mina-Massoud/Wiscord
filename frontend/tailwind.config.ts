@@ -37,6 +37,25 @@ const config: Config = {
         // so it never reads as a "drawn line", just a whisper of depth.
         'border-soft': 'rgba(255, 255, 255, 0.000)',
 
+        // ── Glassmorphism stack (translucent siblings of the four-depth surfaces) ──
+        // Used when the app sits on top of a photographic background (auth-bg.webp).
+        // Component code uses these tokens; never embeds rgba() literals directly.
+        // The outer shell/card owns the only backdrop-blur; inner zones layer on top of it.
+        'glass-shell': 'rgba(18, 18, 22, 0.62)',
+        'glass-canvas': 'rgba(26, 26, 30, 0.55)',
+        'glass-chrome': 'rgba(14, 14, 17, 0.55)',
+        'glass-surface-1': 'rgba(35, 36, 40, 0.55)',
+        'glass-surface-2': 'rgba(19, 19, 22, 0.6)',
+        'glass-callout': 'rgba(32, 32, 36, 0.55)',
+        'glass-hover': 'rgba(255, 255, 255, 0.06)',
+        'glass-active': 'rgba(255, 255, 255, 0.1)',
+        // Dark veil between the photo and the glass card — keeps legibility regardless of
+        // the wallpaper's local luminance.
+        'glass-veil': 'rgba(10, 10, 13, 0.45)',
+        // Hairlines on glass — low-alpha white reads as a "glass edge" on any photo tint.
+        'glass-border': 'rgba(255, 255, 255, 0.08)',
+        'glass-border-strong': 'rgba(255, 255, 255, 0.14)',
+
         // ── Brand / accent ──
         blurple: '#5865F2',
         'blurple-hover': '#4752C4',
@@ -149,6 +168,15 @@ const config: Config = {
         card: '0 1px 2px rgba(0,0,0,0.3)',
         elevated: '0 8px 16px rgba(0,0,0,0.24)',
         modal: '0 0 0 1px rgba(255,255,255,0.08), 0 16px 40px rgba(0,0,0,0.5)',
+        // Glassmorphism — lifts a translucent card off a photographic ground plane.
+        // Outer drop shadow + 1px inner highlight ("glass edge") on the top border.
+        glass:
+          '0 30px 60px -20px rgba(0,0,0,0.6), 0 12px 24px -12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08)',
+      },
+
+      backdropBlur: {
+        glass: '24px',
+        'glass-sm': '12px',
       },
 
       keyframes: {
@@ -167,7 +195,19 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // Tiny utility plugin: `cv-auto` opts in to content-visibility off-screen
+    // skipping. Used on long virtualizable-but-not-yet-virtualized lists so the
+    // browser skips render/layout/paint work for rows below the fold.
+    function ({ addUtilities }: { addUtilities: (u: Record<string, unknown>) => void }) {
+      addUtilities({
+        '.cv-auto': {
+          'content-visibility': 'auto',
+          'contain-intrinsic-size': 'auto 200px',
+        },
+      });
+    },
+  ],
 };
 
 export default config;

@@ -71,7 +71,7 @@ function HomeGlyph(): React.JSX.Element {
 }
 
 function Separator(): React.JSX.Element {
-  return <span aria-hidden className="bg-surface-hover my-1 h-0.5 w-8 rounded-full" />;
+  return <span aria-hidden className="bg-glass-active my-1 h-0.5 w-8 rounded-full" />;
 }
 
 interface RailActionIconProps {
@@ -91,7 +91,7 @@ function RailActionIcon({ label, icon, accent }: RailActionIconProps): React.JSX
             onClick={(e) => e.preventDefault()}
             aria-label={label}
             className={cn(
-              'bg-surface-1 duration-base ease-wiscord flex size-8 items-center justify-center transition-[border-radius,background-color,color]',
+              'bg-glass-surface-1 duration-base ease-wiscord flex size-8 items-center justify-center transition-[border-radius,background-color,color]',
               'rounded-full group-hover:rounded-md',
               accent === 'online'
                 ? 'text-presence-online group-hover:bg-presence-online group-hover:text-white'
