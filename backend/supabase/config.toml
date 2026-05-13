@@ -1,0 +1,58 @@
+# Supabase project config.
+# Most settings here only affect local development (`supabase start`).
+# Since Wiscord runs against cloud Supabase, only the [functions.*] blocks
+# and project_id are load-bearing for the daily workflow.
+#
+# Regenerate this file by running `supabase init` if needed.
+
+project_id = "wiscord"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[studio]
+enabled = true
+port = 54323
+
+[inbucket]
+enabled = true
+port = 54324
+
+[storage]
+enabled = true
+file_size_limit = "5MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173", "http://localhost:5173/auth/callback"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+double_confirm_changes = true
+enable_confirmations = false
+# Magic links are sent via the `signInWithOtp` API; no extra config needed here.
+
+[auth.sms]
+enable_signup = false
+
+# ─── Edge Functions ─────────────────────────────────────────────
+# Both functions require an authenticated user (JWT verified by Supabase
+# before the function runs). The function code can then trust auth.uid().
+
+[functions.ai-ask]
+verify_jwt = true
+
+[functions.livekit-token]
+verify_jwt = true

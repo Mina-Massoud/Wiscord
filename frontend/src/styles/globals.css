@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+/* ── shadcn/ui CSS variables (dark-native — Wiscord has no light mode in v1) ── */
+:root {
+  --background: 220 6% 20%;        /* canvas #313338 */
+  --foreground: 220 7% 87%;        /* ink #DBDEE1 */
+
+  --card: 225 7% 18%;              /* surface-1 #2B2D31 */
+  --card-foreground: 220 7% 87%;
+
+  --popover: 225 9% 13%;           /* surface-2 #1E1F22 */
+  --popover-foreground: 220 7% 87%;
+
+  --primary: 235 86% 65%;          /* blurple #5865F2 */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 139 81% 64%;        /* success green #57F287 */
+  --secondary-foreground: 225 9% 13%;
+
+  --muted: 225 7% 18%;             /* surface-1 */
+  --muted-foreground: 218 9% 62%;  /* ink-muted #949BA4 */
+
+  --accent: 235 86% 65%;           /* blurple */
+  --accent-foreground: 0 0% 100%;
+
+  --destructive: 359 83% 60%;      /* #ED4245 */
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 220 5% 27%;            /* #3F4147 */
+  --input: 220 5% 27%;
+  --ring: 235 86% 65%;             /* blurple */
+
+  --radius: 0.5rem;                /* md = 8px */
+}
+
+/* ── Base resets ── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-color: hsl(var(--border));
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background-color: #313338;
+  color: #DBDEE1;
+  font-family: 'GGSans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 16px;
+  line-height: 1.375;
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Focus ring — keyboard-accessible ── */
+:focus-visible {
+  outline: 2px solid #5865F2;
+  outline-offset: 2px;
+}
+
+/* ── Scrollbar — Discord-style thin track ── */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #1E1F22;
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #111214;
+}
+
+/* ── Selection ── */
+::selection {
+  background-color: rgba(88, 101, 242, 0.3);
+  color: #DBDEE1;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

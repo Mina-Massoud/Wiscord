@@ -1,0 +1,21 @@
+{
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2",
+    "@anthropic-ai/sdk": "npm:@anthropic-ai/sdk@0.30.1",
+    "livekit-server-sdk": "npm:livekit-server-sdk@2"
+  },
+  "compilerOptions": {
+    "lib": ["deno.window", "deno.unstable", "esnext"],
+    "strict": true
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  },
+  "fmt": {
+    "indentWidth": 2,
+    "lineWidth": 100,
+    "singleQuote": false
+  }
+}

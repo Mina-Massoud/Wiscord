@@ -1,0 +1,43 @@
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# Supabase (any path — backend/supabase/, but globbed in case of nesting)
+**/supabase/.branches
+**/supabase/.temp
+**/supabase/.env
+**/supabase/seed.local.sql
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.iml
+
+# Build outputs
+dist/
+build/
+.cache/
+
+# Logs
+logs/
+*.log
+
+# Deno (Edge Functions)
+.deno/
