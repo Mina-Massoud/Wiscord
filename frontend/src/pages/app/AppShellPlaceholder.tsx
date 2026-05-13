@@ -31,11 +31,11 @@ export default function AppShellPlaceholder(): React.JSX.Element {
   return (
     <div className="bg-background flex min-h-screen items-center justify-center px-4">
       <div className="border-border bg-card w-full max-w-md rounded-md border p-8">
-        <h1 className="text-foreground mb-1 text-xl font-semibold">
+        <h1 className="text-foreground text-subhead mb-1 font-semibold">
           Welcome back,{' '}
           <span className="font-bold">{profile?.display_name ?? profile?.username ?? '…'}</span>.
         </h1>
-        <p className="text-muted-foreground mb-6 text-sm">
+        <p className="text-muted-foreground text-control mb-6">
           You&apos;re signed in. The workspace surface (servers, channels, chat) ships next once the
           backend exposes those endpoints.
         </p>

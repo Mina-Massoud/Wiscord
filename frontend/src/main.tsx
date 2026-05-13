@@ -5,6 +5,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from '@/queries/client';
 import { Toaster } from '@/components/ui/toaster';
+import { TooltipProvider } from '@/components/ui/tooltip';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary';
 import App from '@/App';
@@ -21,7 +22,9 @@ createRoot(rootEl).render(
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <AuthProvider>
-            <App />
+            <TooltipProvider delayDuration={150}>
+              <App />
+            </TooltipProvider>
           </AuthProvider>
         </BrowserRouter>
         <Toaster />

@@ -15,6 +15,7 @@ const CallbackPage = lazy(() => import('@/pages/auth/CallbackPage'));
 const OnboardingLayout = lazy(() => import('@/pages/onboarding/OnboardingLayout'));
 const ProfileStep = lazy(() => import('@/pages/onboarding/ProfileStep'));
 const AppShellPlaceholder = lazy(() => import('@/pages/app/AppShellPlaceholder'));
+const FriendsPage = lazy(() => import('@/pages/app/FriendsPage'));
 
 // ---------------------------------------------------------------------------
 // Shared fallback while a lazy chunk is in flight
@@ -66,7 +67,7 @@ export default function App(): React.JSX.Element {
         {/* App (auth + onboarded required) */}
         <Route element={<RequireAuth />}>
           <Route element={<RequireOnboarding />}>
-            <Route path="/app" element={<AppShellPlaceholder />} />
+            <Route path="/app" element={<FriendsPage />} />
             <Route path="/app/servers/:serverId" element={<AppShellPlaceholder />} />
             <Route
               path="/app/servers/:serverId/channels/:channelId"

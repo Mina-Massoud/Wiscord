@@ -6,11 +6,21 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // ── Four-depth surface stack ──
-        canvas: '#313338',
-        'surface-1': '#2B2D31',
-        'surface-2': '#1E1F22',
-        'surface-3': '#111214',
+        // ── Four-depth surface stack (modern dark theme) ──
+        canvas: '#1A1A1E',
+        'surface-1': '#232428',
+        'surface-2': '#131316',
+        'surface-3': '#0A0A0C',
+        // Subtle raised card sitting directly on `canvas` (e.g. right-rail empty-state callout).
+        'surface-callout': '#202024',
+        // Shared "chrome" surface for the app shell — titlebar + DM/channel sidebar.
+        // Sits darker than `canvas` so the main content area reads as the elevated workspace.
+        'surface-chrome': '#121214',
+
+        // ── Interactive row states (used in channel rows, tab strips, dropdown items) ──
+        'surface-hover': '#2E2F34',
+        'surface-active': '#393B41',
+        'surface-composer': '#1F1F23',
 
         // ── Text ──
         ink: '#DBDEE1',
@@ -18,7 +28,14 @@ const config: Config = {
         'ink-subtle': '#6D6F78',
 
         // ── Border ──
-        border: '#3F4147',
+        // Card / input outline — used on toaster, auth card, etc. Visible but never "gray".
+        border: '#1F1F23',
+        // Structural divider between shell columns / top-of-sidebar lip — barely-there, near-bg.
+        'border-strong': '#17171B',
+        // Translucent hairline for dividers inside the same chrome surface (e.g. server-rail / sidebar split).
+        // White at low alpha so it adapts gracefully on any chrome bg shade — kept under 2%
+        // so it never reads as a "drawn line", just a whisper of depth.
+        'border-soft': 'rgba(255, 255, 255, 0.000)',
 
         // ── Brand / accent ──
         blurple: '#5865F2',
@@ -90,6 +107,10 @@ const config: Config = {
         'server-list': '72px',
         'channel-list': '240px',
         'member-panel': '240px',
+        'now-panel': '340px',
+        // Layout heights
+        'app-titlebar': '32px',
+        'user-panel': '52px',
       },
 
       fontFamily: {
@@ -107,6 +128,12 @@ const config: Config = {
       fontSize: {
         display: ['40px', { lineHeight: '1.1', letterSpacing: '-0.02em', fontWeight: '800' }],
         body: ['16px', { lineHeight: '1.375', letterSpacing: '0', fontWeight: '400' }],
+        // ── App-shell UI type scale (compact, modern — used across rails, top bar, callouts) ──
+        badge: ['11px', { lineHeight: '1', letterSpacing: '0' }],
+        caption: ['12px', { lineHeight: '1.45', letterSpacing: '0' }],
+        control: ['13px', { lineHeight: '1.4', letterSpacing: '0' }],
+        tab: ['14px', { lineHeight: '1.4', letterSpacing: '0' }],
+        subhead: ['15px', { lineHeight: '1.4', letterSpacing: '-0.01em' }],
       },
 
       transitionDuration: {

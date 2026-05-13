@@ -81,7 +81,9 @@ We are building a product for students, not a developer console. Every screen sh
 
 - All colors, radii, spacing, motion durations come from Tailwind tokens defined in `tailwind.config.ts`, which mirror the values in `docs/design.md`
 - **No hex literals outside `tailwind.config.ts` and `globals.css`** — components use semantic classes (`bg-canvas`, `text-ink-muted`, `border-border`)
-- Surfaces follow the four-depth stack: `canvas` for the main pane, `surface-1` for sidebars/cards, `surface-2` for modals/popovers, `surface-3` only for deepest depth
+- **No arbitrary value classes in components.** No `text-[15px]`, `leading-[1.45]`, `bg-[#1f1f23]`, `h-[18px]`, `min-w-[20px]`, `w-[260px]`, etc. If a value is missing from the token set, **add a named token in `tailwind.config.ts` first** (font size, spacing, radius, line height) and then use it. Arbitrary `[…]` Tailwind values in components are a token-system bypass and read as design drift — they are banned outside one-off prototypes
+- **Typography uses the named UI scale.** App-shell text comes from the semantic font-size tokens (`text-badge`, `text-caption`, `text-control`, `text-tab`, `text-subhead`, `text-body`, `text-display`), not from Tailwind's built-in `text-xs/sm/base/lg` and not from arbitrary `text-[Npx]`. If the scale is missing a step, extend `fontSize` in the config — do not embed pixel literals in JSX
+- Surfaces follow the four-depth stack: `canvas` for the main pane, `surface-1` for sidebars/cards, `surface-2` for modals/popovers, `surface-3` only for deepest depth. `surface-callout` is reserved for raised callout cards sitting directly on `canvas` (right-rail empty states, banner cards)
 - The accent (`blurple` / `#5865F2`) is reserved for active states, CTAs, the focus timer ring, citation chips, and AI accents — used sparingly
 
 ### State management

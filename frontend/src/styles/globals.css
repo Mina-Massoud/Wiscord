@@ -27,19 +27,25 @@
   --destructive: 359 83% 60%;      /* #ED4245 */
   --destructive-foreground: 0 0% 100%;
 
-  --border: 220 5% 27%;            /* #3F4147 */
-  --input: 220 5% 27%;
+  --border: 240 6% 13%;            /* #1F1F23 — matches `border` token in tailwind.config.ts */
+  --input: 240 6% 13%;
   --ring: 235 86% 65%;             /* blurple */
 
   --radius: 0.5rem;                /* md = 8px */
 }
 
-/* ── Base resets ── */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  border-color: hsl(var(--border));
+/* ── Base resets ──
+   Wrapped in @layer base so Tailwind utilities (e.g. `border-r-border-soft`,
+   `border-r-border-strong`) can cleanly override the default border-color.
+   Without the layer, the universal selector outranks Tailwind utilities in
+   the cascade and silently swallows component-level border-color overrides. */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    border-color: hsl(var(--border));
+  }
 }
 
 html {
@@ -52,8 +58,8 @@ body {
   background-color: #313338;
   color: #DBDEE1;
   font-family: 'Abcgintodiscord', 'Inter', 'GGSans', -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 1.125rem;
-  line-height: 1.33333;
+  font-size: 14px;
+  line-height: 1.4;
   margin: 0;
   padding: 0;
 }

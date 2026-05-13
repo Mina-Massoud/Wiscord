@@ -1,0 +1,81 @@
+import { Users, MessageSquarePlus } from 'lucide-react';
+import { cn } from '@/lib/cn';
+
+export type FriendsTab = 'online' | 'all' | 'suggestions' | 'add';
+
+interface FriendsTopBarProps {
+  activeTab: FriendsTab;
+  suggestionsCount?: number;
+  onTabChange: (tab: FriendsTab) => void;
+}
+
+const TABS: Array<{ key: FriendsTab; label: string }> = [
+  { key: 'online', label: 'Focusing now' },
+  { key: 'all', label: 'All' },
+  { key: 'suggestions', label: 'Discover' },
+];
+
+/**
+ * Top bar that spans the main pane + the Active Now rail.
+ * Left: section label + tab strip + primary "Add Friend" CTA.
+ * Right: a single "new message" affordance pinned to the rail edge.
+ */
+export function FriendsTopBar({
+  activeTab,
+  suggestionsCount,
+  onTabChange,
+}: FriendsTopBarProps): React.JSX.Element {
+  return (
+    <header className="border-b-border flex h-12 shrink-0 items-center gap-4 border-b px-4">
+      <div className="text-ink flex items-center gap-2">
+        <Users className="text-ink-muted size-5" />
+        <span className="text-subhead font-semibold">Friends</span>
+      </div>
+
+      <span aria-hidden className="bg-border h-5 w-px" />
+
+      <nav aria-label="Friends tabs" className="flex items-center gap-0.5">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => onTabChange(tab.key)}
+            className={cn(
+              'text-tab flex items-center gap-1.5 rounded-md px-2 py-1 font-medium transition-colors',
+              activeTab === tab.key
+                ? 'bg-surface-active text-ink'
+                : 'text-ink-muted hover:bg-surface-hover hover:text-ink',
+            )}
+          >
+            <span>{tab.label}</span>
+            {tab.key === 'suggestions' && suggestionsCount ? (
+              <span className="bg-destructive text-badge inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 font-bold text-white">
+                {suggestionsCount > 99 ? '99+' : suggestionsCount}
+              </span>
+            ) : null}
+          </button>
+        ))}
+      </nav>
+
+      <button
+        type="button"
+        onClick={() => onTabChange('add')}
+        className={cn(
+          'text-control rounded-md px-3 py-1 font-medium transition-colors',
+          'bg-blurple hover:bg-blurple-hover text-white',
+        )}
+      >
+        Add Friend
+      </button>
+
+      <button
+        type="button"
+        aria-label="New message"
+        onClick={(e) => e.preventDefault()}
+        className="text-ink-muted hover:text-ink ml-auto"
+      >
+        <MessageSquarePlus className="size-5" />
+      </button>
+    </header>
+  );
+}
