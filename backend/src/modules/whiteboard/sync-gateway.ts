@@ -1,6 +1,11 @@
 import type { Server as HttpServer, IncomingMessage } from 'node:http';
 import type { Duplex } from 'node:stream';
-import { WebSocketServer, type WebSocket } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
+
+// Mirror `ws`'s `WebSocket.RawData` (declaration-merged with the type
+// export above — namespace access from a type-only import doesn't
+// resolve in this tsconfig).
+type WsFrame = Buffer | ArrayBuffer | Buffer[];
 import { parse as parseCookie } from 'cookie';
 import { nanoid } from 'nanoid';
 
@@ -119,9 +124,40 @@ async function attachClient(
   channelId: string,
   userId: string,
 ): Promise<void> {
+  // Buffer any frames that arrive while we're loading the room from Mongo.
+  // The browser opens the WS, then tldraw immediately sends its `connect`
+  // frame — if `getOrCreateRoom` is still awaiting Mongo (which is slow
+  // on the first cold connection for a brand-new channelId), that frame
+  // would arrive before TLSocketRoom attached a listener and get silently
+  // dropped. The client then sits in `loading` forever waiting for the
+  // handshake reply the server never had a chance to compute. A page
+  // refresh "fixes" it only because Mongo is warm the second time so the
+  // listener wins the race. Buffer + replay closes the window for good.
+  const pending: WsFrame[] = [];
+  const bufferMessage = (data: WsFrame): void => {
+    pending.push(data);
+  };
+  ws.on('message', bufferMessage);
+  // Also fail loudly if the socket dies before we hand it off — otherwise
+  // a dead ws would silently feed empty replays into TLSocketRoom.
+  let closedDuringLoad = false;
+  const markClosed = (): void => {
+    closedDuringLoad = true;
+  };
+  ws.once('close', markClosed);
+
   try {
     const room = await getOrCreateRoom(channelId);
     markRoomEditor(channelId, userId);
+
+    if (closedDuringLoad) {
+      logger.info({ channelId, userId }, 'whiteboard: client left before handshake');
+      return;
+    }
+
+    ws.off('message', bufferMessage);
+    ws.off('close', markClosed);
+
     // TLSocketRoom expects a `WebSocketMinimal`-shaped socket; `ws`'s
     // WebSocket implements the same `send`/`close`/`addEventListener`
     // surface but TS doesn't widen between them — single explicit cast.
@@ -133,8 +169,21 @@ async function attachClient(
       sessionId: nanoid(),
       socket: ws as unknown as SocketArg['socket'],
     });
-    logger.info({ channelId, userId }, 'whiteboard: client connected');
+
+    // Replay buffered frames now that tldraw's listener is attached.
+    // Re-emitting on the same EventEmitter dispatches them to every
+    // listener — including the one TLSocketRoom just installed.
+    for (const data of pending) {
+      ws.emit('message', data);
+    }
+
+    logger.info(
+      { channelId, userId, replayed: pending.length },
+      'whiteboard: client connected',
+    );
   } catch (err) {
+    ws.off('message', bufferMessage);
+    ws.off('close', markClosed);
     logger.error({ err, channelId, userId }, 'whiteboard: failed to attach client');
     ws.close(1011, 'internal error');
   }

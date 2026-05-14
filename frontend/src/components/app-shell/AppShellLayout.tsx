@@ -15,7 +15,8 @@ interface AppShellLayoutProps {
   /** Optional full-width titlebar that sits above every column. */
   titleBar?: ReactNode;
   serverRail: ReactNode;
-  sidebar: ReactNode;
+  /** Channel/feature sidebar. Omit for surfaces that don't need one (e.g. the whiteboard, where the canvas fills the entire main pane). */
+  sidebar?: ReactNode;
   /**
    * Floating panel pinned to the bottom of the left zone. Spans the
    * full width of `serverRail` + `sidebar` so identity/voice controls feel
@@ -176,11 +177,19 @@ export function AppShellLayout({
               >
                 {serverRail}
               </aside>
-              <aside aria-label="Channels" className="w-channel-list flex shrink-0 flex-col">
-                {sidebar}
-              </aside>
+              {sidebar ? (
+                <aside aria-label="Channels" className="w-channel-list flex shrink-0 flex-col">
+                  {sidebar}
+                </aside>
+              ) : null}
             </div>
-            {userPanel}
+            {/*
+             * UserPanel is designed to span serverRail + sidebar. Without a
+             * sidebar (e.g. whiteboard lab canvas) it would force the left
+             * column wider than the server rail and leave a dark gap above
+             * the pill. Hide it so the column collapses to w-server-list.
+             */}
+            {sidebar ? userPanel : null}
           </div>
 
           <div className="bg-glass-canvas flex min-w-0 flex-1 flex-col">

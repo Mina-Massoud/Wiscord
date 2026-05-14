@@ -1,3 +1,4 @@
+import { useAnimatedNumber } from '@/hooks/useAnimatedNumber';
 import { quizGenZ } from '@/lib/copy/quiz-genz';
 import type { QuizAnalyticsSnapshot } from '@/types/quiz';
 
@@ -19,22 +20,32 @@ export function QuizStatRow({ snapshot }: QuizStatRowProps): React.JSX.Element {
     >
       <StatCard
         label={quizGenZ.participants.label}
-        value={String(snapshot.participantCount)}
+        value={<AnimatedInt value={snapshot.participantCount} />}
+        ariaValue={String(snapshot.participantCount)}
         detail={quizGenZ.participants.detail(snapshot.participantCount)}
       />
       <StatCard
         label={quizGenZ.submitted.label}
-        value={`${snapshot.submittedCount}/${snapshot.participantCount}`}
+        value={
+          <>
+            <AnimatedInt value={snapshot.submittedCount} />
+            <span aria-hidden>/</span>
+            <AnimatedInt value={snapshot.participantCount} />
+          </>
+        }
+        ariaValue={`${snapshot.submittedCount}/${snapshot.participantCount}`}
         detail={quizGenZ.submitted.detail(snapshot.submittedCount, snapshot.participantCount)}
       />
       <StatCard
         label={quizGenZ.averageScore.label}
-        value={formatPercent(snapshot.averageScore)}
+        value={<AnimatedPercent value={snapshot.averageScore} />}
+        ariaValue={formatPercent(snapshot.averageScore)}
         detail={quizGenZ.averageScore.detail(snapshot.averageScore, snapshot.submittedCount)}
       />
       <StatCard
         label={quizGenZ.accuracy.label}
-        value={formatPercent(snapshot.accuracy)}
+        value={<AnimatedPercent value={snapshot.accuracy} />}
+        ariaValue={formatPercent(snapshot.accuracy)}
         detail={quizGenZ.accuracy.detail(snapshot.accuracy)}
       />
     </div>
@@ -43,11 +54,12 @@ export function QuizStatRow({ snapshot }: QuizStatRowProps): React.JSX.Element {
 
 interface StatCardProps {
   label: string;
-  value: string;
+  value: React.ReactNode;
+  ariaValue: string;
   detail: string;
 }
 
-function StatCard({ label, value, detail }: StatCardProps): React.JSX.Element {
+function StatCard({ label, value, ariaValue, detail }: StatCardProps): React.JSX.Element {
   return (
     <div
       role="listitem"
@@ -56,10 +68,25 @@ function StatCard({ label, value, detail }: StatCardProps): React.JSX.Element {
       <span className="text-ink-subtle text-badge font-semibold tracking-wider uppercase">
         {label}
       </span>
-      <span className="text-ink text-display text-3xl font-bold leading-none">{value}</span>
+      <span
+        className="text-ink text-display text-3xl leading-none font-bold tabular-nums"
+        aria-label={ariaValue}
+      >
+        {value}
+      </span>
       <span className="text-ink-muted text-caption">{detail}</span>
     </div>
   );
+}
+
+function AnimatedInt({ value }: { value: number }): React.JSX.Element {
+  const animated = useAnimatedNumber(value);
+  return <span aria-hidden>{Math.round(animated)}</span>;
+}
+
+function AnimatedPercent({ value }: { value: number }): React.JSX.Element {
+  const animated = useAnimatedNumber(value);
+  return <span aria-hidden>{Math.round(animated * 100)}%</span>;
 }
 
 function formatPercent(value: number): string {

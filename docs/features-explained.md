@@ -70,6 +70,21 @@ A shared scratchpad per channel for collaborative note-taking during study sessi
 - **Last-edited-by indicator** — show whose edit landed most recently.
 - **Notes autosave** — debounced writes to the `notes` collection (no manual save button).
 
+## Whiteboard
+
+Per-channel collaborative canvas — pen, shapes, text, sticky notes — themed to the Wiscord glass shell.
+
+- **tldraw canvas** — `@tldraw/sync` ships the editor + sync protocol; we wrap it in `wiscord-tldraw` so the canvas reads transparent over the wallpaper, with a dotted grid in muted ink and blurple selection rings.
+- **Bottom-center toolbar** — glass dock with Select / Pen / Eraser / Shapes / Text / Sticky / Color / Undo / Redo / Export PNG. Replaces tldraw's stock chrome via `components` override.
+- **Multi-cursor + presence** — native to `@tldraw/sync`; each user gets a deterministic cursor color from the `whiteboard.cursor.{1..8}` palette via `pickCursorColor(userId)`.
+- **Realtime sync** — backend mounts a raw WebSocket gateway at `/sync/whiteboard/:channelId` alongside Socket.IO. Cookie-auth at upgrade, Origin allowlist, UUID-shaped channelId only.
+- **Persistence** — `ChannelWhiteboard` Mongoose model stores the latest `RoomSnapshot` as JSON (one row per channel). Debounced flush at 2s of idle plus a 15s heartbeat ceiling while editing is active, plus a final flush when the last socket leaves.
+- **Hand-written font** — Caveat (Google Fonts) wired into tldraw's text shapes + sticky notes. Loaded via the whiteboard CSS chunk only; non-whiteboard routes don't pay for it.
+- **Cold-start hydration** — `GET /whiteboard/:channelId/snapshot` returns the latest persisted state for thumbnail / preview use cases; the live canvas relies on the WS handshake to paint state on connect.
+- **Clear board** — `DELETE /whiteboard/:channelId` drops the in-memory room and removes the persisted row. Gated behind a confirm dialog in the labs sidebar; auth-only for now, host-gated when the channels module lands.
+- **PNG export** — client-side via `editor.toImage(shapeIds, { format: 'png', background: false })`. Exports the full content bounds (not viewport) and writes a transparent-background PNG so the saved file isn't a dark rectangle.
+- **Dev route** — `/app/labs/whiteboard/:channelId` (DEV-only); the inner `<WhiteboardCanvas>` mounts inside the real channel page's Whiteboard tab once channels lands.
+
 ## AI Assistant (Room-Scoped)
 
 Claude scoped to the current channel's context — recent messages + the notes doc.

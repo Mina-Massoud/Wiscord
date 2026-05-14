@@ -14,7 +14,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;700&display=swap');
 @import url('tldraw/tldraw.css');
 
-.wiscord-tldraw {
+/* Scope every override to BOTH selectors so the rules win whether the
+   class lives on the wrapper or higher up. `.tl-theme__dark` is the
+   class tldraw itself uses for the dark palette — combining it with
+   our wrapper guarantees our values beat tldraw's own dark defaults
+   without `!important` everywhere. */
+.wiscord-tldraw,
+.wiscord-tldraw.tl-theme__dark,
+.wiscord-tldraw .tl-theme__dark {
   /* Default text family inside tldraw's text shapes / sticky notes. */
   --tl-font-draw: 'Caveat', 'Patrick Hand', 'Comic Neue', cursive;
   --tl-font-sans: 'Caveat', 'Patrick Hand', cursive;
@@ -22,44 +29,71 @@
   --tl-font-mono:
     'JetBrains Mono', 'SF Mono', ui-monospace, Menlo, Monaco, Consolas, monospace;
 
-  /* Canvas + grid — transparent so the wallpaper glass underneath bleeds
-     through. The dotted grid sits at low alpha so it reads as texture
-     rather than a sheet of paper. */
+  /* Canvas + grid — transparent at the tldraw layer because the
+     wrapper paints a darker glass gradient underneath (see below).
+     Grid alpha is bumped further because the darker fill swallows
+     low-contrast dots; this keeps the dotted spatial reference
+     visible without going neon. */
   --tl-color-background: transparent;
   --tl-color-low: rgba(20, 20, 26, 0.32);
-  --tl-color-grid: rgba(255, 255, 255, 0.06);
+  --tl-color-low-border: rgba(255, 255, 255, 0.06);
+  --tl-color-grid: rgba(255, 255, 255, 0.22);
   --tl-color-divider: rgba(255, 255, 255, 0.08);
 
-  /* Chrome / inner panel surfaces. We hide most tldraw chrome via the
-     `components` override, but the bits we keep (selection rings,
-     popovers) need to read as Wiscord glass. */
-  --tl-color-panel: rgba(19, 19, 22, 0.6);
-  --tl-color-panel-contrast: rgba(35, 36, 40, 0.55);
+  /* Chrome / inner panel surfaces. Every popover, dropdown, and pill
+     tldraw renders pulls from these — match the rest of Wiscord's
+     glass tokens so nothing reads white. */
+  --tl-color-panel: rgba(19, 19, 22, 0.85);
+  --tl-color-panel-contrast: rgba(35, 36, 40, 0.7);
+  --tl-color-panel-overlay: rgba(19, 19, 22, 0.85);
+  --tl-color-panel-transparent: rgba(19, 19, 22, 0);
+  --tl-color-tooltip: rgba(19, 19, 22, 0.95);
+  --tl-color-overlay: rgba(10, 10, 13, 0.55);
   --tl-color-muted-0: rgba(255, 255, 255, 0.04);
   --tl-color-muted-1: rgba(255, 255, 255, 0.08);
   --tl-color-muted-2: rgba(255, 255, 255, 0.12);
 
-  /* Ink. tldraw's default text reads at #fafafa on dark — Wiscord's
-     ink token is slightly cooler, matches the rest of the shell. */
+  /* Ink — cooler than tldraw's stock dark, matches Wiscord's tokens. */
   --tl-color-text: #dbdee1;
+  --tl-color-text-0: #dbdee1;
   --tl-color-text-1: #dbdee1;
   --tl-color-text-2: #949ba4;
   --tl-color-text-3: #6d6f78;
+  --tl-color-text-shadow: rgba(10, 10, 13, 0.6);
 
   /* Accent — blurple selection rings + cursor halos. */
   --tl-color-selected: #5865f2;
   --tl-color-selected-contrast: #ffffff;
+  --tl-color-selection-stroke: #5865f2;
+  --tl-color-selection-fill: rgba(88, 101, 242, 0.18);
   --tl-color-hint: rgba(88, 101, 242, 0.18);
   --tl-color-focus: rgba(88, 101, 242, 0.45);
+}
 
-  /* Pen-stroke default color — paper ink against the dark canvas. */
-  --tl-color-ink: #dbdee1;
-
+.wiscord-tldraw {
   width: 100%;
   height: 100%;
-  /* Canvas backdrop transparent — the AppShellLayout `main` wallpaper
-     shows through. */
-  background: transparent;
+  position: relative;
+
+  /* Darker glass canvas. Three stacked background-image layers, top
+     to bottom in CSS order:
+       1. A blurple glow in the top-right — barely-there accent
+       2. A violet glow in the bottom-left — same idea, opposite corner
+       3. A dark radial vignette so the centre feels lifted and the
+          edges pool into darkness
+     All three live on this property so we don't need a pseudo-element
+     (which previously fought the floating toolbar's `absolute`
+     positioning for stacking context). No second backdrop-blur — the
+     shell already owns the only one. */
+  background:
+    radial-gradient(circle at 78% 14%, rgba(88, 101, 242, 0.06) 0%, transparent 45%),
+    radial-gradient(circle at 18% 88%, rgba(157, 107, 255, 0.05) 0%, transparent 50%),
+    radial-gradient(
+      ellipse 120% 90% at 50% 45%,
+      rgba(22, 22, 30, 0.62) 0%,
+      rgba(10, 10, 14, 0.82) 70%,
+      rgba(6, 6, 10, 0.9) 100%
+    );
 }
 
 /* The default tldraw canvas paints a solid background even when

@@ -1,0 +1,180 @@
+/*
+ * TipTap editor styling — token-mapped to the Wiscord glass design system.
+ * Lives next to the editor instead of in globals.css because it only renders
+ * when the Notes tab is mounted (route-level code splitting).
+ *
+ * No @tailwindcss/typography — that plugin's prose classes assume a white-on-
+ * black ramp and fight every glass token we ship. Hand-rolled rules below
+ * map node → token so headings, code, lists, and blockquotes all read as
+ * part of the same surface as the rest of the app.
+ *
+ * The editor container has class `notes-prose`. Every rule scopes under it
+ * so nothing leaks to the rest of the page.
+ */
+
+.notes-prose {
+  color: var(--ink, #dbdee1);
+  font-family:
+    'Abcgintodiscord', 'Inter', 'GGSans', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  letter-spacing: 0;
+  /* Yjs collaboration cursors are positioned absolute relative to the editor
+     so the container must establish a positioning context. */
+  position: relative;
+}
+
+.notes-prose:focus,
+.notes-prose:focus-visible {
+  outline: none;
+}
+
+/* Headings — anchored to the existing UI font scale, not the prose plugin's
+   ramp, so the editor stays consistent with the rest of the shell. */
+.notes-prose h1 {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+.notes-prose h2 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  line-height: 1.25;
+  margin-top: 1.4em;
+  margin-bottom: 0.5em;
+}
+.notes-prose h3 {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.2em;
+  margin-bottom: 0.4em;
+}
+
+.notes-prose p {
+  margin: 0.5em 0;
+}
+
+.notes-prose strong {
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.notes-prose em {
+  font-style: italic;
+}
+
+.notes-prose s {
+  text-decoration: line-through;
+  color: var(--ink-muted, #949ba4);
+}
+
+.notes-prose a {
+  color: var(--blurple, #5865f2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-thickness: 1px;
+}
+.notes-prose a:hover {
+  color: var(--blurple-hover, #4752c4);
+}
+
+/* Inline code + code blocks share the same composer surface so they read
+   as "this is verbatim" without painting a foreign block of color. */
+.notes-prose code {
+  font-family: 'JetBrains Mono', 'Menlo', ui-monospace, monospace;
+  font-size: 0.9em;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.notes-prose pre {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  margin: 0.75em 0;
+}
+.notes-prose pre code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.notes-prose blockquote {
+  border-left: 2px solid var(--blurple, #5865f2);
+  padding-left: 12px;
+  margin: 0.75em 0;
+  color: var(--ink-muted, #949ba4);
+  font-style: italic;
+}
+
+.notes-prose ul,
+.notes-prose ol {
+  margin: 0.5em 0;
+  padding-left: 1.4em;
+}
+.notes-prose li {
+  margin: 0.2em 0;
+}
+.notes-prose ul {
+  list-style: disc;
+}
+.notes-prose ol {
+  list-style: decimal;
+}
+.notes-prose ul ul {
+  list-style: circle;
+}
+
+/* Empty-document placeholder — shows when the doc has exactly one empty
+   paragraph and the editor isn't focused. Driven by StarterKit's
+   `Placeholder` extension which adds `is-editor-empty` to that node. */
+.notes-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--ink-subtle, #6d6f78);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Collaboration cursors — the remote user's caret + name flag. Color is
+   injected per-user via inline `style` (set by CollaborationCursor); we
+   handle the geometry and the flag bubble shape here. */
+.collaboration-cursor__caret {
+  border-left: 2px solid;
+  border-right: 0;
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  pointer-events: none;
+  word-break: normal;
+}
+.collaboration-cursor__label {
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px 4px 4px 0;
+  color: #ffffff;
+  user-select: none;
+  white-space: nowrap;
+  background-color: inherit;
+}
+
+/* Selection — match the blurple accent so the editor visually belongs to
+   Wiscord, not to ProseMirror's stock blue. */
+.notes-prose ::selection {
+  background: rgba(88, 101, 242, 0.35);
+}

@@ -8,7 +8,22 @@ import {
 
 import { api } from '@/queries/client';
 import { qk } from '@/queries/keys';
-import type { WhiteboardSnapshotResponse } from '@/types/whiteboard';
+import type { WhiteboardListResponse, WhiteboardSnapshotResponse } from '@/types/whiteboard';
+
+/**
+ * Boards the caller was most recently the editor on. Drives the labs
+ * index at `/app/labs/whiteboard`. Short staleTime because the index
+ * cares about freshness — a board the user just edited should jump to
+ * the top on revisit.
+ */
+export function useMyWhiteboards(): UseQueryResult<WhiteboardListResponse> {
+  return useQuery<WhiteboardListResponse>({
+    queryKey: qk.whiteboard.mine(),
+    queryFn: () => api<WhiteboardListResponse>('/whiteboard/mine'),
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: true,
+  });
+}
 
 /**
  * Cold-start snapshot for a channel's whiteboard. Fetched once on page
@@ -26,8 +41,7 @@ export function useWhiteboardSnapshot(
 ): UseQueryResult<WhiteboardSnapshotResponse> {
   return useQuery<WhiteboardSnapshotResponse>({
     queryKey: channelId ? qk.whiteboard.snapshot(channelId) : qk.whiteboard.root,
-    queryFn: () =>
-      api<WhiteboardSnapshotResponse>(`/whiteboard/${channelId}/snapshot`),
+    queryFn: () => api<WhiteboardSnapshotResponse>(`/whiteboard/${channelId}/snapshot`),
     enabled: Boolean(channelId),
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 5 * 60 * 1000,
@@ -62,8 +76,7 @@ export function useClearWhiteboard(
 ): UseMutationResult<{ cleared: true }, Error, void> {
   const queryClient = useQueryClient();
   return useMutation<{ cleared: true }, Error, void>({
-    mutationFn: () =>
-      api<{ cleared: true }>(`/whiteboard/${channelId}`, { method: 'DELETE' }),
+    mutationFn: () => api<{ cleared: true }>(`/whiteboard/${channelId}`, { method: 'DELETE' }),
     onSettled: () => {
       void queryClient.invalidateQueries({
         queryKey: qk.whiteboard.byChannel(channelId),

@@ -19,6 +19,8 @@ const FriendsPage = lazy(() => import('@/pages/app/FriendsPage'));
 const VoiceLabPage = lazy(() => import('@/pages/app/labs/VoiceLabPage'));
 const QuizLabPage = lazy(() => import('@/pages/app/labs/QuizLabPage'));
 const QuizIndexPage = lazy(() => import('@/pages/app/labs/QuizIndexPage'));
+const WhiteboardLabPage = lazy(() => import('@/pages/app/labs/WhiteboardLabPage'));
+const WhiteboardIndexPage = lazy(() => import('@/pages/app/labs/WhiteboardIndexPage'));
 
 // ---------------------------------------------------------------------------
 // Shared fallback while a lazy chunk is in flight
@@ -83,6 +85,12 @@ export default function App(): React.JSX.Element {
             {import.meta.env.DEV && <Route path="/app/labs/quiz" element={<QuizIndexPage />} />}
             {import.meta.env.DEV && (
               <Route path="/app/labs/quiz/:channelId" element={<QuizLabPage />} />
+            )}
+            {import.meta.env.DEV && (
+              <Route path="/app/labs/whiteboard" element={<WhiteboardIndexPage />} />
+            )}
+            {import.meta.env.DEV && (
+              <Route path="/app/labs/whiteboard/:channelId" element={<WhiteboardLabPage />} />
             )}
           </Route>
         </Route>

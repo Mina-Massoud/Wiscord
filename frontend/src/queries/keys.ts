@@ -79,6 +79,7 @@ export const qk = {
 
   whiteboard: {
     root: ['whiteboard'] as const,
+    mine: () => ['whiteboard', 'mine'] as const,
     byChannel: (channelId: string) => ['whiteboard', channelId] as const,
     snapshot: (channelId: string) => ['whiteboard', 'snapshot', channelId] as const,
   },

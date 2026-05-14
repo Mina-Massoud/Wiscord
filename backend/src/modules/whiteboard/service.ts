@@ -3,7 +3,7 @@ import {
   loadWhiteboardSnapshot,
 } from './snapshot-store.js';
 import { dropRoom } from './room-registry.js';
-import { ChannelWhiteboard } from '../../db/models/index.js';
+import { ChannelWhiteboard, type ChannelWhiteboardDoc } from '../../db/models/index.js';
 
 /**
  * HTTP-facing service layer for the whiteboard. The realtime path
@@ -17,6 +17,36 @@ export interface WhiteboardSnapshotResponse {
   snapshot: string | null;
   updatedAt: string | null;
   lastEditorId: string | null;
+}
+
+export interface WhiteboardSummary {
+  channelId: string;
+  updatedAt: string;
+  createdAt: string;
+  lastEditorId: string;
+}
+
+/**
+ * Boards the user was the most recent editor on. Drives the labs index
+ * page at `/app/labs/whiteboard` — once the channels module ships and
+ * boards are scoped to a room the user owns/joined, swap this for a
+ * membership-aware query.
+ */
+export async function listWhiteboardsForEditor(params: {
+  userId: string;
+}): Promise<WhiteboardSummary[]> {
+  const rows: ChannelWhiteboardDoc[] = await ChannelWhiteboard.find({
+    lastEditorId: params.userId,
+  })
+    .sort({ updatedAt: -1 })
+    .limit(100);
+
+  return rows.map((row) => ({
+    channelId: row.channelId,
+    updatedAt: row.updatedAt?.toISOString() ?? new Date(0).toISOString(),
+    createdAt: row.createdAt?.toISOString() ?? new Date(0).toISOString(),
+    lastEditorId: row.lastEditorId,
+  }));
 }
 
 export async function getWhiteboardSnapshot(

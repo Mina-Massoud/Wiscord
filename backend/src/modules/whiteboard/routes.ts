@@ -3,9 +3,29 @@ import { Router } from 'express';
 import { ok } from '../../lib/response.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import { channelIdParam } from './schemas.js';
-import { clearWhiteboard, getWhiteboardSnapshot } from './service.js';
+import {
+  clearWhiteboard,
+  getWhiteboardSnapshot,
+  listWhiteboardsForEditor,
+} from './service.js';
 
 export const whiteboardRouter: Router = Router();
+
+/**
+ * GET /whiteboard/mine
+ * Lists every whiteboard the caller was the most recent editor on, newest
+ * first. Backs the labs index page at `/app/labs/whiteboard`. Declared
+ * before the dynamic `/:channelId/...` routes so the UUID zod check
+ * doesn't claim `mine` first.
+ */
+whiteboardRouter.get('/mine', requireAuth, async (req, res, next) => {
+  try {
+    const boards = await listWhiteboardsForEditor({ userId: req.userId! });
+    res.json(ok({ boards }));
+  } catch (err) {
+    next(err);
+  }
+});
 
 /**
  * GET /whiteboard/:channelId/snapshot

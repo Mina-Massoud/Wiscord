@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react';
 
+import { useAnimatedNumber } from '@/hooks/useAnimatedNumber';
 import { quizGenZ } from '@/lib/copy/quiz-genz';
 import { cn } from '@/lib/cn';
 import type { QuizQuestionBreakdown as QuestionRow } from '@/types/quiz';
@@ -126,18 +127,10 @@ function DistributionList({ row, max }: DistributionListProps): React.JSX.Elemen
                 <span className="min-w-0 truncate">{bucket.label}</span>
               </span>
               <span className="text-ink-muted text-caption shrink-0 tabular-nums">
-                {bucket.count}
+                <AnimatedCount value={bucket.count} />
               </span>
             </div>
-            <div className="bg-glass-callout rounded-pill h-2 overflow-hidden" role="presentation">
-              <div
-                className={cn(
-                  'rounded-pill duration-base h-full transition-all',
-                  isCorrect ? 'bg-success' : 'bg-blurple/70',
-                )}
-                style={{ width: `${fill}%` }}
-              />
-            </div>
+            <AnimatedBar fill={fill} isCorrect={isCorrect} />
           </li>
         );
       })}

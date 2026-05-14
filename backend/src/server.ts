@@ -3,6 +3,7 @@ import { connectDb, disconnectDb } from './db/connect.js';
 import { env } from './lib/env.js';
 import { logger } from './lib/logger.js';
 import { startRealtimeGateway } from './modules/realtime/gateway.js';
+import { startNotesSyncGateway } from './modules/realtime/notes-gateway.js';
 import { livekitPresencePoller } from './modules/voice/livekit-presence-poller.js';
 import { startWhiteboardSyncGateway } from './modules/whiteboard/sync-gateway.js';
 
@@ -26,6 +27,10 @@ livekitPresencePoller.start();
 // with Socket.IO on the same HTTP `upgrade` event by path-prefix matching.
 const whiteboardGateway = startWhiteboardSyncGateway(server);
 
+// Hocuspocus gateway for collaborative notes. Same shared HTTP server,
+// claims `/sync/notes/:channelId` upgrades. Other prefixes pass through.
+const notesGateway = startNotesSyncGateway(server);
+
 // Graceful shutdown — let in-flight requests finish, then quit.
 function shutdown(signal: NodeJS.Signals): void {
   logger.info({ signal }, 'shutdown requested');
@@ -34,6 +39,9 @@ function shutdown(signal: NodeJS.Signals): void {
   // so users don't lose strokes that arrived in the last debounce window.
   void whiteboardGateway.stop().catch((err) => {
     logger.error({ err }, 'whiteboard: shutdown flush failed');
+  });
+  void notesGateway.stop().catch((err) => {
+    logger.error({ err }, 'notes: shutdown flush failed');
   });
   server.close(async (err) => {
     if (err) {

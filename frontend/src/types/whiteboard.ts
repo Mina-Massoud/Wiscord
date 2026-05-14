@@ -18,3 +18,18 @@ export interface WhiteboardIdentity {
   /** One of `whiteboard.cursor-1` … `whiteboard.cursor-8` (hex). */
   color: string;
 }
+
+/**
+ * One row in the labs index page. Mirrors `WhiteboardSummary` on the
+ * backend; keep both in sync.
+ */
+export interface WhiteboardSummary {
+  channelId: string;
+  updatedAt: string;
+  createdAt: string;
+  lastEditorId: string;
+}
+
+export interface WhiteboardListResponse {
+  boards: WhiteboardSummary[];
+}

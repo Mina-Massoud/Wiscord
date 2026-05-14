@@ -9,3 +9,5 @@ export { QuizAttempt } from './QuizAttempt.js';
 export type { QuizAttemptDoc, QuizAttemptDocShape, AnswerShape } from './QuizAttempt.js';
 export { ChannelWhiteboard } from './ChannelWhiteboard.js';
 export type { ChannelWhiteboardDoc, ChannelWhiteboardRow } from './ChannelWhiteboard.js';
+export { ChannelNotes } from './ChannelNotes.js';
+export type { ChannelNotesDoc, ChannelNotesRow } from './ChannelNotes.js';
