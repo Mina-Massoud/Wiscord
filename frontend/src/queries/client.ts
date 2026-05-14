@@ -124,10 +124,35 @@ export interface CalendarEventChanged {
   eventId: string;
 }
 
+export type WatchSourceKind = 'youtube' | 'direct' | 'screen';
+export type WatchPartyState = 'idle' | 'playing' | 'paused';
+
+export interface WatchPartySnapshot {
+  channelId: string;
+  hostUserId: string;
+  source: {
+    kind: WatchSourceKind;
+    url: string;
+    title: string | null;
+  };
+  state: WatchPartyState;
+  currentTimeMs: number;
+  /** ISO 8601 timestamp — wall clock the playhead is anchored to. */
+  lastTickAt: string;
+  startedAt: string;
+}
+
+export interface WatchPartyChange {
+  channelId: string;
+  /** null on a stop event — viewers should exit watch mode. */
+  snapshot: WatchPartySnapshot | null;
+}
+
 export interface ServerToClientEvents {
   'voice:state_changed': (change: VoiceStateChange) => void;
   'quiz:analytics_changed': (snapshot: QuizAnalyticsSnapshot) => void;
   'calendar:event_changed': (change: CalendarEventChanged) => void;
+  'watch:state_changed': (change: WatchPartyChange) => void;
 }
 
 export interface ClientToServerEvents {
@@ -135,6 +160,8 @@ export interface ClientToServerEvents {
   'quiz:unsubscribe_host': (quizId: string) => void;
   'calendar:subscribe_channel': (channelId: string, ack: (ok: boolean) => void) => void;
   'calendar:unsubscribe_channel': (channelId: string) => void;
+  'watch:subscribe_channel': (channelId: string, ack: (ok: boolean) => void) => void;
+  'watch:unsubscribe_channel': (channelId: string) => void;
 }
 
 export type WiscordSocket = Socket<ServerToClientEvents, ClientToServerEvents>;

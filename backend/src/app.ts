@@ -17,6 +17,7 @@ import { whiteboardRouter } from './modules/whiteboard/routes.js';
 import { notesRouter } from './modules/notes/routes.js';
 import { calendarRouter } from './modules/calendar/routes.js';
 import { storageRouter } from './modules/storage/routes.js';
+import { watchPartyRouter } from './modules/watchparty/routes.js';
 
 /**
  * Builds the Express app. Boot logic (port binding, Socket.IO attach) lives
@@ -64,6 +65,7 @@ export function createApp(): Express {
   app.use('/notes', notesRouter);
   app.use('/calendar', calendarRouter);
   app.use('/storage', storageRouter);
+  app.use('/watch', watchPartyRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

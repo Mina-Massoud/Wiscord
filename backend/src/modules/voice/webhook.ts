@@ -4,6 +4,7 @@ import { env } from '../../lib/env.js';
 import { logger } from '../../lib/logger.js';
 import { badRequest, serverError } from '../../lib/errors.js';
 import { voicePresence, type VoiceParticipant } from './presence-store.js';
+import { forceStopParty, getHostUserId } from '../watchparty/service.js';
 
 const ROOM_PREFIX = 'channel-';
 
@@ -69,10 +70,35 @@ export async function handleLivekitWebhook(
       const p = event.participant;
       if (!p) break;
       voicePresence.remove(channelId, p.identity);
+      // If the leaver was hosting a watch party in this channel, end it.
+      // Non-host leavers are a no-op for the party — viewers stay watching.
+      try {
+        const hostId = await getHostUserId(channelId);
+        if (hostId && hostId === p.identity) {
+          const result = await forceStopParty({
+            channelId,
+            reason: 'host_left_voice',
+          });
+          if (result.stopped) {
+            logger.info(
+              { channelId, hostUserId: result.hostUserId },
+              'voice: host left → watch party auto-stopped',
+            );
+          }
+        }
+      } catch (err) {
+        logger.warn({ err, channelId }, 'voice: failed to auto-stop watch party on host leave');
+      }
       break;
     }
     case 'room_finished': {
       voicePresence.replace(channelId, []);
+      // Whole room is gone — any party for this channel ends with it.
+      try {
+        await forceStopParty({ channelId, reason: 'room_finished' });
+      } catch (err) {
+        logger.warn({ err, channelId }, 'voice: failed to auto-stop watch party on room_finished');
+      }
       break;
     }
     default:

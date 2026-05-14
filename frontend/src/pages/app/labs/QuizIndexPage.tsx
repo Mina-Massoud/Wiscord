@@ -9,6 +9,8 @@ import { UserPanel } from '@/components/app-shell/UserPanel';
 import { ActiveNowPanel } from '@/components/app-shell/friends/ActiveNowPanel';
 
 import { Button } from '@/components/ui/button';
+import { PaneHeader } from '@/components/ui/pane-header';
+import { Sidebar } from '@/components/ui/sidebar-shell';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/cn';
 import { useMyQuizzes } from '@/queries/quiz';
@@ -47,13 +49,12 @@ export default function QuizIndexPage(): React.JSX.Element {
       }
       userPanel={<UserPanel />}
       topBar={
-        <header className="border-glass-border h-app-titlebar flex shrink-0 items-center gap-2 border-b px-4">
-          <ListChecks className="text-ink-muted size-4 shrink-0" aria-hidden />
-          <span className="text-ink text-subhead font-semibold">Quiz workshop</span>
-          <span className="text-ink-subtle text-caption ml-2">
-            {groups.length} {groups.length === 1 ? 'channel' : 'channels'}
-          </span>
-        </header>
+        <PaneHeader
+          variant="topbar"
+          icon={<ListChecks className="text-ink-muted size-4 shrink-0" aria-hidden />}
+          title="Quiz workshop"
+          subtitle={`${groups.length} ${groups.length === 1 ? 'channel' : 'channels'}`}
+        />
       }
       main={
         <MainPane
@@ -120,40 +121,32 @@ function ChannelSidebar({
   onSelect,
 }: ChannelSidebarProps): React.JSX.Element {
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <header className="border-glass-border h-app-titlebar flex shrink-0 items-center border-b px-4">
-        <ListChecks className="text-ink-muted mr-2 size-4 shrink-0" aria-hidden />
-        <span className="text-ink text-control truncate font-semibold">Labs · Quiz</span>
-      </header>
+    <Sidebar.Root>
+      <Sidebar.Header
+        icon={<ListChecks className="text-ink-muted size-4 shrink-0" aria-hidden />}
+        title="Labs · Quiz"
+      />
 
-      <div className="flex flex-1 flex-col gap-1 overflow-auto px-2 py-3">
-        <div className="flex items-center justify-between px-2 py-1">
-          <span className="text-ink-subtle text-badge font-semibold tracking-wider uppercase">
-            Channels
-          </span>
-        </div>
+      <Sidebar.Body>
+        <Sidebar.Section title="Channels">
+          {isLoading && <Sidebar.ListSkeleton rows={3} dotClassName="size-4 rounded" />}
 
-        {isLoading && <SidebarSkeleton />}
+          {isError && <Sidebar.Error>Couldn&apos;t load channels.</Sidebar.Error>}
 
-        {isError && (
-          <p className="text-ink-muted text-caption px-2 py-1">Couldn&apos;t load channels.</p>
-        )}
+          {!isLoading && !isError && groups.length === 0 && (
+            <Sidebar.Empty>You haven&apos;t hosted any quizzes yet.</Sidebar.Empty>
+          )}
 
-        {!isLoading && !isError && groups.length === 0 && (
-          <p className="text-ink-muted text-caption px-2 py-2">
-            You haven&apos;t hosted any quizzes yet.
-          </p>
-        )}
-
-        {groups.map((group) => (
-          <ChannelRow
-            key={group.channelId}
-            group={group}
-            onSelect={() => onSelect(group.channelId)}
-          />
-        ))}
-      </div>
-    </div>
+          {groups.map((group) => (
+            <ChannelRow
+              key={group.channelId}
+              group={group}
+              onSelect={() => onSelect(group.channelId)}
+            />
+          ))}
+        </Sidebar.Section>
+      </Sidebar.Body>
+    </Sidebar.Root>
   );
 }
 
@@ -178,22 +171,6 @@ function ChannelRow({ group, onSelect }: ChannelRowProps): React.JSX.Element {
         </span>
       </span>
     </button>
-  );
-}
-
-function SidebarSkeleton(): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-1 px-2">
-      {[0, 1, 2].map((i) => (
-        <div key={i} className="flex items-start gap-2 px-1.5 py-2">
-          <Skeleton className="mt-0.5 size-4 rounded" />
-          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-            <Skeleton className="h-3 w-24" />
-            <Skeleton className="h-2.5 w-16" />
-          </div>
-        </div>
-      ))}
-    </div>
   );
 }
 

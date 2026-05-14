@@ -58,6 +58,8 @@ const COPY = {
 
   // ── Bottom-left connected card ────────────────────────────────────
   'voicePanel.connected.title': { default: 'Voice Connected', genz: "You're Live" },
+  'voicePanel.connecting.title': { default: 'Connecting…', genz: 'Pulling Up…' },
+  'voicePanel.reconnecting.title': { default: 'Reconnecting…', genz: 'Rebooting Vibe…' },
 } as const;
 
 export type CopyKey = keyof typeof COPY;

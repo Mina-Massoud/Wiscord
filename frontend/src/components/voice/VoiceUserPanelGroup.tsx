@@ -1,13 +1,23 @@
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { useConnectionState, useRoomContext } from '@livekit/components-react';
 import { ConnectionState } from 'livekit-client';
-import { AudioWaveform, PhoneOff, Signal } from 'lucide-react';
+import { Loader2, PhoneOff, Signal } from 'lucide-react';
 
 import { UserPanel } from '@/components/app-shell/UserPanel';
+import { ActivityLauncherButton } from '@/components/activity/ActivityLauncherButton';
+import type { ActivityDefinition } from '@/components/activity/ActivityRegistry';
+import { cn } from '@/lib/cn';
 import { useCopy } from '@/lib/copy/useCopy';
+
+import { VoiceMicStatusButton } from './VoiceMicStatusButton';
 
 interface VoiceUserPanelGroupProps {
   channelSlug: string;
+  /**
+   * Fires when the user picks an activity from the launcher dialog. Omit to
+   * hide the launcher icon in the connected row.
+   */
+  onActivitySelect?: (activity: ActivityDefinition) => void;
 }
 
 /**
@@ -19,22 +29,40 @@ interface VoiceUserPanelGroupProps {
  *
  * Honors `prefers-reduced-motion` — collapses the transition to 0ms.
  */
-export function VoiceUserPanelGroup({ channelSlug }: VoiceUserPanelGroupProps): React.JSX.Element {
+export function VoiceUserPanelGroup({
+  channelSlug,
+  onActivitySelect,
+}: VoiceUserPanelGroupProps): React.JSX.Element {
   const state = useConnectionState();
   const room = useRoomContext();
   const reducedMotion = useReducedMotion();
   const t = useCopy();
 
   const isConnected = state === ConnectionState.Connected;
+  const isConnecting = state === ConnectionState.Connecting;
+  const isReconnecting = state === ConnectionState.Reconnecting;
+  const isLive = isConnected || isConnecting || isReconnecting;
 
   const transition = reducedMotion
     ? { duration: 0 }
     : { duration: 0.22, ease: [0.4, 0, 0.2, 1] as const };
 
+  const title = isConnected
+    ? t('voicePanel.connected.title')
+    : isReconnecting
+      ? t('voicePanel.reconnecting.title')
+      : t('voicePanel.connecting.title');
+
+  // Title color and icon track the live state. Connected = success
+  // (green Signal); Connecting/Reconnecting = blurple (spinner) so the
+  // card visibly reads as "in progress" rather than "you're already in."
+  const titleColorClass = isConnected ? 'text-success' : 'text-blurple';
+  const iconBgClass = isConnected ? 'bg-success/15' : 'bg-blurple/15';
+
   return (
-    <div className="bg-glass-callout border-glass-border mx-2 mb-2 overflow-hidden rounded-lg border">
+    <div className="bg-surface-2 border-border shadow-elevated mx-3 mb-3 overflow-hidden rounded-lg border">
       <AnimatePresence initial={false}>
-        {isConnected ? (
+        {isLive ? (
           <motion.div
             key="voice-section"
             initial={{ height: 0, opacity: 0 }}
@@ -43,17 +71,27 @@ export function VoiceUserPanelGroup({ channelSlug }: VoiceUserPanelGroupProps): 
             transition={transition}
             style={{ overflow: 'hidden' }}
           >
-            <div className="border-glass-border flex items-center gap-3 border-b px-3 py-2.5">
+            <div className="border-border flex items-center gap-3 border-b px-3 py-2.5">
               <span
-                className="bg-success/15 flex size-9 shrink-0 items-center justify-center rounded-md"
+                className={cn(
+                  'flex size-9 shrink-0 items-center justify-center rounded-md',
+                  iconBgClass,
+                )}
                 aria-hidden
               >
-                <Signal className="text-success size-5" />
+                {isConnected ? (
+                  <Signal className="text-success size-5" />
+                ) : (
+                  <Loader2 className="text-blurple size-5 animate-spin" />
+                )}
               </span>
 
               <div className="flex min-w-0 flex-1 flex-col">
-                <span className="text-success text-control leading-tight font-semibold">
-                  {t('voicePanel.connected.title')}
+                <span
+                  className={cn('text-control leading-tight font-semibold', titleColorClass)}
+                  aria-live="polite"
+                >
+                  {title}
                 </span>
                 <span className="text-ink-muted text-caption truncate leading-tight">
                   Voice / {channelSlug}
@@ -61,19 +99,19 @@ export function VoiceUserPanelGroup({ channelSlug }: VoiceUserPanelGroupProps): 
               </div>
 
               <div className="flex shrink-0 items-center gap-0.5">
-                <span
-                  className="text-ink-muted flex size-8 items-center justify-center"
-                  aria-hidden
-                  title="Audio active"
-                >
-                  <AudioWaveform className="size-4" />
-                </span>
+                {isConnected ? <VoiceMicStatusButton /> : null}
+                {isConnected && onActivitySelect ? (
+                  <ActivityLauncherButton
+                    onActivitySelect={onActivitySelect}
+                    className="text-ink-muted hover:bg-glass-hover hover:text-ink size-8 rounded-md"
+                  />
+                ) : null}
                 <button
                   type="button"
                   onClick={() => {
                     void room.disconnect();
                   }}
-                  aria-label="Disconnect from voice"
+                  aria-label={isConnected ? 'Disconnect from voice' : 'Cancel join'}
                   className="text-ink-muted hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive flex size-8 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none"
                 >
                   <PhoneOff className="size-4" aria-hidden />

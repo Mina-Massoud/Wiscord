@@ -9,6 +9,7 @@ import { UserPanel } from '@/components/app-shell/UserPanel';
 import { ActiveNowPanel } from '@/components/app-shell/friends/ActiveNowPanel';
 
 import { Button } from '@/components/ui/button';
+import { PaneHeader } from '@/components/ui/pane-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NotesBoardCard } from '@/components/notes/NotesBoardCard';
 import { NotesSidebar } from '@/components/notes/NotesSidebar';
@@ -55,13 +56,12 @@ export default function NotesIndexPage(): React.JSX.Element {
       }
       userPanel={<UserPanel />}
       topBar={
-        <header className="border-glass-border h-app-titlebar flex shrink-0 items-center gap-2 border-b px-4">
-          <FileText className="text-ink-muted size-4 shrink-0" aria-hidden />
-          <span className="text-ink text-subhead font-semibold">Notes</span>
-          <span className="text-ink-subtle text-caption ml-2">
-            {docs.length} {docs.length === 1 ? 'doc' : 'docs'}
-          </span>
-        </header>
+        <PaneHeader
+          variant="topbar"
+          icon={<FileText className="text-ink-muted size-4 shrink-0" aria-hidden />}
+          title="Notes"
+          subtitle={`${docs.length} ${docs.length === 1 ? 'doc' : 'docs'}`}
+        />
       }
       main={
         <MainPane

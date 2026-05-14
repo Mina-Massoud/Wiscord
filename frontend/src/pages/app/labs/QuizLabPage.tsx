@@ -9,6 +9,7 @@ import { UserPanel } from '@/components/app-shell/UserPanel';
 import { ActiveNowPanel } from '@/components/app-shell/friends/ActiveNowPanel';
 
 import { Button } from '@/components/ui/button';
+import { PaneHeader } from '@/components/ui/pane-header';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { QuizAnalyticsDashboard } from '@/components/quiz/analytics/QuizAnalyticsDashboard';
@@ -84,16 +85,12 @@ export default function QuizLabPage(): React.JSX.Element {
       }
       userPanel={<UserPanel />}
       topBar={
-        <header className="border-glass-border h-app-titlebar flex shrink-0 items-center gap-2 border-b px-4">
-          <ListChecks className="text-ink-muted size-4 shrink-0" aria-hidden />
-          <span className="text-ink text-subhead font-semibold">Quiz workshop</span>
-          <span
-            className="text-ink-subtle text-caption ml-2 truncate"
-            title={`channel: ${channelId}`}
-          >
-            {slug}
-          </span>
-        </header>
+        <PaneHeader
+          variant="topbar"
+          icon={<ListChecks className="text-ink-muted size-4 shrink-0" aria-hidden />}
+          title="Quiz workshop"
+          subtitle={<span title={`channel: ${channelId}`}>{slug}</span>}
+        />
       }
       main={<QuizMainPane quizId={quizId} playFlag={playFlag} onLaunched={handleLaunched} />}
       rightRail={<QuizRightRail quizId={quizId} playFlag={playFlag} />}

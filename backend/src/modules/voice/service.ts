@@ -1,4 +1,4 @@
-import { AccessToken } from 'livekit-server-sdk';
+import { AccessToken, TrackSource } from 'livekit-server-sdk';
 
 import { User } from '../../db/models/index.js';
 import { env } from '../../lib/env.js';
@@ -62,6 +62,14 @@ export async function mintLivekitToken({
     canPublish: true,
     canSubscribe: true,
     canPublishData: true,
+    // Microphone + screen share are the only sources we permit. Camera stays
+    // off — Wiscord's voice surface is audio-only (no face cams), but screen
+    // share is needed for the Watch Together "share your tab" path.
+    canPublishSources: [
+      TrackSource.MICROPHONE,
+      TrackSource.SCREEN_SHARE,
+      TrackSource.SCREEN_SHARE_AUDIO,
+    ],
   });
 
   const token = await at.toJwt();

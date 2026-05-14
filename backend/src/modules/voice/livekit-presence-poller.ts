@@ -3,6 +3,7 @@ import { RoomServiceClient } from 'livekit-server-sdk';
 import { env } from '../../lib/env.js';
 import { logger } from '../../lib/logger.js';
 import { voicePresence, type VoiceParticipant } from './presence-store.js';
+import { forceStopParty, getHostUserId } from '../watchparty/service.js';
 
 const POLL_INTERVAL_MS = 2_000;
 const ROOM_PREFIX = 'channel-';
@@ -77,20 +78,64 @@ class LivekitPresencePoller {
         }));
 
         voicePresence.replace(channelId, mapped);
+
+        // Reconciliation: if a party is active in this channel but the host
+        // isn't in the LiveKit participant list, the webhook missed the
+        // departure — force-stop here. Idempotent if already stopped.
+        await this.checkPartyHostStillPresent(channelId, mapped);
       }
 
       // Channels that disappeared from LiveKit (room finished / last
       // participant left) need to clear locally so the sidebar stops
-      // showing stale rows.
+      // showing stale rows. Also auto-stop any party that was running.
       for (const channelId of voicePresence.activeChannelIds()) {
         if (!liveChannelIds.has(channelId)) {
           voicePresence.replace(channelId, []);
+          await this.forceStopOnVanish(channelId);
         }
       }
     } catch (err) {
       logger.warn({ err }, 'voice: presence poll failed');
     } finally {
       this.running = false;
+    }
+  }
+
+  private async checkPartyHostStillPresent(
+    channelId: string,
+    participants: VoiceParticipant[],
+  ): Promise<void> {
+    try {
+      const hostId = await getHostUserId(channelId);
+      if (!hostId) return;
+      const stillThere = participants.some((p) => p.identity === hostId);
+      if (stillThere) return;
+      const result = await forceStopParty({
+        channelId,
+        reason: 'host_missing_from_room',
+      });
+      if (result.stopped) {
+        logger.info(
+          { channelId, hostUserId: result.hostUserId },
+          'voice: poller force-stopped watch party (host vanished)',
+        );
+      }
+    } catch (err) {
+      logger.warn(
+        { err, channelId },
+        'voice: poller failed to check party host presence',
+      );
+    }
+  }
+
+  private async forceStopOnVanish(channelId: string): Promise<void> {
+    try {
+      await forceStopParty({ channelId, reason: 'room_vanished' });
+    } catch (err) {
+      logger.warn(
+        { err, channelId },
+        'voice: poller failed to force-stop party on room vanish',
+      );
     }
   }
 }

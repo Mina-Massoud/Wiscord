@@ -3,14 +3,26 @@ import { useTrackToggle, useRoomContext } from '@livekit/components-react';
 import { Track } from 'livekit-client';
 
 import { cn } from '@/lib/cn';
+import { ActivityLauncherButton } from '@/components/activity/ActivityLauncherButton';
+import type { ActivityDefinition } from '@/components/activity/ActivityRegistry';
+
+interface VoiceControlBarProps {
+  /**
+   * Fires when the user picks an activity from the launcher dialog. Omit to
+   * hide the launcher trigger entirely (e.g. on surfaces where an activity
+   * doesn't make sense).
+   */
+  onActivitySelect?: (activity: ActivityDefinition) => void;
+}
 
 /**
  * Floating control pill anchored at the bottom of the voice main pane.
- * Two actions only — mic toggle + leave. Anything else (screen share,
- * camera, deafen) is out of scope and stays off the bar so the icons
- * never lie about what they do.
+ * Mic toggle, leave, and — when the parent wires a callback — an activity
+ * launcher trigger.
  */
-export function VoiceControlBar(): React.JSX.Element {
+export function VoiceControlBar({
+  onActivitySelect,
+}: VoiceControlBarProps = {}): React.JSX.Element {
   const micToggle = useTrackToggle({ source: Track.Source.Microphone });
   const room = useRoomContext();
 
@@ -42,6 +54,8 @@ export function VoiceControlBar(): React.JSX.Element {
             <MicOff className="size-5" aria-hidden />
           )}
         </button>
+
+        {onActivitySelect ? <ActivityLauncherButton onActivitySelect={onActivitySelect} /> : null}
 
         <span className="bg-border h-6 w-px" aria-hidden />
 

@@ -10,7 +10,7 @@ const config: Config = {
         // ── Four-depth surface stack (modern dark theme) ──
         canvas: '#1A1A1E',
         'surface-1': '#232428',
-        'surface-2': '#131316',
+        'surface-2': '#26262b',
         'surface-3': '#0A0A0C',
         // Subtle raised card sitting directly on `canvas` (e.g. right-rail empty-state callout).
         'surface-callout': '#202024',
@@ -54,8 +54,8 @@ const config: Config = {
         // the wallpaper's local luminance.
         'glass-veil': 'rgba(10, 10, 13, 0.45)',
         // Hairlines on glass — low-alpha white reads as a "glass edge" on any photo tint.
-        'glass-border': 'rgba(255, 255, 255, 0.08)',
-        'glass-border-strong': 'rgba(255, 255, 255, 0.14)',
+        'glass-border': 'rgba(255, 255, 255, 0.16)',
+        'glass-border-strong': 'rgba(255, 255, 255, 0.22)',
 
         // ── Brand / accent ──
         blurple: '#5865F2',
@@ -162,7 +162,7 @@ const config: Config = {
         '64px': '64px',
         // Layout widths
         'server-list': '72px',
-        'channel-list': '240px',
+        'channel-list': '280px',
         'member-panel': '240px',
         'now-panel': '280px',
         // Quiz workshop — left rail with the question list (wider than the
@@ -223,6 +223,16 @@ const config: Config = {
       backdropBlur: {
         glass: '24px',
         'glass-sm': '12px',
+      },
+
+      backgroundImage: {
+        // Voice channel landing surface — Discord's signature look:
+        // dark navy at the top corners fading down through deep indigo into
+        // a soft blurple glow centered just below the viewport. Used by the
+        // pre-join and post-leave empty states so the channel reads as
+        // "alive" even when the local user isn't connected yet.
+        'voice-landing':
+          'radial-gradient(ellipse 90% 75% at 50% 105%, #5865F2 0%, #2D2F8A 38%, #0F0F18 78%, #0A0A0C 100%)',
       },
 
       keyframes: {

@@ -131,6 +131,44 @@ When customization is genuinely needed: extend the component's `className`, pass
 
 **When custom is OK.** Feature-specific surfaces that aren't shadcn primitives in the first place — voice participant tiles, the connected-card chrome, channel rows, the focus timer ring. The rule above applies to *primitives* (dropdown, dialog, switch, …), not to every component.
 
+### Sidebar shell + PaneHeader — one primitive, content via children
+
+Any "labs sidebar" surface (Voice, Quiz, Notes, Whiteboard, future Calendar, future Flashcards, …) **must** consume `components/ui/sidebar-shell` for its outer shell, titlebar, body padding, section header, empty/error/skeleton chrome. Feature code only supplies the row renderer and any feature-specific atoms.
+
+```tsx
+import { Sidebar } from '@/components/ui/sidebar-shell';
+
+<Sidebar.Root>
+  <Sidebar.Header icon={<Icon />} title="Labs · Foo" />
+  <Sidebar.Body>
+    <Sidebar.Section title="Things">
+      {/* feature-specific rows */}
+    </Sidebar.Section>
+  </Sidebar.Body>
+</Sidebar.Root>
+```
+
+**Main-pane top bars use `PaneHeader` too.** The header chrome (`h-app-titlebar` + `border-glass-border` + standard padding) lives in `components/ui/pane-header` and is shared by sidebar titlebars and main-pane top bars. `Sidebar.Header` is a thin wrapper over `PaneHeader` with `variant="sidebar"`. For the topBar slot in `AppShellLayout`, reach for `PaneHeader` directly:
+
+```tsx
+import { PaneHeader } from '@/components/ui/pane-header';
+
+<PaneHeader
+  variant="topbar"
+  icon={<Icon className="text-ink-muted size-4 shrink-0" aria-hidden />}
+  title="Notes"
+  subtitle={`${docs.length} docs`}
+/>
+```
+
+Hand-rolling `<header className="border-glass-border h-app-titlebar …">` anywhere in feature code (sidebar or topbar) is a code smell and will be blocked at review. If you need a new variant (denser row height, different titlebar padding, alternative skeleton), extend the primitive or add a controlled prop in `PaneHeader.tsx` / `SidebarShell.tsx` — don't clone the chrome into feature code.
+
+**The Notes/Whiteboard sidebar pattern is `RecencySidebar<T>`.** Header + CTA + grouped-by-recency list ⇒ reach for `components/ui/recency-sidebar`. Don't reimplement `groupByRecency` — the single source of truth is `lib/recency.ts`. New labs that want the same shape should land as a ~30-line composition over `RecencySidebar`, not a fresh clone.
+
+**Body padding belongs to `Sidebar.Body`.** Don't add `pt-*` overrides on individual sections to "fix" the gap below the titlebar — the rhythm is owned by the primitive so every labs sidebar breathes the same way. If the existing rhythm feels wrong on a specific surface, change `Sidebar.Body`'s default and re-verify all four labs sidebars together.
+
+The one acceptable exception today is `AppTitleBar` — the global window-titlebar at the very top of the shell. It uses a different layout (centered title, no icon, narrower padding) and is unique enough to remain its own component instead of a `PaneHeader` variant. Don't add a third hand-rolled header on top of that — extend `PaneHeader` with a `variant` instead.
+
 ### State management
 
 - **Server state** → TanStack Query

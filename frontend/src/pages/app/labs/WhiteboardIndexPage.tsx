@@ -9,6 +9,7 @@ import { UserPanel } from '@/components/app-shell/UserPanel';
 import { ActiveNowPanel } from '@/components/app-shell/friends/ActiveNowPanel';
 
 import { Button } from '@/components/ui/button';
+import { PaneHeader } from '@/components/ui/pane-header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WhiteboardBoardCard } from '@/components/whiteboard/WhiteboardBoardCard';
 import { WhiteboardSidebar } from '@/components/whiteboard/WhiteboardSidebar';
@@ -56,13 +57,12 @@ export default function WhiteboardIndexPage(): React.JSX.Element {
       }
       userPanel={<UserPanel />}
       topBar={
-        <header className="border-glass-border h-app-titlebar flex shrink-0 items-center gap-2 border-b px-4">
-          <Pencil className="text-ink-muted size-4 shrink-0" aria-hidden />
-          <span className="text-ink text-subhead font-semibold">Whiteboards</span>
-          <span className="text-ink-subtle text-caption ml-2">
-            {boards.length} {boards.length === 1 ? 'board' : 'boards'}
-          </span>
-        </header>
+        <PaneHeader
+          variant="topbar"
+          icon={<Pencil className="text-ink-muted size-4 shrink-0" aria-hidden />}
+          title="Whiteboards"
+          subtitle={`${boards.length} ${boards.length === 1 ? 'board' : 'boards'}`}
+        />
       }
       main={
         <MainPane

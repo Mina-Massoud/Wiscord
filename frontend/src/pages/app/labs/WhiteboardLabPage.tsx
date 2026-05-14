@@ -13,6 +13,7 @@ import { AppTitleBar } from '@/components/app-shell/AppTitleBar';
 import { ServerRail } from '@/components/app-shell/ServerRail';
 import { UserPanel } from '@/components/app-shell/UserPanel';
 import { ActiveNowPanel } from '@/components/app-shell/friends/ActiveNowPanel';
+import { PaneHeader } from '@/components/ui/pane-header';
 
 import { WhiteboardCanvas } from '@/components/whiteboard/WhiteboardCanvas';
 import { WhiteboardFullscreenToggle } from '@/components/whiteboard/WhiteboardFullscreenToggle';
@@ -123,10 +124,11 @@ export default function WhiteboardLabPage(): React.JSX.Element {
       }
       userPanel={<UserPanel />}
       topBar={
-        <header className="border-glass-border h-app-titlebar flex shrink-0 items-center gap-2 border-b px-4">
-          <Pencil className="text-ink-muted size-4 shrink-0" aria-hidden />
-          <span className="text-ink text-subhead font-semibold">{title}</span>
-        </header>
+        <PaneHeader
+          variant="topbar"
+          icon={<Pencil className="text-ink-muted size-4 shrink-0" aria-hidden />}
+          title={title}
+        />
       }
       main={
         <div className="relative flex min-h-0 flex-1">

@@ -10,6 +10,7 @@ import { voicePresence, type VoiceStateChange } from '../voice/presence-store.js
 import { Quiz } from '../../db/models/index.js';
 import { quizAnalytics } from '../quiz/analytics-store.js';
 import type { QuizAnalyticsSnapshot } from '../quiz/analytics.js';
+import { watchPartyEvents, type WatchPartyChange } from '../watchparty/service.js';
 
 interface SessionSocketData {
   userId?: string;
@@ -30,6 +31,13 @@ export interface ServerToClientEvents {
   'voice:state_changed': (change: VoiceStateChange) => void;
   'quiz:analytics_changed': (snapshot: QuizAnalyticsSnapshot) => void;
   'calendar:event_changed': (change: CalendarEventChanged) => void;
+  /**
+   * Watch Together snapshot fan-out. `snapshot` is null on a stop event
+   * (host ended the party); non-null on start / play / pause / seek /
+   * transfer. Viewers project their playhead against
+   * `snapshot.currentTimeMs + (now - new Date(snapshot.lastTickAt))`.
+   */
+  'watch:state_changed': (change: WatchPartyChange) => void;
 }
 
 interface ClientToServerEvents {
@@ -49,6 +57,13 @@ interface ClientToServerEvents {
    */
   'calendar:subscribe_channel': (channelId: string, ack: (ok: boolean) => void) => void;
   'calendar:unsubscribe_channel': (channelId: string) => void;
+  /**
+   * Watch Party room subscribe. Any authed caller can subscribe — the
+   * membership gate lands when the channels module ships, same shape as
+   * the calendar subscribe above.
+   */
+  'watch:subscribe_channel': (channelId: string, ack: (ok: boolean) => void) => void;
+  'watch:unsubscribe_channel': (channelId: string) => void;
 }
 
 type WiscordIoServer = IoServer<
@@ -165,6 +180,20 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
       void socket.leave(`channel:${channelId}:calendar`);
     });
 
+    socket.on('watch:subscribe_channel', async (channelId, ack) => {
+      if (typeof channelId !== 'string' || !UUID_RE.test(channelId)) {
+        ack(false);
+        return;
+      }
+      await socket.join(`channel:${channelId}:watch`);
+      ack(true);
+    });
+
+    socket.on('watch:unsubscribe_channel', (channelId) => {
+      if (typeof channelId !== 'string') return;
+      void socket.leave(`channel:${channelId}:watch`);
+    });
+
     socket.on('disconnect', (reason) => {
       logger.info({ userId, sid: socket.id, reason }, 'realtime: client disconnected');
     });
@@ -182,6 +211,12 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
   // `quiz:<id>:host` room, so this never leaks data to non-hosts.
   quizAnalytics.on('analytics_changed', (snapshot: QuizAnalyticsSnapshot) => {
     io?.to(`quiz:${snapshot.quizId}:host`).emit('quiz:analytics_changed', snapshot);
+  });
+
+  // Bridge the Watch Together service. Subscribers in `channel:<id>:watch`
+  // get every state change for that channel's party.
+  watchPartyEvents.on('state_changed', (change: WatchPartyChange) => {
+    io?.to(`channel:${change.channelId}:watch`).emit('watch:state_changed', change);
   });
 
   logger.info('realtime: socket.io gateway started');

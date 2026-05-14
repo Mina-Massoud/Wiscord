@@ -32,3 +32,14 @@ export type {
 } from './CalendarEvent.js';
 export { MediaAsset, MEDIA_KINDS } from './MediaAsset.js';
 export type { MediaAssetDoc, MediaAssetRow, MediaKind } from './MediaAsset.js';
+export {
+  WatchParty,
+  WATCH_PARTY_STATES,
+  WATCH_SOURCE_KINDS,
+} from './WatchParty.js';
+export type {
+  WatchPartyDoc,
+  WatchPartyRow,
+  WatchPartyState,
+  WatchSourceKind,
+} from './WatchParty.js';

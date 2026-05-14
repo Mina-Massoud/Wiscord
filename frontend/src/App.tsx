@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import RequireAuth from '@/routes/RequireAuth';
 import RequireOnboarding from '@/routes/RequireOnboarding';
 import RedirectIfAuthed from '@/routes/RedirectIfAuthed';
+import { ThemeGeneratorRoot } from '@/components/dev/ThemeGenerator/ThemeGeneratorRoot';
 
 // ---------------------------------------------------------------------------
 // Route-level code splitting — each page chunk loaded on demand
@@ -57,6 +58,7 @@ function RootRedirect(): React.JSX.Element {
 export default function App(): React.JSX.Element {
   return (
     <Suspense fallback={<RouteFallback />}>
+      <ThemeGeneratorRoot />
       <Routes>
         {/* Root: smart redirect based on auth + onboarding state */}
         <Route path="/" element={<RootRedirect />} />

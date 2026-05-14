@@ -12,6 +12,7 @@ import { AppTitleBar } from '@/components/app-shell/AppTitleBar';
 import { ServerRail } from '@/components/app-shell/ServerRail';
 import { UserPanel } from '@/components/app-shell/UserPanel';
 import { ActiveNowPanel } from '@/components/app-shell/friends/ActiveNowPanel';
+import { PaneHeader } from '@/components/ui/pane-header';
 
 import { NotesEditor } from '@/components/notes/NotesEditor';
 import { NotesFullscreenToggle } from '@/components/notes/NotesFullscreenToggle';
@@ -128,10 +129,11 @@ export default function NotesLabPage(): React.JSX.Element {
       }
       userPanel={<UserPanel />}
       topBar={
-        <header className="border-glass-border h-app-titlebar flex shrink-0 items-center gap-2 border-b px-4">
-          <FileText className="text-ink-muted size-4 shrink-0" aria-hidden />
-          <span className="text-ink text-subhead font-semibold">{title}</span>
-        </header>
+        <PaneHeader
+          variant="topbar"
+          icon={<FileText className="text-ink-muted size-4 shrink-0" aria-hidden />}
+          title={title}
+        />
       }
       main={
         <div className="relative flex min-h-0 flex-1 p-4">

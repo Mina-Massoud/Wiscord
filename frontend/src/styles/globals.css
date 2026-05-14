@@ -6,10 +6,10 @@
   --background: 220 6% 20%;        /* canvas #313338 */
   --foreground: 220 7% 87%;        /* ink #DBDEE1 */
 
-  --card: 225 7% 18%;              /* surface-1 #2B2D31 */
+  --card: 228 2% 10%;              /* surface-1 #2B2D31 */
   --card-foreground: 220 7% 87%;
 
-  --popover: 225 9% 13%;           /* surface-2 #1E1F22 */
+  --popover: 240 5% 15%;           /* surface-2 #1E1F22 */
   --popover-foreground: 220 7% 87%;
 
   --primary: 235 86% 65%;          /* blurple #5865F2 */
@@ -155,7 +155,12 @@ h1, h2, h3, h4, h5, h6 {
   .bg-glass-canvas { background-color: #1A1A1E; }
   .bg-glass-chrome { background-color: #121214; }
   .bg-glass-surface-1 { background-color: #232428; }
-  .bg-glass-surface-2 { background-color: #131316; }
+  .bg-glass-surface-2 { background-color: #26262b; }
   .bg-glass-callout { background-color: #202024; }
   .bg-glass-veil { background-color: rgba(10, 10, 13, 0.85); }
+}
+
+
+button {
+  cursor: pointer;
 }

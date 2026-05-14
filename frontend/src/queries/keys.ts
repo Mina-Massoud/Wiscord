@@ -91,6 +91,11 @@ export const qk = {
     mine: () => ['media', 'mine'] as const,
   },
 
+  watch: {
+    root: ['watch'] as const,
+    byChannel: (channelId: string) => ['watch', channelId] as const,
+  },
+
   calendar: {
     root: ['calendar'] as const,
     events: (scope: { channelId: string | null; from: string; to: string }) =>

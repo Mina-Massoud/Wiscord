@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router';
-import { Headphones, Mic, Settings } from 'lucide-react';
+import { Settings } from 'lucide-react';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useUpdateProfile } from '@/queries/profile';
@@ -15,6 +15,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { VoiceQuickControls } from '@/components/voice/VoiceQuickControls';
 import { PresenceDot } from './atoms/PresenceDot';
 
 interface UserPanelProps {
@@ -100,12 +101,7 @@ export function UserPanel({ variant = 'standalone' }: UserPanelProps = {}): Reac
         </span>
       </button>
 
-      <ControlButton label="Mute" muted>
-        <Mic className="size-5" />
-      </ControlButton>
-      <ControlButton label="Deafen">
-        <Headphones className="size-5" />
-      </ControlButton>
+      <VoiceQuickControls />
 
       <DropdownMenu>
         <Tooltip delayDuration={100}>
@@ -156,34 +152,5 @@ export function UserPanel({ variant = 'standalone' }: UserPanelProps = {}): Reac
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
-  );
-}
-
-interface ControlButtonProps {
-  label: string;
-  muted?: boolean;
-  children: React.ReactNode;
-}
-
-function ControlButton({ label, muted = false, children }: ControlButtonProps): React.JSX.Element {
-  return (
-    <Tooltip delayDuration={100}>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label={label}
-          className={cn(
-            'flex size-8 items-center justify-center rounded-md transition-colors',
-            'hover:bg-glass-hover focus-visible:ring-blurple focus-visible:ring-2 focus-visible:outline-none',
-            muted ? 'text-destructive' : 'text-ink-muted hover:text-ink',
-          )}
-        >
-          {children}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6}>
-        {label}
-      </TooltipContent>
-    </Tooltip>
   );
 }
