@@ -1,153 +1,143 @@
 # Wiscord — Backend
 
-Supabase backend for [Wiscord](../docs/overview.md), a Discord-style collaborative study app.
+Node + Express + TypeScript + Mongoose backend for [Wiscord](../docs/overview.md), a Discord-style collaborative study app.
 
-This folder holds: database schema, RLS policies, Edge Functions (AI proxy + LiveKit token mint), and Supabase configuration. The frontend lives in the sibling [`../frontend/`](../frontend) folder.
+This folder holds the HTTP API, Mongoose models, auth (magic-link + JWT cookie), and feature modules. The frontend lives in the sibling [`../frontend/`](../frontend) folder.
+
+> The previous Supabase implementation is archived at [`./.legacy-supabase/`](./.legacy-supabase) for reference until the rest of the surface (channels, messages, realtime, AI, voice, storage) is re-implemented here.
+
+## Current scope
+
+**Auth + profile only.** Server / channel / message CRUD, realtime, AI streaming, LiveKit, and storage are deliberately not built yet — they'll come back behind their own modules under `src/modules/`.
+
+Live endpoints:
+
+- `POST /auth/magic-link` — request a sign-in email (always returns `{ sent: true }`, anti-enumeration)
+- `GET /auth/callback?token=…` — verify token, set cookie, redirect to frontend
+- `POST /auth/signout` — clear cookie
+- `GET /auth/me` — current user (auth-gated)
+- `PATCH /auth/me` — update username / display name / avatar / `onboarded_at` (auth-gated)
+- `GET /auth/check-username?username=…` — availability probe
+
+See [`CLAUDE.md`](./CLAUDE.md) for the rules and conventions.
 
 ## Stack
 
-- **Supabase** — Auth (magic link), Postgres, Row Level Security, Realtime, Storage, Edge Functions
-- **Anthropic** — Claude Haiku 4.5 for the room-scoped AI assistant
-- **LiveKit Cloud** — voice channels
-- **Liveblocks** — collaborative notes (Yjs sync, called from frontend; nothing here)
-
-See [`../docs/`](../docs) for product, stack, and design context.
+| Layer | Tech |
+|---|---|
+| Runtime | Node ≥20, ESM (`"type": "module"`) |
+| HTTP | Express 4 |
+| DB | MongoDB 8 via Mongoose 9 |
+| Auth | Self-issued JWT (`jose`) in HttpOnly cookie |
+| Email | Resend (logs URL in dev when key is unset) |
+| Validation | Zod at every boundary |
+| Logging | Pino + pino-http |
 
 ## Prerequisites
 
-1. **Node.js 18+** (for the Supabase CLI npm install — optional, you can also use Homebrew)
-2. **A Supabase account** — sign up at [supabase.com](https://supabase.com) (free tier is fine)
-3. **An Anthropic API key** — get one at [console.anthropic.com](https://console.anthropic.com)
-4. **A LiveKit Cloud account** — sign up at [livekit.io/cloud](https://livekit.io/cloud) (free tier covers MVP)
+1. **Node.js ≥20**
+2. **Docker Desktop** (for local MongoDB) — or a MongoDB Atlas free-tier connection string if you'd rather not run Docker
+3. **A Resend account** — optional in dev; required to actually send magic-link emails in prod
+4. **An Anthropic API key** — only needed once the AI module is wired back in
+5. **A LiveKit Cloud account** — only needed once the voice module is wired back in
 
-## One-time setup
-
-### 1. Install the Supabase CLI
-
-```bash
-# macOS (recommended)
-brew install supabase/tap/supabase
-
-# Or via npm
-npm install -g supabase
-```
-
-Verify:
+## Local setup
 
 ```bash
-supabase --version
+cd backend
+npm install
+cp .env.example .env
+# Generate a real JWT secret (32 bytes minimum):
+node -e "require('fs').appendFileSync('.env','JWT_SECRET=' + require('crypto').randomBytes(32).toString('hex') + '\n')"
+# Boot MongoDB on :27017
+npm run db:up
+# (optional) seed a dev user (dev@wiscord.local)
+npm run db:seed
+# Start the API on http://localhost:3001
+npm run dev
 ```
 
-### 2. Create a Supabase project
+`docker info` must succeed before `db:up`. If you'd rather use Atlas, point `MONGODB_URI` at the cluster connection string and skip `db:up`.
 
-1. Go to [supabase.com/dashboard](https://supabase.com/dashboard) → **New project**
-2. Pick a name (e.g. `wiscord-dev`), set a database password (save it), choose a region close to you
-3. Wait ~2 minutes for the project to provision
-4. Copy these from **Project Settings → API**:
-   - Project URL (`https://xxxxx.supabase.co`)
-   - `anon` public key
-   - `service_role` key (keep secret — server-side only)
-5. Copy the **project ref** (the `xxxxx` part) from the URL
+In dev, leave `RESEND_API_KEY` empty — magic-link URLs print to the server log so you can paste them straight into the browser without sending real email.
 
-> Supabase recently renamed `anon` key → **publishable key** in the dashboard. They're the same thing functionally — safe to expose on the client. Use the env var name `VITE_SUPABASE_PUBLISHABLE_KEY` so future-you isn't confused.
+## Daily commands
 
-### 3. Link this repo to your Supabase project
-
-```bash
-supabase login              # opens browser, authenticates the CLI
-supabase link --project-ref <your-project-ref>
-```
-
-### 4. Push the schema + RLS policies to your project
-
-```bash
-supabase db push
-```
-
-This applies every migration in `supabase/migrations/` to your hosted Postgres.
-
-### 5. Configure secrets for Edge Functions
-
-```bash
-supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
-supabase secrets set LIVEKIT_API_KEY=API...
-supabase secrets set LIVEKIT_API_SECRET=...
-supabase secrets set LIVEKIT_URL=wss://your-project.livekit.cloud
-```
-
-### 6. Deploy Edge Functions
-
-```bash
-supabase functions deploy ai-ask
-supabase functions deploy livekit-token
-```
-
-### 7. (Frontend) Public env vars live in `../frontend/.env.example`
-
-The frontend folder needs **two** Supabase env vars. They're already templated in [`../frontend/.env.example`](../frontend/.env.example). When the Vite app is scaffolded, copy that to `../frontend/.env.local` and fill in the values from your Supabase project settings.
-
-LiveKit and Liveblocks will each add one more public env var (URL / public key) when those features are wired up — not needed yet.
+| Command | Description |
+|---|---|
+| `npm run dev` | Start the API in watch mode (tsx) |
+| `npm run build` | Type-check + emit to `dist/` |
+| `npm run start` | Run the built server |
+| `npm run typecheck` | Type-check only |
+| `npm run lint` / `lint:fix` | ESLint (zero warnings allowed) |
+| `npm test` / `test:watch` | Vitest |
+| `npm run db:up` | Boot MongoDB via `docker compose up -d` |
+| `npm run db:down` | Stop the Mongo container |
+| `npm run db:logs` | Tail Mongo logs |
+| `npm run db:seed` | Run `src/db/seed.ts` |
 
 ## Folder layout
 
 ```
 backend/
-├── README.md                  # this file
-├── CLAUDE.md                  # backend rules
-└── supabase/
-    ├── config.toml            # Supabase project config
-    ├── migrations/            # Versioned SQL migrations
-    │   ├── 20260512120000_initial_schema.sql
-    │   └── 20260512120100_rls_policies.sql
-    └── functions/             # Edge Functions (Deno + TypeScript)
-        ├── deno.json
-        ├── tsconfig.json
-        ├── types.d.ts
-        ├── ai-ask/            # POST → SSE stream from Anthropic
-        └── livekit-token/     # POST → signed LiveKit JWT
+├── README.md                # this file
+├── CLAUDE.md                # backend rules
+├── docker-compose.yml       # wiscord-mongo on :27017
+├── package.json
+├── tsconfig.json / tsconfig.build.json
+├── .env / .env.example
+├── src/
+│   ├── server.ts            # boots HTTP server, connects Mongo
+│   ├── app.ts               # createApp() — middleware + routers
+│   ├── db/
+│   │   ├── connect.ts       # mongoose.connect()
+│   │   ├── seed.ts
+│   │   ├── serialize.ts     # applySerialize(): _id → id in JSON output
+│   │   └── models/          # one Mongoose model per file
+│   ├── lib/                 # env, jwt, cookies, errors, logger
+│   ├── middleware/          # requireAuth, errorHandler
+│   └── modules/
+│       └── auth/
+│           ├── routes.ts    # HTTP shape only
+│           ├── service.ts   # business logic
+│           └── schemas.ts   # Zod schemas
+├── tests/
+└── .legacy-supabase/        # archived Supabase setup, reference only
 ```
 
-The workspace root holds shared concerns: [`../docs/`](../docs) (product context), [`../frontend/`](../frontend) (sibling app folder), `.gitignore`, `.vscode/`.
+## Schema overview (current)
 
-## Editor setup (one-time)
+| Model | Purpose |
+|---|---|
+| `User` | Account + profile (email, username, display name, avatar, `onboardedAt`) |
+| `MagicLinkToken` | Hashed one-time sign-in tokens with 15-minute TTL and `usedAt` lock |
 
-The Edge Functions in `supabase/functions/` run on **Deno**, not Node. Until you install the Deno VS Code extension, your editor will flag `npm:` imports, `.ts` extensions, and the `Deno` global as errors. They aren't — Supabase deploys them just fine.
+The legacy Supabase schema (servers, channels, messages, focus sessions, goals, notes, invites) is the porting target for the next slices and lives in [`./.legacy-supabase/migrations/`](./.legacy-supabase/migrations).
 
-To silence the warnings:
-
-1. Install the **Deno** VS Code extension (`denoland.vscode-deno`) — `.vscode/extensions.json` will prompt you.
-2. Reload the window. Deno's LSP picks up `supabase/functions/deno.json` automatically.
-3. The rest of the repo continues to use the standard TypeScript LSP.
-
-If you're not on VS Code, point your editor's Deno LSP at `supabase/functions/deno.json`.
-
-## Daily workflow
+## Reset the local database
 
 ```bash
-# Edit schema → create a new migration
-supabase migration new <descriptive_name>
-# ... write SQL in the new file ...
-supabase db push
+# Wipe volume + reseed (fresh start)
+npm run db:down
+docker volume rm wiscord-mongodata
+npm run db:up
+npm run db:seed
 
-# Edit an Edge Function → deploy
-supabase functions deploy <function_name>
-
-# Edit secrets
-supabase secrets set KEY=value
+# Or: drop just the wiscord database, keep the container running
+docker exec -it wiscord-mongo mongosh -u wiscord -p wiscord --authenticationDatabase admin \
+  --eval 'db.getSiblingDB("wiscord").dropDatabase()'
+npm run db:seed
 ```
 
-## Schema overview
+## What's coming next
 
-| Table | Purpose |
-|---|---|
-| `profiles` | Public user info (mirrors `auth.users`) |
-| `servers` | Top-level communities ("DSA Hub", "IELTS Prep") |
-| `server_members` | Membership rows (server_id, user_id) |
-| `channels` | Text / voice / notes channels inside a server |
-| `messages` | Chat messages (also AI context source) |
-| `focus_sessions` | Pomodoro sessions per channel |
-| `session_goals` | Each user's goal + completion per session |
-| `notes_snapshots` | Yjs document blob per channel, persisted on debounce |
-| `invites` | Invite codes that resolve to servers |
+When we re-add the rest of the surface, each gets its own module under `src/modules/`:
 
-See [`supabase/migrations/00_initial_schema.sql`](./supabase/migrations/00_initial_schema.sql) for full DDL.
+- `servers`, `channels`, `messages`, `members`, `invites` — REST CRUD with authz checks (replacing RLS)
+- `focus`, `notes` — same shape
+- `realtime` — Socket.IO gateway mounted on the same HTTP server
+- `ai` — SSE port of the legacy `ai-ask` Edge Function
+- `voice` — LiveKit JWT mint (legacy `livekit-token`)
+- `storage` — `multer` + local disk in dev, R2 in prod
+
+The archived legacy implementations under `.legacy-supabase/` are the reference for what to port.

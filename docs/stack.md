@@ -7,40 +7,54 @@
 - shadcn/ui (Radix primitives + Tailwind), themed to the tokens in [design.md](./design.md)
 - React Router (routing)
 - Zustand (client state)
-- TanStack Query (server state)
+- TanStack Query (server state, talks to the Express API)
 
 ## Backend
 
-- Supabase
-  - Auth
-  - Postgres
-  - Row Level Security
-  - Realtime subscriptions
-  - Storage
-  - Edge Functions
+- Node ≥20 + Express 4 + TypeScript (ESM)
+- Mongoose 9 against MongoDB 8
+- Self-issued JWT in an HttpOnly cookie (`jose`) for sessions
+- Magic-link sign-in via Resend (logs the URL to stdout in dev so no quota is burned)
+- Zod for env + request validation at every boundary
+- Pino + pino-http for structured logging
+- Single response envelope: `{ success, data?, error? }`
+
+The previous Supabase-based backend (Postgres + RLS + Edge Functions) is archived under [`../backend/.legacy-supabase/`](../backend/.legacy-supabase) and is the reference for porting the rest of the surface (channels, messages, realtime, AI, voice, storage) back into Express + Mongoose.
+
+## Realtime (planned)
+
+- Socket.IO gateway mounted on the same Express HTTP server
+- Same JWT cookie authenticates the WS upgrade
+- Event-based fan-out replaces Supabase Realtime CDC for chat, presence, typing, focus-session ticks, and notes sync
 
 ## Voice
 
 - LiveKit Cloud
-- Tokens minted in a Supabase Edge Function (never in the client)
+- Tokens minted by an Express endpoint, never in the client (`LIVEKIT_API_KEY` / `LIVEKIT_API_SECRET` stay server-side)
 
 ## AI
 
 - Anthropic API
-- Called from an Edge Function (key never exposed to the browser)
+- Called from an Express endpoint that streams tokens back over SSE; the API key never reaches the browser
+
+## Storage (planned)
+
+- `multer` + local disk in dev
+- Cloudflare R2 (or equivalent S3) for production uploads
 
 ## Hosting
 
-- Vercel
+- Frontend: Vercel
+- Backend: containerized Node service (Fly / Railway / Render — TBD); MongoDB via Atlas in production
 
 ## Hard security rule
 
-**No API keys in the React app.** All `VITE_` env vars are public — assume anything prefixed with `VITE_` is exposed to users. Anything secret (LiveKit token minting, Anthropic API calls) must run inside a Supabase Edge Function.
+**No secrets in the React app.** All `VITE_` env vars are public — assume anything prefixed with `VITE_` is exposed to users. Anything secret (LiveKit token minting, Anthropic calls, Resend keys, the JWT signing secret) lives in the backend `.env` (gitignored) and is only ever touched by the Express server.
 
 ## Why
 
-Supabase covers auth + DB + realtime + serverless in one tightly integrated surface, which keeps the one-month timeline realistic. LiveKit Cloud removes the need to run a media server. Pulling AI into an Edge Function is the only way to keep the Anthropic key server-side while still letting the React client trigger it.
+A small, opinionated Express + Mongoose stack gives us full control over the auth, realtime, and AI surfaces without coupling to a single managed platform. MongoDB matches the document-shaped nature of chat / notes / focus sessions without a heavy migration toolchain. LiveKit Cloud removes the need to run a media server. Streaming AI from a server endpoint is the only way to keep the Anthropic key off the client while still letting the React app trigger it.
 
 ## How to apply
 
-When adding any feature touching secrets (API keys, signing tokens, third-party auth), route it through an Edge Function — never embed in client code. When picking a library, prefer ones that fit Supabase's realtime/RLS model rather than introducing a parallel data layer. For UI, reach for shadcn/ui first — drop the components into the repo and theme them via the CSS variables that map to the tokens in [design.md](./design.md) rather than restyling per-component.
+When adding any feature touching secrets (API keys, signing tokens, third-party auth), route it through an Express endpoint — never embed in client code. When picking a frontend library, prefer ones that compose cleanly with TanStack Query + Socket.IO rather than introducing a parallel data layer. For UI, reach for shadcn/ui first — drop the components into the repo and theme them via the CSS variables that map to the tokens in [design.md](./design.md) rather than restyling per-component.

@@ -22,6 +22,7 @@ export const updateProfileBody = z
     display_name: z.string().min(1).max(64).nullable().optional(),
     avatar_url: z.string().url().nullable().optional(),
     onboarded_at: z.string().datetime().nullable().optional(),
+    voice_style: z.enum(['default', 'genz']).optional(),
   })
   .strict();
 export type UpdateProfileBody = z.infer<typeof updateProfileBody>;

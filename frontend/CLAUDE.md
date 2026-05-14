@@ -75,7 +75,7 @@ We are building a product for students, not a developer console. Every screen sh
 - **One accent per surface.** The blurple is the focal CTA. Don't paint every action blurple — a secondary action takes `variant="secondary"` or `variant="ghost"`, so the primary stays primary.
 - **Animate transitions, not just states.** When a step adds more controls (e.g. onboarding workspace step), the container should expand smoothly — not snap to a new width. Width / size transitions are an allowed exception to the `transform/opacity/filter` rule on auth and onboarding surfaces (not hot paths).
 - **Icons must mean something literal — and the icon belongs to the surface, not the subject matter.** Reserve "magic" icons — `Sparkles`, `Wand`, `Wand2`, `WandSparkles`, `Stars`, `Brain`, `Bot`, `Atom`, anything with motion lines or twinkles — exclusively for surfaces where AI is *the active mechanism*: the `ai-ask` composer where the user types the prompt, the streaming-response area where Claude's tokens appear, the citation chip attached to a specific generated answer. A surface that *talks about* AI is not the AI surface. Announcements, marketing banners, tips, tooltips, feature spotlights, empty-state copy, and onboarding cards that mention or promote an AI feature must pick a literal icon for the **surface itself** — `Megaphone` / `Bell` for an announcement, `Lightbulb` for a tip, `MessageCircleQuestion` for an "ask the room" suggestion — not a sparkle just because the subject matter is AI. The test: if the user is not *currently using* the AI on this exact pixel, no magic icon. Using a magic icon on a promo card about the AI makes the product read like an AI demo instead of a study app. For non-AI actions pick the most literal lucide icon available: `Plus` for create, `Users` for join/people, `Hash` for channels, `Pin` for pin, `Search` for search, `Settings` for settings, `Megaphone` for announcements, `Lightbulb` for tips, `MessageCircleQuestion` for "ask" prompts. If unsure, no icon is better than a misleading one.
-- **Only offer "back" when the prior step is actually undoable.** A `ChevronLeft + Back` affordance is only honest when the previous step has *not* yet committed to the backend — i.e. it lives entirely in client state until a final submit. Once a step has written to Supabase (created a profile, redeemed an invite, sent an email), going "back" would lie to the user because we can't undo the write. In those cases, omit the back button. Don't paper over irreversible state with reversible-looking UI. Same rule applies to server-creation wizards, settings deep-links, anything multi-step.
+- **Only offer "back" when the prior step is actually undoable.** A `ChevronLeft + Back` affordance is only honest when the previous step has *not* yet committed to the backend — i.e. it lives entirely in client state until a final submit. Once a step has written to the backend (created a profile, redeemed an invite, sent an email), going "back" would lie to the user because we can't undo the write. In those cases, omit the back button. Don't paper over irreversible state with reversible-looking UI. Same rule applies to server-creation wizards, settings deep-links, anything multi-step.
 
 ### UI matches `docs/design.md`
 
@@ -85,6 +85,50 @@ We are building a product for students, not a developer console. Every screen sh
 - **Typography uses the named UI scale.** App-shell text comes from the semantic font-size tokens (`text-badge`, `text-caption`, `text-control`, `text-tab`, `text-subhead`, `text-body`, `text-display`), not from Tailwind's built-in `text-xs/sm/base/lg` and not from arbitrary `text-[Npx]`. If the scale is missing a step, extend `fontSize` in the config — do not embed pixel literals in JSX
 - Surfaces follow the four-depth stack: `canvas` for the main pane, `surface-1` for sidebars/cards, `surface-2` for modals/popovers, `surface-3` only for deepest depth. `surface-callout` is reserved for raised callout cards sitting directly on `canvas` (right-rail empty states, banner cards)
 - The accent (`blurple` / `#5865F2`) is reserved for active states, CTAs, the focus timer ring, citation chips, and AI accents — used sparingly
+
+#### Glassmorphism — the shell sits on a wallpaper, so panels must pass light through
+
+The app shell is a single rounded glass slab floating over a body-level wallpaper (`AppShellLayout` paints `bg-glass-shell` + a single `backdrop-blur-glass`). Every panel, rail, card, and tile *inside* that shell must use the **glass-prefixed** tokens so the wallpaper bleeds through the layered translucency. Reaching for the opaque `surface-*` / `canvas` / `border-border` tokens inside the shell breaks the entire visual system — the offending element reads as a hard rectangle floating on top of the glass instead of part of it.
+
+**Translation table (use the right-hand column inside the shell):**
+
+| Opaque (don't use inside shell) | Glass equivalent (use this) | Where it goes |
+|---|---|---|
+| `bg-canvas` | *(omit — `AppShellLayout` already paints `bg-glass-canvas` on `main`)* | The main pane's scroll area |
+| `bg-surface-chrome` | `bg-glass-chrome` | The chrome rails (sidebar, top bar over main when no titleBar, right rail) |
+| `bg-surface-1` | `bg-glass-surface-1` | Cards / panels stacked on the canvas |
+| `bg-surface-callout` | `bg-glass-callout` | Raised callouts sitting on the canvas |
+| `bg-surface-2` | `bg-glass-surface-2` | Popovers, dropdown content (anywhere the wallpaper should still glow through) |
+| `border-border` | `border-glass-border` | Hairline border on a glass surface |
+| `border-border-strong` | `border-glass-border-strong` | Stronger glass-edge highlight |
+
+**Stays opaque (intentionally):**
+
+- `bg-surface-composer` — input field background. Inputs need a flat readable plate, not glass.
+- `bg-surface-hover` / `bg-surface-active` — interactive row states. These overlay on top of the chrome, so the parent already provides the glass.
+- Modal `Dialog` content backing — the `<DialogOverlay>` paints a near-opaque scrim over the wallpaper, so glass behind it has nothing to reveal. `bg-surface-2` is correct for `<DialogContent>`.
+- Anything that lives outside the shell (full-screen empty states, the auth scene, the sign-in card's outer page) — those have no glass shell to coordinate with.
+
+**The double-blur trap:** never apply `backdrop-blur-*` to a child of the shell. The shell owns the *only* blur — stacking blurs costs frames and reads as muddy. Inner zones layer translucent fills (`bg-glass-*`) only.
+
+**The single-component test:** if a component looks like a "card" floating on a "page" instead of a "layered translucent zone in a glass slab," it's reaching for opaque tokens. Convert to glass and re-check against an existing screen (voice lab, friends shell) to confirm the rhythm matches.
+
+### shadcn/ui — use primitives as designed
+
+When you need a UI primitive (dropdown, dialog, sheet, switch, select, form field, tooltip, button), **reach for the shadcn/ui component first**. Don't roll a hand-built replacement with raw `<div>` + `<button>` to fix an alignment or styling quirk — use the primitive's built-in props. Rolling custom loses Radix's keyboard handling, focus traps, ARIA roles, RTL support, and the project's consistent animation behavior; re-implementing those is invariably slower and worse than the shadcn original.
+
+- **Mixed-item dropdowns.** When a `<DropdownMenuContent>` contains a `DropdownMenuCheckboxItem` or `DropdownMenuRadioItem`, give every sibling `<DropdownMenuItem>` the `inset` prop. That aligns plain items under the indicator slot the checkbox/radio item reserves. Do not swap the checkbox out for a custom item to "fix alignment".
+- **Toggles in dropdowns** → `<DropdownMenuCheckboxItem>`. **Inline toggles in forms or panels** → shadcn `<Switch>`. Don't draw a custom "On / Off" pill.
+- **Modals / panels / confirmation prompts** → `<Dialog>`, `<Sheet>`, `<AlertDialog>`. No hand-built backdrop + content combos.
+- **Forms** → React Hook Form + Zod via shadcn `<Form>` / `<FormField>` / `<FormItem>` / `<FormControl>` / `<FormMessage>`. Don't render `<label>` + `<input>` + error `<span>` triads manually.
+- **Buttons** → shadcn `<Button>` with `variant` (`default | secondary | outline | ghost | destructive | link`) and `size` (`default | sm | lg | icon`). Icon-only buttons use `size="icon"`. Styling a raw `<button>` to look like a button is a code smell — the only exception is bespoke surfaces that look nothing like a button (a participant tile, a channel row), where the click target is the surface itself.
+- **Tooltips** → wrap the trigger in `<Tooltip><TooltipTrigger asChild>…</TooltipTrigger></Tooltip>`. Don't fall back to the native `title=""` attribute.
+- **Selects** → shadcn `<Select>`. Never raw `<select>`.
+- **Toasts** → the project's custom `lib/toast.ts` (see the Toasts rule below). Do not introduce `sonner`, browser `alert()` / `confirm()`, or any other surface.
+
+When customization is genuinely needed: extend the component's `className`, pass `asChild` to control the rendered element, or fork the file under `components/ui/` and edit it there (so the rest of the app picks up the change). The wrong answer is to compose primitives from scratch in feature code.
+
+**When custom is OK.** Feature-specific surfaces that aren't shadcn primitives in the first place — voice participant tiles, the connected-card chrome, channel rows, the focus timer ring. The rule above applies to *primitives* (dropdown, dialog, switch, …), not to every component.
 
 ### State management
 
@@ -116,7 +160,7 @@ We are building a product for students, not a developer console. Every screen sh
 3. **`enabled` for conditional queries** — never fetch with a falsy id
 4. **Optimistic updates** for chat send, message edit, goal check — with rollback in `onError`
 5. **Invalidate on mutation `onSettled`** — never call `refetch()` manually
-6. **Realtime subscriptions feed the query cache** — Supabase Realtime CDC handlers call `queryClient.setQueryData` or `invalidateQueries`, never dispatch into Zustand
+6. **Realtime subscriptions feed the query cache** — Socket.IO event handlers call `queryClient.setQueryData` or `invalidateQueries`, never dispatch into Zustand
 7. **Suspense for top-level routes** — paired with `ErrorBoundary` shells
 8. **DevTools** enabled in dev only (`import.meta.env.DEV`)
 9. **No nested queries inside components** — compose at hook level, render the joined result
@@ -126,15 +170,15 @@ We are building a product for students, not a developer console. Every screen sh
 
 I have a habit of writing the happy path and calling it done. The result is screens that *technically* compile but get stuck spinning, lie about state, or strand the user when something drifts. **Before merging any component that reads or writes data, walk this list out loud and either handle each case or explain in a comment why it's impossible here.**
 
-1. **Stale JWT / deleted user.** The browser has a token for a user that no longer exists on the server (DB reset, account deleted, project restored from backup). `getSession()` reads localStorage — it does **not** validate. Anything past the auth gate must either (a) be wrapped by a boot-time `getUser()` validation that signs the user out on failure, or (b) handle a 401/403 from the first server call by signing out, not by retrying.
+1. **Stale session cookie / deleted user.** The browser has a `wiscord_session` JWT cookie for a user that no longer exists on the server (DB reset, account deleted). The cookie verifies cryptographically but the user row is gone. Anything past the auth gate must either (a) be wrapped by a boot-time `GET /auth/me` validation that signs the user out on failure, or (b) handle a 401/403 from the first server call by clearing local state and routing to sign-in, not by retrying.
 2. **Query settled empty vs. query loading.** `data === undefined` and `data === null` mean different things. A "still loading" branch that only checks `!data` will spin forever the moment the server returns a legitimate empty result. Branch on `isLoading` / `isFetching`, not on truthiness of the data.
 3. **Retry exhaustion.** Profile-style queries with `retry: 3` will *eventually* settle. After that, "still no data" is signal, not noise — render an actionable error, not the skeleton again.
 4. **Orphaned realtime subscription.** A channel subscribed to a row that was just deleted will silently stop emitting. The component must check on mount that the underlying entity still exists, and unsubscribe cleanly on unmount.
 5. **Optimistic update with no rollback.** Every `onMutate` that writes to the cache needs an `onError` that puts the previous value back. The "I clicked send but the message vanished" bug always traces back here.
 6. **Partial commit across steps.** Multi-step flows that write to the backend mid-flow (onboarding, server creation) must be re-entrant: if the user reloads after step 1's commit, step 1's UI should detect the existing state and skip itself instead of trying to write again.
-7. **Realtime + cache drift.** A Supabase Realtime CDC handler that writes to `queryClient` must respect the same key shape as the query — otherwise the UI and the cache disagree silently. Always test by mutating from a second tab.
+7. **Realtime + cache drift.** A Socket.IO event handler that writes to `queryClient` must respect the same key shape as the query — otherwise the UI and the cache disagree silently. Always test by mutating from a second tab.
 8. **Network offline / 5xx.** The user toggles airplane mode for two seconds. The mutation throws. Does the UI surface a retry, or just stare at the user? `toast.error` + button-reset is the minimum.
-9. **Trigger race on first sign-up.** `handle_new_user` writes the profile row asynchronously. A race-condition retry is fine for the *first* sign-up, but is a smell on any later read. Don't retry forever — log and bail.
+9. **First sign-up state.** The backend's magic-link callback creates the `User` row synchronously before issuing the cookie, so the profile is guaranteed to exist by the time the redirect lands. If a `GET /auth/me` ever 404s after a successful callback, that's a bug — log loudly and bail, don't paper over it with retries.
 10. **Time zones and clock skew.** Anything that displays "X minutes ago" or expires after N seconds must source time from the server response (or `Date.now()` synchronously, never a stale prop). The user's laptop clock is a lie.
 
 If you can't tick a case off or rule it out, the surface is not done.
@@ -175,8 +219,9 @@ All endpoint access lives in `src/queries/`, one file per feature. Components an
 
 ```
 src/queries/
-├── client.ts        # Supabase client + edge-function invoker
+├── client.ts        # Typed API client (fetch wrapper, credentials: 'include') + Socket.IO singleton
 ├── keys.ts          # Hierarchical query-key factory
+├── auth.ts          # useMe, useRequestMagicLink, useSignout, useUpdateProfile
 ├── servers.ts       # useServers, useCreateServer, …
 ├── channels.ts      # useChannels, useCreateChannel, …
 ├── messages.ts      # useChannelMessages, useSendMessage, …
@@ -184,19 +229,19 @@ src/queries/
 ├── invites.ts
 ├── profiles.ts
 ├── focus.ts         # focus sessions + goals
-├── notes.ts         # snapshot read/write (Liveblocks is separate)
-├── presence.ts      # Supabase Presence
-├── typing.ts        # Realtime broadcast
-├── ai.ts            # SSE consumer for ai-ask
-└── voice.ts         # livekit-token fetch
+├── notes.ts         # snapshot read/write
+├── presence.ts      # Socket.IO presence
+├── typing.ts        # Socket.IO typing broadcast
+├── ai.ts            # SSE consumer for POST /ai/ask
+└── voice.ts         # POST /voice/token fetch
 ```
 
 **Hard rules (enforced by ESLint):**
 
-- `@supabase/supabase-js` may be imported **only** in `src/queries/client.ts`
-- `fetch()` calls outside `src/queries/` are forbidden (`no-restricted-syntax`)
-- No URL strings hardcoded anywhere in components or hooks
-- Edge Function calls go through a typed `invokeEdgeFunction(name, body)` helper in `queries/client.ts`
+- Raw `fetch()` calls outside `src/queries/` are forbidden (`no-restricted-syntax`) — components and hooks consume the typed query hooks only
+- No URL strings hardcoded anywhere in components or hooks — every endpoint lives behind a helper in `queries/`
+- Every request from `queries/client.ts` sends `credentials: 'include'` so the `wiscord_session` cookie rides along; never read it from `document.cookie`
+- The Socket.IO client is a singleton instantiated in `queries/client.ts` — feature files subscribe via small wrapper hooks, never `io()` directly
 
 ### `useEffect` discipline
 
@@ -204,7 +249,7 @@ Default answer: **don't use `useEffect`**. Question every one you write.
 
 Acceptable reasons to reach for it:
 
-1. Subscribing to an external system (Supabase Realtime channel, LiveKit room, browser event)
+1. Subscribing to an external system (Socket.IO event, LiveKit room, browser event)
 2. Syncing with a non-React API (DOM focus, `document.title`, IntersectionObserver)
 3. Imperative DOM work that React can't express (scroll-to-bottom on new message)
 4. Debounced or throttled commit of derived state (typing indicator emit, autosave)
@@ -218,7 +263,7 @@ If none of those fit, you almost certainly want one of:
 
 `react-hooks/exhaustive-deps: error` is enforced — silence it by refactoring, never by adding `// eslint-disable`.
 
-**Subscription cleanup is mandatory.** Every effect that subscribes (Realtime channel, LiveKit room, IntersectionObserver, `addEventListener`, `setInterval`) returns a cleanup function. PR review explicitly checks for this. The pattern is always:
+**Subscription cleanup is mandatory.** Every effect that subscribes (Socket.IO event, LiveKit room, IntersectionObserver, `addEventListener`, `setInterval`) returns a cleanup function. PR review explicitly checks for this. The pattern is always:
 
 ```ts
 useEffect(() => {
@@ -277,8 +322,8 @@ useEffect(() => {
 ### Imports & module boundaries
 
 - `components/` may import from `components/`, `hooks/`, `lib/`, `queries/`, and `types/`
-- `queries/` may import from `queries/`, `types/`, and `@supabase/supabase-js` (only `queries/client.ts`)
-- `lib/` is **pure** — no imports of `@supabase/*`, `react`, or anything I/O
+- `queries/` may import from `queries/`, `types/`, and `socket.io-client` (only `queries/client.ts`)
+- `lib/` is **pure** — no imports of `socket.io-client`, `react`, `fetch`, or anything I/O
 - `hooks/` may import from `queries/`, `lib/`, and `react` — never from `components/`
 
 ### Static assets (`public/`)

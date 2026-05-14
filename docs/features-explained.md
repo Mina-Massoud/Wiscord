@@ -1,0 +1,112 @@
+# Wiscord Features — Explained
+
+Each feature is a full-stack vertical slice. Tags: [DB] database · [RT] realtime · [AUTH] auth/authz · [UI] frontend · [AI] AI · [VO] voice.
+
+## Servers
+
+The Discord "guild" concept — top-level workspaces you join via invite.
+
+- **Server list rail** — left-edge vertical strip of server icons; click switches the active server.
+- **Create server (in-app)** — modal triggered from the rail (after onboarding) to spin up a new server you own.
+- **Invite links — generate & revoke** — admin UI to mint redeemable invite tokens and kill stale ones (calls an RPC for the redeem path).
+- **Leave / delete server** — confirm dialog; if the owner leaves, transfer ownership before delete.
+- **Server settings** — rename, swap icon, manage active invites.
+
+## Channels
+
+Rooms inside a server, either text or voice.
+
+- **Create channel** — pick text or voice, scoped to a server.
+- **Channel sidebar** — second column listing channels grouped by type (text above, voice below).
+- **Rename / delete channel** — gated by admin role checks in the channel service.
+- **Channel switcher** — keyboard nav (e.g. ⌘K), unread dots next to channel names.
+
+## Chat
+
+The core text conversation surface.
+
+- **Send & receive messages** — write to the `messages` collection, Socket.IO fans out a `message.created` event to other clients in the channel.
+- **Message history** — older messages paginated as you scroll up.
+- **Edit / delete own message** — soft delete (mark deleted, keep row) so threads don't fracture.
+- **Markdown rendering** — bold, italic, inline code, fenced code, links.
+- **Mentions** — `@username` autocomplete, highlight in message, notification entry for mentioned user.
+- **Typing indicator** — ephemeral Socket.IO broadcast (no DB write); "Mina is typing…".
+- **Reactions** — emoji picker per message, reaction counts sync in realtime.
+
+## Pomodoro (Synchronized Timer)
+
+The "heartbeat" feature — channel-wide focus timer everyone sees in sync.
+
+- **Start session** — anyone can kick it off with a duration; persists to DB so latecomers see the running timer.
+- **Set goal at start** — each user types a short "what I'll work on" before joining.
+- **Live countdown** — server-stamped end time + Socket.IO tick, so all clients render the same remaining time (clock-skew safe).
+- **End-of-session check-off** — when timer hits zero, prompt "did you hit your goal?" → boolean recorded.
+- **Break timer** — auto-transitions into a shorter break phase, then loops.
+
+## Presence
+
+Who's around and what they're doing.
+
+- **Status tracking** — three states: Focusing / On break / Idle.
+- **Member panel** — right column grouping members by status.
+- **Auto-status from Pomodoro** — joining a focus phase sets you to Focusing automatically.
+- **Manual override** — user can force a status regardless of timer state.
+
+## Voice Lounges
+
+WebRTC voice chat via LiveKit.
+
+- **Join / leave voice channel** — frontend fetches a short-lived JWT from the `POST /voice/token` Express endpoint (authz-gated), then connects.
+- **Mute / unmute** — local track toggle, broadcast to room.
+- **Speaking indicator** — visual ring around avatars actively transmitting.
+- **Voice participant list** — who's currently connected to this lounge.
+
+## Notes
+
+A shared scratchpad per channel for collaborative note-taking during study sessions.
+
+- **Shared notes doc per channel** — one textarea, multi-writer, realtime synced.
+- **Tabs in main pane** — toggle the main column between Chat and Notes for the same channel.
+- **Last-edited-by indicator** — show whose edit landed most recently.
+- **Notes autosave** — debounced writes to the `notes` collection (no manual save button).
+
+## AI Assistant (Room-Scoped)
+
+Claude scoped to the current channel's context — recent messages + the notes doc.
+
+- **Ask box per channel** — composer that says "Ask anything about this room".
+- **Context builder** — server-side, pulls last N messages and the notes blob for the channel.
+- **Streaming response** — Claude Haiku via the `POST /ai/ask` Express endpoint, tokens streamed back over SSE.
+- **Citations** — answer cites specific message IDs it pulled from, rendered as inline chips that scroll-to-source.
+- **Prompt caching** — stable system prompt + room context cached on Anthropic's side for cheaper repeat asks.
+
+## Notifications
+
+Unread tracking and attention signals.
+
+- **In-app unread counts** — per channel and aggregated per server.
+- **Mention badge** — distinct highlight when you're `@`-mentioned vs. generic unread.
+- **Sound toggle** — opt-in chime on mention only.
+
+## Layout & Navigation
+
+The visual shell that holds everything.
+
+- **Four-column shell** — server rail | channel sidebar | main pane (chat/notes) | members panel.
+- **Responsive collapse** — sidebars hide on narrow viewports.
+- **Theme tokens** — dark mode, blurple accent, four-tone background depth (see `docs/design.md`).
+- **Keyboard shortcuts** — channel switch, focus composer, toggle mute.
+
+## Infra & Polish
+
+The cross-cutting hygiene that makes the rest trustworthy.
+
+- **Authorization checks** — every read/write gated by server membership in the service layer; no unscoped find queries.
+- **Toast system** — global toaster + `toast.success/error/info/loading` helpers (custom impl, not sonner — see `frontend/CLAUDE.md`).
+- **Loading skeletons** — shape-matching skeletons for chat, members, notes (not generic spinners).
+- **Empty states** — designed copy + CTA for "no servers yet", "no channels", "no messages".
+- **E2E smoke tests** — Playwright covers invite → join → send message → start pomodoro.
+
+---
+
+Pick one full vertical and own it end-to-end (schema → authz checks → realtime wiring → UI → tests) before grabbing the next.

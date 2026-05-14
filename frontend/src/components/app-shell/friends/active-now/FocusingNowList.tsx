@@ -67,10 +67,7 @@ function FocusingNowRow({ room }: FocusingNowRowProps): React.JSX.Element {
       </span>
 
       <span className="flex shrink-0 items-center gap-1.5 leading-none">
-        <span
-          className="bg-presence-online size-1.5 rounded-pill"
-          aria-hidden
-        />
+        <span className="bg-presence-online rounded-pill size-1.5" aria-hidden />
         <span className="text-ink text-caption font-medium tabular-nums">{room.focusCount}</span>
         <span className="text-ink-subtle text-caption" aria-hidden>
           ·
@@ -93,10 +90,7 @@ interface SectionHeaderProps {
 function SectionHeader({ id, children }: SectionHeaderProps): React.JSX.Element {
   return (
     <div className="mt-4 flex items-center justify-between px-4 pb-1">
-      <span
-        id={id}
-        className="text-ink-subtle text-badge font-bold tracking-wider uppercase"
-      >
+      <span id={id} className="text-ink-subtle text-badge font-bold tracking-wider uppercase">
         {children}
       </span>
     </div>

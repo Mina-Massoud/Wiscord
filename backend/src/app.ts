@@ -11,6 +11,9 @@ import { ok } from './lib/response.js';
 import { requestId } from './middleware/requestId.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { authRouter } from './modules/auth/routes.js';
+import { voiceRouter } from './modules/voice/routes.js';
+import { quizRouter } from './modules/quiz/routes.js';
+import { whiteboardRouter } from './modules/whiteboard/routes.js';
 
 /**
  * Builds the Express app. Boot logic (port binding, Socket.IO attach) lives
@@ -52,6 +55,9 @@ export function createApp(): Express {
   app.use(health);
 
   app.use('/auth', authRouter);
+  app.use('/voice', voiceRouter);
+  app.use('/quiz', quizRouter);
+  app.use('/whiteboard', whiteboardRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

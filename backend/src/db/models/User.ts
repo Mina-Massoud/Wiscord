@@ -15,6 +15,11 @@ const userSchema = new Schema(
     displayName: { type: String, default: null, maxlength: 64 },
     avatarUrl: { type: String, default: null },
     onboardedAt: { type: Date, default: null },
+    voiceStyle: {
+      type: String,
+      enum: ['default', 'genz'],
+      default: 'default',
+    },
   },
   { timestamps: true, collection: 'users' },
 );

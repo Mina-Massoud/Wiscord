@@ -1,4 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
+import { io, type Socket } from 'socket.io-client';
+
+import type { QuizAnalyticsSnapshot } from '@/types/quiz';
 
 const apiUrl = import.meta.env['VITE_API_URL'] as string | undefined;
 
@@ -86,10 +89,64 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
   }
 
   if (!parsed.success) {
-    throw new ApiError(response.status, parsed.error.code, parsed.error.message, parsed.error.details);
+    throw new ApiError(
+      response.status,
+      parsed.error.code,
+      parsed.error.message,
+      parsed.error.details,
+    );
   }
 
   return parsed.data;
+}
+
+// ── Socket.IO realtime client (singleton) ──────────────────────────────────
+//
+// One persistent WebSocket per signed-in tab — this is the channel for every
+// realtime stream Wiscord adds (voice presence, message fanout, typing,
+// focus-session events). Feature files subscribe via tiny wrapper hooks; they
+// must never call `io()` themselves.
+//
+// Lazy-instantiated so cookieless visitors (sign-in, marketing routes) don't
+// open a connection until the session lands. We dial the same origin as the
+// REST API and let the browser carry the `wiscord_session` cookie via
+// `withCredentials`. The custom `/realtime` path keeps the socket from
+// colliding with any future SSE / Vite HMR endpoints.
+
+export interface VoiceStateChange {
+  channelId: string;
+  participants: Array<{ identity: string; name: string; joinedAt: number }>;
+}
+
+export interface ServerToClientEvents {
+  'voice:state_changed': (change: VoiceStateChange) => void;
+  'quiz:analytics_changed': (snapshot: QuizAnalyticsSnapshot) => void;
+}
+
+export interface ClientToServerEvents {
+  'quiz:subscribe_host': (quizId: string, ack: (ok: boolean) => void) => void;
+  'quiz:unsubscribe_host': (quizId: string) => void;
+}
+
+export type WiscordSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
+
+let socket: WiscordSocket | null = null;
+
+export function getSocket(): WiscordSocket {
+  if (socket) return socket;
+  socket = io(API_URL, {
+    path: '/realtime',
+    withCredentials: true,
+    transports: ['websocket'],
+    autoConnect: true,
+  });
+  return socket;
+}
+
+export function disconnectSocket(): void {
+  if (!socket) return;
+  socket.disconnect();
+  socket = null;
 }
 
 // ── TanStack QueryClient ────────────────────────────────────────────────────

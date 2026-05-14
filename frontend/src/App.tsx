@@ -16,6 +16,9 @@ const OnboardingLayout = lazy(() => import('@/pages/onboarding/OnboardingLayout'
 const ProfileStep = lazy(() => import('@/pages/onboarding/ProfileStep'));
 const AppShellPlaceholder = lazy(() => import('@/pages/app/AppShellPlaceholder'));
 const FriendsPage = lazy(() => import('@/pages/app/FriendsPage'));
+const VoiceLabPage = lazy(() => import('@/pages/app/labs/VoiceLabPage'));
+const QuizLabPage = lazy(() => import('@/pages/app/labs/QuizLabPage'));
+const QuizIndexPage = lazy(() => import('@/pages/app/labs/QuizIndexPage'));
 
 // ---------------------------------------------------------------------------
 // Shared fallback while a lazy chunk is in flight
@@ -73,6 +76,14 @@ export default function App(): React.JSX.Element {
               path="/app/servers/:serverId/channels/:channelId"
               element={<AppShellPlaceholder />}
             />
+            {/* Dev-only feature sandboxes — stripped from prod builds */}
+            {import.meta.env.DEV && (
+              <Route path="/app/labs/voice/:channelId" element={<VoiceLabPage />} />
+            )}
+            {import.meta.env.DEV && <Route path="/app/labs/quiz" element={<QuizIndexPage />} />}
+            {import.meta.env.DEV && (
+              <Route path="/app/labs/quiz/:channelId" element={<QuizLabPage />} />
+            )}
           </Route>
         </Route>
 

@@ -9,6 +9,9 @@ coverage
 # Local uploads (dev storage driver)
 uploads/
 
+# Load-test handoff (written by db:seed:loadtest, read by quiz:loadtest)
+src/db/.loadtest.json
+
 # Editor / OS
 .DS_Store
 .vscode/

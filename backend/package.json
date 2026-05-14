@@ -19,20 +19,27 @@
     "db:up": "docker compose up -d mongo",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f mongo",
-    "db:seed": "tsx src/db/seed.ts"
+    "db:seed": "tsx src/db/seed.ts",
+    "db:seed:loadtest": "tsx src/db/seed-quiz-loadtest.ts",
+    "quiz:loadtest": "tsx src/db/run-loadtest.ts"
   },
   "dependencies": {
+    "@tldraw/sync-core": "^5.0.0",
+    "cookie": "^1.1.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "helmet": "^8.0.0",
     "jose": "^6.2.3",
+    "livekit-server-sdk": "^2.15.3",
     "mongoose": "^9.6.2",
     "nanoid": "^5.0.9",
     "pino": "^9.5.0",
     "pino-http": "^10.3.0",
     "resend": "^6.12.3",
+    "socket.io": "^4.8.3",
+    "ws": "^8.18.0",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -41,6 +48,7 @@
     "@types/express": "^5.0.0",
     "@types/node": "^22.10.5",
     "@types/supertest": "^6.0.2",
+    "@types/ws": "^8.5.13",
     "@typescript-eslint/eslint-plugin": "^8.20.0",
     "@typescript-eslint/parser": "^8.20.0",
     "eslint": "^9.18.0",

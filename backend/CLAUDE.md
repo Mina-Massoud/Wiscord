@@ -120,7 +120,7 @@ Test files live in `tests/`. Use Vitest + Supertest. Every meaningful unit of be
 - Conventional commits: `feat`, `fix`, `chore`, `refactor`, `test`, `docs`, `perf`, `ci`.
 - Branch naming: `feat/<slug>`, `fix/<slug>`, etc.
 - No `--no-verify`, ever.
-- No secrets in code or `.env.example`. Real values live in `.env` (gitignored) and `supabase secrets set` (when Supabase is involved later).
+- No secrets in code or `.env.example`. Real values live in `.env` (gitignored) locally and in the deployment platform's secret store (Fly/Railway/Render config, never committed) in production.
 
 ---
 

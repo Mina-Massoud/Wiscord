@@ -60,4 +60,26 @@ export const qk = {
     root: ['notes'] as const,
     byChannel: (channelId: string) => ['notes', channelId] as const,
   },
+
+  voice: {
+    root: ['voice'] as const,
+    byChannel: (channelId: string) => ['voice', channelId] as const,
+    participants: (channelId: string) => ['voice', 'participants', channelId] as const,
+  },
+
+  quiz: {
+    root: ['quiz'] as const,
+    mine: () => ['quiz', 'mine'] as const,
+    byChannel: (channelId: string) => ['quiz', 'by-channel', channelId] as const,
+    byId: (quizId: string) => ['quiz', 'detail', quizId] as const,
+    attempts: (quizId: string) => ['quiz', 'attempts', quizId] as const,
+    myAttempt: (quizId: string) => ['quiz', 'my-attempt', quizId] as const,
+    analytics: (quizId: string) => ['quiz', 'analytics', quizId] as const,
+  },
+
+  whiteboard: {
+    root: ['whiteboard'] as const,
+    byChannel: (channelId: string) => ['whiteboard', channelId] as const,
+    snapshot: (channelId: string) => ['whiteboard', 'snapshot', channelId] as const,
+  },
 } as const;

@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import tailwindcssAnimate from 'tailwindcss-animate';
 
 const config: Config = {
   darkMode: ['class'],
@@ -72,6 +73,27 @@ const config: Config = {
         'presence-dnd': '#F23F43',
         'presence-offline': '#80848E',
 
+        // ── Whiteboard ──
+        // Canvas-specific surfaces and cursor palette. The 8 cursor colors
+        // are pre-tinted to read against a glass dark canvas — saturated
+        // enough to spot, never neon. `pickCursorColor(userId)` hashes a
+        // user id into one of these slots.
+        whiteboard: {
+          'canvas-tint': 'rgba(20, 20, 26, 0.42)',
+          'grid-dot': 'rgba(255, 255, 255, 0.06)',
+          'selection-ring': '#7B86F5',
+          'cursor-1': '#5865F2',
+          'cursor-2': '#EB459E',
+          'cursor-3': '#57F287',
+          'cursor-4': '#FEE75C',
+          'cursor-5': '#F0B232',
+          'cursor-6': '#23A55A',
+          'cursor-7': '#9D6BFF',
+          'cursor-8': '#3DDBD9',
+          'swatch-ink': '#DBDEE1',
+          'swatch-paper': '#F4ECD8',
+        },
+
         // ── shadcn/ui CSS-var bridge (maps to :root vars in globals.css) ──
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
@@ -126,7 +148,10 @@ const config: Config = {
         'server-list': '72px',
         'channel-list': '240px',
         'member-panel': '240px',
-        'now-panel': '340px',
+        'now-panel': '280px',
+        // Quiz workshop — left rail with the question list (wider than the
+        // channel list so titles + meta can breathe in two-line rows).
+        'quiz-list': '280px',
         // Layout heights
         'app-titlebar': '32px',
         'user-panel': '52px',
@@ -142,6 +167,11 @@ const config: Config = {
           'sans-serif',
         ],
         display: ['Abcgintodiscordnord', 'Montserrat', 'Arial', 'sans-serif'],
+        // Hand-written face for the whiteboard's text shapes + sticky notes —
+        // the "this is a study session, not a Figma file" signal. Loaded via
+        // tldraw-theme.css's @import so non-whiteboard routes don't pay for
+        // it.
+        handwritten: ['Caveat', 'Patrick Hand', 'Comic Neue', 'cursive'],
       },
 
       fontSize: {
@@ -196,6 +226,11 @@ const config: Config = {
     },
   },
   plugins: [
+    // shadcn/ui animations (`animate-in`, `fade-in-0`, `slide-in-from-top-2`,
+    // `data-[state=open]:…`) — required by DropdownMenu, Tooltip, Dialog, etc.
+    // Without this plugin those classes are no-ops and the components render
+    // without enter/exit transitions.
+    tailwindcssAnimate,
     // Tiny utility plugin: `cv-auto` opts in to content-visibility off-screen
     // skipping. Used on long virtualizable-but-not-yet-virtualized lists so the
     // browser skips render/layout/paint work for rows below the fold.

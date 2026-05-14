@@ -1,5 +1,7 @@
 import { Users, MessageSquarePlus } from 'lucide-react';
 import { cn } from '@/lib/cn';
+import { useCopy } from '@/lib/copy/useCopy';
+import type { CopyKey } from '@/lib/copy/registry';
 
 export type FriendsTab = 'online' | 'all' | 'suggestions' | 'add';
 
@@ -9,10 +11,10 @@ interface FriendsTopBarProps {
   onTabChange: (tab: FriendsTab) => void;
 }
 
-const TABS: Array<{ key: FriendsTab; label: string }> = [
-  { key: 'online', label: 'Focusing now' },
-  { key: 'all', label: 'All' },
-  { key: 'suggestions', label: 'Discover' },
+const TABS: Array<{ key: Exclude<FriendsTab, 'add'>; copyKey: CopyKey }> = [
+  { key: 'online', copyKey: 'friends.tab.online' },
+  { key: 'all', copyKey: 'friends.tab.all' },
+  { key: 'suggestions', copyKey: 'friends.tab.suggestions' },
 ];
 
 /**
@@ -25,11 +27,13 @@ export function FriendsTopBar({
   suggestionsCount,
   onTabChange,
 }: FriendsTopBarProps): React.JSX.Element {
+  const t = useCopy();
+
   return (
     <header className="border-b-glass-border flex h-12 shrink-0 items-center gap-4 border-b px-4">
       <div className="text-ink flex items-center gap-2">
         <Users className="text-ink-muted size-5" />
-        <span className="text-subhead font-semibold">Friends</span>
+        <span className="text-subhead font-semibold">{t('friends.title')}</span>
       </div>
 
       <span aria-hidden className="bg-glass-border h-5 w-px" />
@@ -47,7 +51,7 @@ export function FriendsTopBar({
                 : 'text-ink-muted hover:bg-glass-hover hover:text-ink',
             )}
           >
-            <span>{tab.label}</span>
+            <span>{t(tab.copyKey)}</span>
             {tab.key === 'suggestions' && suggestionsCount ? (
               <span className="bg-destructive text-badge inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 font-bold text-white">
                 {suggestionsCount > 99 ? '99+' : suggestionsCount}
@@ -65,7 +69,7 @@ export function FriendsTopBar({
           'bg-blurple hover:bg-blurple-hover text-white',
         )}
       >
-        Add Friend
+        {t('friends.add')}
       </button>
 
       <button

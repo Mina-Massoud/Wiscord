@@ -2,18 +2,17 @@
 
 Vite + React 19 + TypeScript + Tailwind v4 + shadcn/ui
 
+The app talks to the Node + Express + Mongoose backend in [`../backend/`](../backend). See [`CLAUDE.md`](./CLAUDE.md) for the rules and [`../docs/`](../docs) for product context.
+
 ## Required environment variables
 
-Copy `.env.example` to `.env.local` and fill in your values:
+Copy `.env.example` to `.env` and fill in your value:
 
 ```
-VITE_SUPABASE_URL=https://<your-project>.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+VITE_API_URL=http://localhost:3001
 ```
 
-**Redirect URL note:** Before testing magic-link sign-in, add
-`http://localhost:5173/auth/callback` to your Supabase Dashboard under
-**Authentication → URL Configuration → Redirect URLs**.
+Boot the backend first (`cd ../backend && npm run db:up && npm run dev`) so the API is live before you start the dev server. Magic-link URLs print to the backend log in dev — paste the link into the browser to complete sign-in without sending real email.
 
 ## Commands
 

@@ -78,6 +78,7 @@ export interface CurrentUserDto {
   display_name: string | null;
   avatar_url: string | null;
   onboarded_at: string | null;
+  voice_style: 'default' | 'genz';
   created_at: string;
   updated_at: string;
 }
@@ -93,6 +94,7 @@ export async function getCurrentUser(userId: string): Promise<CurrentUserDto> {
     display_name: user.displayName ?? null,
     avatar_url: user.avatarUrl ?? null,
     onboarded_at: user.onboardedAt ? user.onboardedAt.toISOString() : null,
+    voice_style: (user.voiceStyle ?? 'default') as 'default' | 'genz',
     created_at: user.createdAt.toISOString(),
     updated_at: user.updatedAt.toISOString(),
   };
@@ -119,6 +121,7 @@ export async function updateProfile(
   if (patch.onboarded_at !== undefined) {
     update.onboardedAt = patch.onboarded_at ? new Date(patch.onboarded_at) : null;
   }
+  if (patch.voice_style !== undefined) update.voiceStyle = patch.voice_style;
 
   await User.updateOne({ _id: userId }, { $set: update });
   return getCurrentUser(userId);

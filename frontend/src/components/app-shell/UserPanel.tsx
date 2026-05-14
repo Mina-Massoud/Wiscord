@@ -2,12 +2,14 @@ import { useNavigate } from 'react-router';
 import { Headphones, Mic, Settings } from 'lucide-react';
 
 import { useAuth } from '@/hooks/useAuth';
+import { useUpdateProfile } from '@/queries/profile';
 import { getIdenticonDataUrl } from '@/lib/avatar';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/cn';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -15,18 +17,43 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { PresenceDot } from './atoms/PresenceDot';
 
+interface UserPanelProps {
+  /**
+   * - `standalone` (default): renders with its own bordered chrome
+   *   (margins, rounded card, background) — used as the pinned bottom
+   *   pill on routes like FriendsPage.
+   * - `inset`: drops the outer chrome so the panel can sit inside a
+   *   shared container (e.g. the VoiceUserPanelGroup that stitches the
+   *   "Voice Connected" card and the user identity into one card).
+   */
+  variant?: 'standalone' | 'inset';
+}
+
 /**
  * Pinned bottom strip of the channel sidebar.
  * Shows the signed-in user's identity + voice/settings controls.
  * The settings cog opens a dropdown menu containing the sign-out action.
  */
-export function UserPanel(): React.JSX.Element {
+export function UserPanel({ variant = 'standalone' }: UserPanelProps = {}): React.JSX.Element {
   const navigate = useNavigate();
   const { profile, signOut } = useAuth();
+  const updateProfile = useUpdateProfile();
 
   const seed = profile?.username ?? profile?.email ?? 'unknown';
   const avatarSrc = profile?.avatar_url ?? getIdenticonDataUrl(seed);
   const displayName = profile?.display_name ?? profile?.username ?? 'You';
+  const isGenZ = profile?.voice_style === 'genz';
+
+  function handleToggleGenZ(checked: boolean): void {
+    updateProfile.mutate(
+      { voice_style: checked ? 'genz' : 'default' },
+      {
+        onError: () => {
+          toast.error("Couldn't save your voice preference. Try again?");
+        },
+      },
+    );
+  }
 
   async function handleSignOut(): Promise<void> {
     try {
@@ -44,8 +71,13 @@ export function UserPanel(): React.JSX.Element {
     }
   }
 
+  const containerClassName = cn(
+    'h-user-panel flex shrink-0 items-center gap-1 px-2',
+    variant === 'standalone' && 'bg-glass-callout border-glass-border mx-2 mb-2 rounded-lg border',
+  );
+
   return (
-    <div className="bg-glass-callout border-glass-border h-user-panel mx-2 mb-2 flex shrink-0 items-center gap-1 rounded-lg border px-2">
+    <div className={containerClassName}>
       <button
         type="button"
         className="hover:bg-glass-hover flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left transition-colors"
@@ -90,10 +122,30 @@ export function UserPanel(): React.JSX.Element {
           </TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="end" side="top" className="w-56">
-          <DropdownMenuItem disabled>Account (coming soon)</DropdownMenuItem>
-          <DropdownMenuItem disabled>Notifications (coming soon)</DropdownMenuItem>
+          {/*
+            shadcn convention: when a menu contains a CheckboxItem (which
+            reserves a `pl-8` indicator slot), every sibling Item gets
+            `inset` so they all align under that slot. Don't roll a custom
+            On/Off pill — let Radix handle the check indicator + a11y.
+          */}
+          <DropdownMenuItem inset disabled>
+            Account (coming soon)
+          </DropdownMenuItem>
+          <DropdownMenuItem inset disabled>
+            Notifications (coming soon)
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuCheckboxItem
+            checked={isGenZ}
+            onCheckedChange={handleToggleGenZ}
+            disabled={!profile || updateProfile.isPending}
+            onSelect={(e) => e.preventDefault()}
+          >
+            Gen Z mode
+          </DropdownMenuCheckboxItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
+            inset
             onSelect={() => {
               void handleSignOut();
             }}
