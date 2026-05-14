@@ -73,6 +73,22 @@ const config: Config = {
         'presence-dnd': '#F23F43',
         'presence-offline': '#80848E',
 
+        // ── Calendar category swatches ──
+        // Eight slugs covering the six study-domain built-ins plus two extras
+        // for user-defined categories. Component code uses a static lookup
+        // map (CATEGORY_COLOR_CLASSES) so Tailwind's purger picks every
+        // resulting class up at build time.
+        calendar: {
+          blurple: '#5865F2',
+          destructive: '#ED4245',
+          success: '#57F287',
+          warning: '#FEE75C',
+          violet: '#9D6BFF',
+          teal: '#3DDBD9',
+          pink: '#EB459E',
+          amber: '#F0B232',
+        },
+
         // ── Whiteboard ──
         // Canvas-specific surfaces and cursor palette. The 8 cursor colors
         // are pre-tinted to read against a glass dark canvas — saturated

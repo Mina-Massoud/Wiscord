@@ -1,6 +1,7 @@
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 import { Crown } from 'lucide-react';
 
+import { useAnimatedNumber } from '@/hooks/useAnimatedNumber';
 import { quizGenZ } from '@/lib/copy/quiz-genz';
 import { cn } from '@/lib/cn';
 import { useSession } from '@/queries/auth';
@@ -56,7 +57,9 @@ interface LeaderboardRowProps {
 }
 
 function LeaderboardRow({ row, rank, isMe }: LeaderboardRowProps): React.JSX.Element {
-  const pct = Math.round(row.score * 100);
+  const animatedScore = useAnimatedNumber(row.score);
+  const pct = Math.round(animatedScore * 100);
+  const literalPct = Math.round(row.score * 100);
   return (
     <li
       className={cn(
@@ -80,8 +83,11 @@ function LeaderboardRow({ row, rank, isMe }: LeaderboardRowProps): React.JSX.Ele
             : quizGenZ.leaderboard.pending}
         </span>
       </div>
-      <span className="text-ink text-subhead shrink-0 font-semibold tabular-nums">
-        {quizGenZ.leaderboard.scoreLine(pct)}
+      <span
+        className="text-ink text-subhead shrink-0 font-semibold tabular-nums"
+        aria-label={quizGenZ.leaderboard.scoreLine(literalPct)}
+      >
+        <span aria-hidden>{quizGenZ.leaderboard.scoreLine(pct)}</span>
       </span>
     </li>
   );

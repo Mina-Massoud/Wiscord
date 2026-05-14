@@ -63,12 +63,17 @@ WebRTC voice chat via LiveKit.
 
 ## Notes
 
-A shared scratchpad per channel for collaborative note-taking during study sessions.
+A shared markdown scratchpad per channel for collaborative note-taking during study sessions.
 
-- **Shared notes doc per channel** — one textarea, multi-writer, realtime synced.
-- **Tabs in main pane** — toggle the main column between Chat and Notes for the same channel.
-- **Last-edited-by indicator** — show whose edit landed most recently.
-- **Notes autosave** — debounced writes to the `notes` collection (no manual save button).
+- **TipTap rich editor** — headless ProseMirror editor styled with the Wiscord glass token system (`notes-prose.css`). StarterKit + Link + Placeholder enabled; markdown round-trip via `tiptap-markdown`. Bubble menu on selection (`@tiptap/react/menus`) for bold / italic / strike / inline code / link.
+- **Yjs CRDT, not OT** — text sync goes through `Y.Doc` so concurrent writers never lose characters or jump each other's cursors. The Y.Doc is the source of truth; no parallel REST snapshot path can clobber it.
+- **Realtime sync via Hocuspocus** — backend mounts a Hocuspocus server on the shared HTTP server at `/sync/notes/:channelId`. The upgrade gate (cookie-auth, Origin allowlist, UUID-shaped channelId) rejects unauthorized clients before the WS handshake completes. `onAuthenticate` pins the document name to the channelId from the verified cookie so a client can't swap to another channel's doc post-handshake.
+- **Persistence** — `ChannelNotes` Mongoose model stores the Y.Doc as a Buffer (`Y.encodeStateAsUpdate`). Hocuspocus debounces store calls at 2s / max 10s. On reconnect, `onLoadDocument` applies the stored update into a fresh Y.Doc so the room rebuilds with full merge history.
+- **Multi-cursor presence** — `CollaborationCaret` renders remote carets + name flags; cursor colour is the deterministic palette from `pickCursorColor(userId)` (shared with the whiteboard).
+- **Last-edited-by indicator** — derived from Yjs awareness, debounced 500ms so cursor blinks don't flicker the pill. Footer card shows either "Maya is editing" with the peer's colour dot, or "You're the only one here" when no peers are connected.
+- **Index + lab routes** — mirrors the whiteboard structure exactly. `/app/labs/notes` lists the docs the caller most recently edited (hero card + grid of `NotesBoardCard` tiles + sidebar of recents). `/app/labs/notes/:channelId` is the single-doc editor inside the standard app shell. Both DEV-only; both deleted when channels lands and Notes mounts as a tab inside the real channel route.
+- **REST listing** — `GET /notes/mine` returns `{ docs: NotesSummary[] }` (channelId / updatedAt / createdAt / updatedBy), filtered to docs where `updatedBy === userId`. `DELETE /notes/:channelId` wipes the persisted Yjs doc; connected clients see a fresh empty doc on their next Hocuspocus reconnect.
+- **Anti-double-blur** — the editor surface uses the project's glass tokens (`bg-glass-canvas`, `border-glass-border`) and intentionally never adds its own `backdrop-blur`; the app shell owns the only blur layer.
 
 ## Whiteboard
 

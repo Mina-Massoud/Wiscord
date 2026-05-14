@@ -10,6 +10,7 @@ import { logger } from '../../lib/logger.js';
 import { SESSION_COOKIE } from '../../lib/cookies.js';
 import { verifySessionToken } from '../../lib/jwt.js';
 import {
+  claimNotesDocOnConnect,
   getNotesDocName,
   hydrateNotesDoc,
   parseChannelIdFromDocName,
@@ -105,6 +106,37 @@ export function startNotesSyncGateway(httpServer: HttpServer): NotesSyncGateway 
       return document;
     },
 
+    async afterLoadDocument({ documentName, document, context }) {
+      // Whiteboard rooms auto-flush on connect (tldraw injects presence
+      // records into the synced store, which counts as a doc change).
+      // Yjs awareness is a separate ephemeral channel, so an empty Y.Doc
+      // never triggers `onStoreDocument` on its own — the doc would stay
+      // out of `/notes/mine` until the user typed a character. Claim the
+      // row here so a freshly-created note shows up in the labs index
+      // the moment the user lands on it, matching the whiteboard UX.
+      //
+      // `$setOnInsert` semantics: existing rows are untouched, so simply
+      // viewing someone else's doc never silently reassigns authorship.
+      const channelId = parseChannelIdFromDocName(documentName);
+      if (!channelId) return;
+      const userId = (context as Partial<NotesContext> | undefined)?.userId;
+      if (!userId) return;
+      try {
+        const { created } = await claimNotesDocOnConnect({
+          channelId,
+          userId,
+          doc: document as unknown as Y.Doc,
+        });
+        if (created) {
+          logger.info({ channelId, userId }, 'notes: doc claimed on first connect');
+        }
+      } catch (err) {
+        // Non-fatal: a missing claim row only affects the labs index,
+        // not the live editing experience. Log and move on.
+        logger.warn({ err, channelId }, 'notes: claim-on-connect failed');
+      }
+    },
+
     async onStoreDocument({ documentName, document, lastContext }) {
       const channelId = parseChannelIdFromDocName(documentName);
       if (!channelId) {
@@ -129,11 +161,40 @@ export function startNotesSyncGateway(httpServer: HttpServer): NotesSyncGateway 
     // Hocuspocus 4 wants a Fetch-like Request shape — IncomingMessage's
     // `.url` and `.headers` map closely enough that the runtime uses them
     // directly (it only reads `.url` and treats `.headers` as a dictionary).
-    hocuspocus.handleConnection(
+    const clientConnection = hocuspocus.handleConnection(
       ws as unknown as WebSocket,
       request as unknown as Request,
       context,
     );
+
+    // Crucial: Hocuspocus 4's `ClientConnection` does NOT subscribe to the
+    // WebSocket itself — the websocket adapter is expected to forward
+    // every frame via `clientConnection.handleMessage(data)`. Skipping
+    // this is silent: the WS stays open, but no messages reach Hocuspocus,
+    // so the Auth handshake never fires, no Document is created, and
+    // every client sees "you're the only one here". The official
+    // crossws adapter does the same plumbing — we're just hand-rolling
+    // it because we're on raw `ws` to share an HTTP server with Express.
+    ws.on('message', (data: Buffer | ArrayBuffer | Buffer[]) => {
+      const buf =
+        Buffer.isBuffer(data)
+          ? data
+          : Array.isArray(data)
+            ? Buffer.concat(data)
+            : Buffer.from(data);
+      clientConnection.handleMessage(
+        new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength),
+      );
+    });
+
+    // Reference the returned ClientConnection in error logging only —
+    // Hocuspocus has its own ping-timeout that catches dead sockets via
+    // the `check` interval, so the per-document teardown happens
+    // automatically when `ws.readyState` flips to Closed.
+    ws.on('error', (err) => {
+      logger.warn({ err, channelId: context.channelId }, 'notes: ws error');
+    });
+    void clientConnection;
   });
 
   httpServer.on('upgrade', (req, socket, head) => {

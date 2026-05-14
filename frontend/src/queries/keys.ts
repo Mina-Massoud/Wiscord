@@ -58,6 +58,7 @@ export const qk = {
 
   notes: {
     root: ['notes'] as const,
+    mine: () => ['notes', 'mine'] as const,
     byChannel: (channelId: string) => ['notes', channelId] as const,
   },
 
@@ -82,5 +83,22 @@ export const qk = {
     mine: () => ['whiteboard', 'mine'] as const,
     byChannel: (channelId: string) => ['whiteboard', channelId] as const,
     snapshot: (channelId: string) => ['whiteboard', 'snapshot', channelId] as const,
+  },
+
+  media: {
+    root: ['media'] as const,
+    byId: (id: string) => ['media', id] as const,
+    mine: () => ['media', 'mine'] as const,
+  },
+
+  calendar: {
+    root: ['calendar'] as const,
+    events: (scope: { channelId: string | null; from: string; to: string }) =>
+      ['calendar', 'events', scope.channelId ?? 'personal', scope.from, scope.to] as const,
+    eventsRoot: (channelId: string | null) =>
+      ['calendar', 'events', channelId ?? 'personal'] as const,
+    categories: (scope: 'user' | 'channel', ownerId: string) =>
+      ['calendar', 'categories', scope, ownerId] as const,
+    categoriesRoot: ['calendar', 'categories'] as const,
   },
 } as const;

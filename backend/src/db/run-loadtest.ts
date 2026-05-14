@@ -3,7 +3,7 @@ import path from 'node:path';
 import url from 'node:url';
 
 import { connectDb, disconnectDb } from './connect.js';
-import { User } from './models/index.js';
+import { Quiz, QuizAttempt, User } from './models/index.js';
 import { signSessionToken } from '../lib/jwt.js';
 import { SESSION_COOKIE } from '../lib/cookies.js';
 import {
@@ -107,6 +107,35 @@ interface Participant {
   userId: string;
   email: string;
   cookie: string;
+}
+
+/**
+ * Reset the quiz to an open state and clear any prior attempts. The host
+ * wrapping the quiz mid-demo is a normal workflow — re-running the loadtest
+ * after that should "just work", so we flip status back and wipe stale
+ * attempts (otherwise prior submitted attempts would block re-answering).
+ * The load-test quiz is dedicated demo data, so this only ever touches
+ * loadtest rows.
+ */
+async function ensureQuizReady(quizId: string): Promise<void> {
+  const quiz = await Quiz.findById(quizId);
+  if (!quiz) {
+    throw new Error(`quiz ${quizId} not found — run \`npm run db:seed:loadtest\` first`);
+  }
+
+  if (quiz.status !== 'open' && quiz.status !== 'live') {
+    console.warn(`[loadtest] quiz was "${quiz.status}" — reopening as async for the run`);
+    quiz.status = 'open';
+    quiz.mode = quiz.mode ?? 'async';
+    quiz.closedAt = null;
+    quiz.liveState = null;
+    await quiz.save();
+  }
+
+  const cleared = await QuizAttempt.deleteMany({ quizId });
+  if (cleared.deletedCount && cleared.deletedCount > 0) {
+    console.warn(`[loadtest] cleared ${cleared.deletedCount} prior attempts for a fresh run`);
+  }
 }
 
 async function buildParticipants(summary: SeedSummary): Promise<Participant[]> {
@@ -407,6 +436,7 @@ async function main(): Promise<void> {
   await ensureBackendUp(options.apiUrl);
 
   await connectDb();
+  await ensureQuizReady(summary.quizId);
   const participants = await buildParticipants(summary);
   await disconnectDb();
 

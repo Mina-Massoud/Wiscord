@@ -118,14 +118,23 @@ export interface VoiceStateChange {
   participants: Array<{ identity: string; name: string; joinedAt: number }>;
 }
 
+export interface CalendarEventChanged {
+  kind: 'created' | 'updated' | 'deleted';
+  channelId: string | null;
+  eventId: string;
+}
+
 export interface ServerToClientEvents {
   'voice:state_changed': (change: VoiceStateChange) => void;
   'quiz:analytics_changed': (snapshot: QuizAnalyticsSnapshot) => void;
+  'calendar:event_changed': (change: CalendarEventChanged) => void;
 }
 
 export interface ClientToServerEvents {
   'quiz:subscribe_host': (quizId: string, ack: (ok: boolean) => void) => void;
   'quiz:unsubscribe_host': (quizId: string) => void;
+  'calendar:subscribe_channel': (channelId: string, ack: (ok: boolean) => void) => void;
+  'calendar:unsubscribe_channel': (channelId: string) => void;
 }
 
 export type WiscordSocket = Socket<ServerToClientEvents, ClientToServerEvents>;

@@ -1,5 +1,5 @@
 import { type Editor } from '@tiptap/core';
-import { BubbleMenu } from '@tiptap/react';
+import { BubbleMenu } from '@tiptap/react/menus';
 import { Bold, Code, Italic, Link as LinkIcon, Strikethrough } from 'lucide-react';
 
 import { cn } from '@/lib/cn';
@@ -18,16 +18,13 @@ interface NotesBubbleMenuProps {
  * insertion. Headings and lists are reached via markdown shortcuts
  * (`# heading`, `- list`, `> quote`) and the `tiptap-markdown` input rules.
  */
-export function NotesBubbleMenu({
-  editor,
-}: NotesBubbleMenuProps): React.JSX.Element | null {
+export function NotesBubbleMenu({ editor }: NotesBubbleMenuProps): React.JSX.Element | null {
   if (!editor) return null;
 
   return (
     <BubbleMenu
       editor={editor}
-      tippyOptions={{ duration: 100, placement: 'top' }}
-      className="bg-glass-surface-2 border-glass-border flex items-center gap-1 rounded-md border p-1 shadow-elevated backdrop-blur-glass-sm"
+      className="bg-glass-surface-2 border-glass-border shadow-elevated backdrop-blur-glass-sm flex items-center gap-1 rounded-md border p-1"
     >
       <BubbleButton
         active={editor.isActive('bold')}
@@ -85,12 +82,7 @@ interface BubbleButtonProps {
   children: React.ReactNode;
 }
 
-function BubbleButton({
-  active,
-  onClick,
-  label,
-  children,
-}: BubbleButtonProps): React.JSX.Element {
+function BubbleButton({ active, onClick, label, children }: BubbleButtonProps): React.JSX.Element {
   return (
     <button
       type="button"

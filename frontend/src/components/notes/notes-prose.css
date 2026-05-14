@@ -3,13 +3,21 @@
  * Lives next to the editor instead of in globals.css because it only renders
  * when the Notes tab is mounted (route-level code splitting).
  *
- * No @tailwindcss/typography — that plugin's prose classes assume a white-on-
- * black ramp and fight every glass token we ship. Hand-rolled rules below
+ * No @tailwindcss/typography — that plugin's prose ramp assumes a white-on-
+ * black baseline and fights every glass token we ship. Hand-rolled rules
  * map node → token so headings, code, lists, and blockquotes all read as
  * part of the same surface as the rest of the app.
  *
  * The editor container has class `notes-prose`. Every rule scopes under it
  * so nothing leaks to the rest of the page.
+ *
+ * Class naming note: TipTap v3's `@tiptap/extension-collaboration-caret`
+ * (the rename of `extension-collaboration-cursor`) emits the carets and
+ * selection highlights under the **plural** `collaboration-carets__*`
+ * namespace — not the legacy singular `collaboration-cursor__*` from v2.
+ * If you copy-paste examples from older docs, the styles silently no-op
+ * and remote labels render as full-width block `<div>`s instead of tiny
+ * floating pills.
  */
 
 .notes-prose {
@@ -17,10 +25,9 @@
   font-family:
     'Abcgintodiscord', 'Inter', 'GGSans', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 16px;
-  line-height: 1.6;
+  line-height: 1.65;
   letter-spacing: 0;
-  /* Yjs collaboration cursors are positioned absolute relative to the editor
-     so the container must establish a positioning context. */
+  /* Establish the positioning context for inline cursor decorations. */
   position: relative;
 }
 
@@ -32,27 +39,30 @@
 /* Headings — anchored to the existing UI font scale, not the prose plugin's
    ramp, so the editor stays consistent with the rest of the shell. */
 .notes-prose h1 {
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   line-height: 1.2;
   margin-top: 1.5em;
-  margin-bottom: 0.5em;
+  margin-bottom: 0.4em;
+  color: #ffffff;
 }
 .notes-prose h2 {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 600;
   letter-spacing: -0.005em;
   line-height: 1.25;
   margin-top: 1.4em;
-  margin-bottom: 0.5em;
+  margin-bottom: 0.4em;
+  color: #ffffff;
 }
 .notes-prose h3 {
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 600;
   line-height: 1.3;
   margin-top: 1.2em;
-  margin-bottom: 0.4em;
+  margin-bottom: 0.35em;
+  color: #ffffff;
 }
 
 .notes-prose p {
@@ -76,43 +86,46 @@
 .notes-prose a {
   color: var(--blurple, #5865f2);
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 3px;
   text-decoration-thickness: 1px;
+  text-decoration-color: rgba(88, 101, 242, 0.45);
+  transition: text-decoration-color 150ms ease-out;
 }
 .notes-prose a:hover {
   color: var(--blurple-hover, #4752c4);
+  text-decoration-color: currentColor;
 }
 
 /* Inline code + code blocks share the same composer surface so they read
    as "this is verbatim" without painting a foreign block of color. */
 .notes-prose code {
   font-family: 'JetBrains Mono', 'Menlo', ui-monospace, monospace;
-  font-size: 0.9em;
+  font-size: 0.875em;
   background: rgba(255, 255, 255, 0.06);
-  padding: 0.1em 0.35em;
+  padding: 0.1em 0.4em;
   border-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 .notes-prose pre {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.32);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-  padding: 12px 16px;
+  border-radius: 10px;
+  padding: 14px 18px;
   overflow-x: auto;
-  margin: 0.75em 0;
+  margin: 0.9em 0;
 }
 .notes-prose pre code {
   background: transparent;
   border: 0;
   padding: 0;
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 .notes-prose blockquote {
   border-left: 2px solid var(--blurple, #5865f2);
-  padding-left: 12px;
-  margin: 0.75em 0;
+  padding-left: 14px;
+  margin: 0.9em 0;
   color: var(--ink-muted, #949ba4);
   font-style: italic;
 }
@@ -123,7 +136,7 @@
   padding-left: 1.4em;
 }
 .notes-prose li {
-  margin: 0.2em 0;
+  margin: 0.18em 0;
 }
 .notes-prose ul {
   list-style: disc;
@@ -135,9 +148,8 @@
   list-style: circle;
 }
 
-/* Empty-document placeholder — shows when the doc has exactly one empty
-   paragraph and the editor isn't focused. Driven by StarterKit's
-   `Placeholder` extension which adds `is-editor-empty` to that node. */
+/* StarterKit Placeholder inline hint — shown when the doc has exactly one
+   empty paragraph. Quiet grey so it disappears the moment the user types. */
 .notes-prose p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   color: var(--ink-subtle, #6d6f78);
@@ -146,35 +158,81 @@
   pointer-events: none;
 }
 
-/* Collaboration cursors — the remote user's caret + name flag. Color is
-   injected per-user via inline `style` (set by CollaborationCursor); we
-   handle the geometry and the flag bubble shape here. */
-.collaboration-cursor__caret {
+/* ---------------------------------------------------------------------------
+ * Remote cursor + selection styling — TipTap v3 plural class names.
+ *
+ * The caret is an inline-block zero-width span with a colored left border
+ * (the caret stroke). The label is a positioned `<div>` child whose
+ * inline `style="background-color: …"` carries the user's color. The
+ * extension's default `render()` doesn't add any padding/sizing on the
+ * label, so without these rules it renders as a block element that fills
+ * the line — appearing as a giant colored bar above the placeholder.
+ * ------------------------------------------------------------------------- */
+
+.notes-prose .collaboration-carets__caret {
+  position: relative;
+  display: inline-block;
+  width: 0;
+  height: 1.1em;
   border-left: 2px solid;
   border-right: 0;
-  position: relative;
   margin-left: -1px;
   margin-right: -1px;
   pointer-events: none;
   word-break: normal;
+  vertical-align: text-bottom;
 }
-.collaboration-cursor__label {
+
+.notes-prose .collaboration-carets__label {
   position: absolute;
-  top: -1.4em;
+  bottom: 100%;
   left: -1px;
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 2px;
+  padding: 2px 6px;
+  border-radius: 4px 4px 4px 0;
+  font-family: inherit;
   font-size: 11px;
   font-weight: 600;
   line-height: 1;
-  padding: 2px 6px;
-  border-radius: 4px 4px 4px 0;
+  letter-spacing: 0;
   color: #ffffff;
-  user-select: none;
   white-space: nowrap;
-  background-color: inherit;
+  user-select: none;
+  pointer-events: none;
+  /* Avoid casting a shadow that would smudge the dark canvas. */
+  box-shadow: none;
+  /* Soften the label so it doesn't feel like a sticker on the page. */
+  opacity: 0.95;
 }
 
-/* Selection — match the blurple accent so the editor visually belongs to
-   Wiscord, not to ProseMirror's stock blue. */
+/* Selection highlight when a remote user has a range selected. */
+.notes-prose .collaboration-carets__selection {
+  /* The inline style sets background-color: rgba(<userColor>, 0.4) via the
+     extension's defaultSelectionBuilder. Just tighten the radius so it
+     reads as a soft highlight, not a hard rectangle. */
+  border-radius: 2px;
+  padding: 0 1px;
+  margin: 0 -1px;
+}
+
+/* Native selection — keep blurple-tinted so the editor visually belongs
+   to Wiscord, not to ProseMirror's stock blue. */
 .notes-prose ::selection {
   background: rgba(88, 101, 242, 0.35);
+}
+
+/* Inline images dropped or pasted into the document. Stay inside the
+   reading column, keep the glass-token rounded corner language, and
+   honor the prose rhythm with vertical breathing room. */
+.notes-prose .notes-image,
+.notes-prose img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.25rem auto;
+  border-radius: 0.75rem;
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.06));
+  background-color: rgba(0, 0, 0, 0.2);
 }

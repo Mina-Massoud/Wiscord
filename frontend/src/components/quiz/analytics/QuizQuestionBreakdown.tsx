@@ -103,8 +103,8 @@ function DistributionList({ row, max }: DistributionListProps): React.JSX.Elemen
             className="bg-glass-callout border-glass-border flex items-center justify-between gap-3 rounded-md border px-3 py-2"
           >
             <span className="text-ink text-control min-w-0 flex-1 truncate">{bucket.label}</span>
-            <span className="text-ink-muted text-caption shrink-0">
-              {quizGenZ.perQuestion.pickedThis(bucket.count)}
+            <span className="text-ink-muted text-caption shrink-0 tabular-nums">
+              <AnimatedPicked count={bucket.count} />
             </span>
           </li>
         ))}
@@ -130,12 +130,30 @@ function DistributionList({ row, max }: DistributionListProps): React.JSX.Elemen
                 <AnimatedCount value={bucket.count} />
               </span>
             </div>
-            <AnimatedBar fill={fill} isCorrect={isCorrect} />
+            <div className="bg-glass-callout rounded-pill h-2 overflow-hidden" role="presentation">
+              <div
+                className={cn(
+                  'rounded-pill duration-base h-full transition-all',
+                  isCorrect ? 'bg-success' : 'bg-blurple/70',
+                )}
+                style={{ width: `${fill}%` }}
+              />
+            </div>
           </li>
         );
       })}
     </ul>
   );
+}
+
+function AnimatedCount({ value }: { value: number }): React.JSX.Element {
+  const animated = useAnimatedNumber(value);
+  return <>{Math.round(animated)}</>;
+}
+
+function AnimatedPicked({ count }: { count: number }): React.JSX.Element {
+  const animated = useAnimatedNumber(count);
+  return <>{quizGenZ.perQuestion.pickedThis(Math.round(animated))}</>;
 }
 
 function correctKeysFromRow(row: QuestionRow): Set<string> {

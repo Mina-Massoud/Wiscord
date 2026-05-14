@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { Pencil } from 'lucide-react';
 
 import { useAuth } from '@/hooks/useAuth';
 import { funnyTitle } from '@/lib/funny-title';
 import { pickCursorColor } from '@/lib/tldraw-theme';
-import type { WhiteboardIdentity } from '@/types/whiteboard';
+import { useMyWhiteboards } from '@/queries/whiteboard';
+import type { WhiteboardIdentity, WhiteboardSummary } from '@/types/whiteboard';
 
 import { AppShellLayout } from '@/components/app-shell/AppShellLayout';
 import { AppTitleBar } from '@/components/app-shell/AppTitleBar';
@@ -16,6 +17,7 @@ import { ActiveNowPanel } from '@/components/app-shell/friends/ActiveNowPanel';
 import { WhiteboardCanvas } from '@/components/whiteboard/WhiteboardCanvas';
 import { WhiteboardFullscreenToggle } from '@/components/whiteboard/WhiteboardFullscreenToggle';
 import { WhiteboardLogoMark } from '@/components/whiteboard/WhiteboardLogoMark';
+import { WhiteboardSidebar } from '@/components/whiteboard/WhiteboardSidebar';
 
 /**
  * Dev-only whiteboard lab mounted at `/app/labs/whiteboard/:channelId`.
@@ -36,9 +38,24 @@ import { WhiteboardLogoMark } from '@/components/whiteboard/WhiteboardLogoMark';
 export default function WhiteboardLabPage(): React.JSX.Element {
   const { channelId } = useParams<{ channelId: string }>();
   const { profile } = useAuth();
+  const navigate = useNavigate();
+  const list = useMyWhiteboards();
   const title = useMemo(() => (channelId ? funnyTitle(channelId) : ''), [channelId]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const toggleFullscreen = useCallback(() => setIsFullscreen((v) => !v), []);
+
+  const boards = useMemo<WhiteboardSummary[]>(() => list.data?.boards ?? [], [list.data]);
+
+  const goToBoard = useCallback(
+    (target: string): void => {
+      navigate(`/app/labs/whiteboard/${target}`);
+    },
+    [navigate],
+  );
+
+  const createBoard = useCallback((): void => {
+    goToBoard(crypto.randomUUID());
+  }, [goToBoard]);
 
   // Escape exits focus mode — only listen while we're actually in it so
   // the key still bubbles to tldraw (its own deselect / cancel uses Esc)
@@ -94,6 +111,16 @@ export default function WhiteboardLabPage(): React.JSX.Element {
     <AppShellLayout
       titleBar={<AppTitleBar title={`Whiteboard · ${title}`} />}
       serverRail={<ServerRail />}
+      sidebar={
+        <WhiteboardSidebar
+          boards={boards}
+          isLoading={list.isLoading}
+          isError={list.isError}
+          activeChannelId={channelId}
+          onOpen={goToBoard}
+          onCreate={createBoard}
+        />
+      }
       userPanel={<UserPanel />}
       topBar={
         <header className="border-glass-border h-app-titlebar flex shrink-0 items-center gap-2 border-b px-4">

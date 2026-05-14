@@ -20,9 +20,16 @@ interface SessionSocketData {
  * statically enforces the payload type at every emit site, which catches
  * mismatches between the gateway and frontend listeners at compile time.
  */
+export interface CalendarEventChanged {
+  kind: 'created' | 'updated' | 'deleted';
+  channelId: string | null;
+  eventId: string;
+}
+
 export interface ServerToClientEvents {
   'voice:state_changed': (change: VoiceStateChange) => void;
   'quiz:analytics_changed': (snapshot: QuizAnalyticsSnapshot) => void;
+  'calendar:event_changed': (change: CalendarEventChanged) => void;
 }
 
 interface ClientToServerEvents {
@@ -35,6 +42,13 @@ interface ClientToServerEvents {
    */
   'quiz:subscribe_host': (quizId: string, ack: (ok: boolean) => void) => void;
   'quiz:unsubscribe_host': (quizId: string) => void;
+  /**
+   * Channel calendar subscribe. v1 trusts any authed caller to subscribe
+   * (matches the existing channel-scoped routes); a real membership check
+   * lands when the channels module ships.
+   */
+  'calendar:subscribe_channel': (channelId: string, ack: (ok: boolean) => void) => void;
+  'calendar:unsubscribe_channel': (channelId: string) => void;
 }
 
 type WiscordIoServer = IoServer<
@@ -45,6 +59,8 @@ type WiscordIoServer = IoServer<
 >;
 
 let io: WiscordIoServer | null = null;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * One Socket.IO server per backend process. Wired up from `server.ts` after
@@ -133,6 +149,20 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
     socket.on('quiz:unsubscribe_host', (quizId) => {
       if (typeof quizId !== 'string') return;
       void socket.leave(`quiz:${quizId}:host`);
+    });
+
+    socket.on('calendar:subscribe_channel', async (channelId, ack) => {
+      if (typeof channelId !== 'string' || !UUID_RE.test(channelId)) {
+        ack(false);
+        return;
+      }
+      await socket.join(`channel:${channelId}:calendar`);
+      ack(true);
+    });
+
+    socket.on('calendar:unsubscribe_channel', (channelId) => {
+      if (typeof channelId !== 'string') return;
+      void socket.leave(`channel:${channelId}:calendar`);
     });
 
     socket.on('disconnect', (reason) => {

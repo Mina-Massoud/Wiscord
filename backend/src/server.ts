@@ -6,6 +6,7 @@ import { startRealtimeGateway } from './modules/realtime/gateway.js';
 import { startNotesSyncGateway } from './modules/realtime/notes-gateway.js';
 import { livekitPresencePoller } from './modules/voice/livekit-presence-poller.js';
 import { startWhiteboardSyncGateway } from './modules/whiteboard/sync-gateway.js';
+import { warmTelegramClient } from './modules/storage/telegram-client.js';
 
 // Block boot on DB readiness — we never want to serve before mongo is up.
 await connectDb();
@@ -30,6 +31,12 @@ const whiteboardGateway = startWhiteboardSyncGateway(server);
 // Hocuspocus gateway for collaborative notes. Same shared HTTP server,
 // claims `/sync/notes/:channelId` upgrades. Other prefixes pass through.
 const notesGateway = startNotesSyncGateway(server);
+
+// Connect to Telegram up-front so the first /storage/upload doesn't pay the
+// ~1s MTProto handshake. No-ops when storage credentials aren't configured.
+void warmTelegramClient().catch((err) => {
+  logger.warn({ err }, 'telegram: warm-up failed — storage will retry on first request');
+});
 
 // Graceful shutdown — let in-flight requests finish, then quit.
 function shutdown(signal: NodeJS.Signals): void {

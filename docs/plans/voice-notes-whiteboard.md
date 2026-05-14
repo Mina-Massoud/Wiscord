@@ -134,13 +134,37 @@ frontend/src/pages/app/labs/VoiceLabPage.tsx
 
 ---
 
-## Phase 2 — Notes (later, after voice ships)
+## Phase 2 — Notes (SHIPPED — 2026-05-14)
 
-Yjs + Hocuspocus, mounted on the same Express HTTP server. Single `http.createServer` shared by Express and Hocuspocus, with the upgrade event routed by URL path. `onAuthenticate` hook validates the same `wiscord_session` cookie as the REST API.
+Yjs + Hocuspocus + TipTap (rich markdown editor). Mounted on the same Express HTTP server as the REST API + Socket.IO + tldraw sync. The shared HTTP server's `upgrade` event is path-dispatched: `/sync/notes/:channelId` → Hocuspocus, `/sync/whiteboard/:channelId` → tldraw, `/realtime` → Socket.IO, anything else is left for the next listener.
 
-- Backend module `src/modules/realtime/yjs.ts` (or similar) wires Hocuspocus.
-- Mongoose model `ChannelNotes` stores the Yjs binary doc as `Buffer` plus an optional plaintext mirror for search/AI later.
-- Frontend route `/labs/notes/:channelId` binds a `Y.Text` to a textarea; awareness payload carries `{ userId, displayName, color }` from the existing auth user; debounced server-side snapshot via Hocuspocus `onStoreDocument`.
+**Backend (`src/modules/realtime/`):**
+
+- `notes-persistence.ts` — pure Mongo I/O. `loadNotesUpdate` / `persistNotesDoc` (upserts a `Buffer` from `Y.encodeStateAsUpdate`) / `hydrateNotesDoc` (applies stored update into a fresh `Y.Doc`). Document name scheme is `channel:{uuid}:notes`; `parseChannelIdFromDocName` validates the UUID portion.
+- `notes-gateway.ts` — `startNotesSyncGateway(httpServer)` creates a `new Hocuspocus(...)` with `debounce: 2000 / maxDebounce: 10000`. The pre-handshake gate (UUID-shaped channelId, Origin === `FRONTEND_ORIGIN`, valid `wiscord_session` cookie) rejects unauthorized sockets with a clean HTTP error before the WS upgrade completes. `onAuthenticate` pins the document name to the channelId from the verified cookie path so a client can't swap to another channel's doc post-handshake. `onLoadDocument` applies the persisted update; `onStoreDocument` re-encodes the Y.Doc and upserts with `updatedBy: lastContext.userId`.
+- `ChannelNotes` Mongoose model — `{ channelId (unique), ydoc: Buffer, updatedBy, timestamps }`. No plaintext mirror in v1 — the frontend serializes to markdown on demand via `tiptap-markdown` when AI / export needs it. Adding a backend mirror would require a ProseMirror schema serializer in Node, which is heavyweight for a field nothing currently reads.
+
+**Frontend (`src/components/notes/`):**
+
+- `NotesEditor.tsx` — TipTap `useEditor` + `HocuspocusProvider`. Extensions: `StarterKit { undoRedo: false }` (Yjs owns history), `Placeholder`, `Link`, `tiptap-markdown`, `Collaboration` (binds the Y.Doc), `CollaborationCaret` (remote cursors). The Y.Doc + provider are created in a `useMemo` keyed on `channelId` and destroyed on unmount. Awareness publishes `{ user: { id, name, color } }` so peers can render the cursor flag.
+- `NotesBubbleMenu.tsx` — floating selection toolbar from `@tiptap/react/menus`. Bold / italic / strike / inline code / link only — headings and lists come from markdown shortcuts (`# `, `- `, `> `).
+- `NotesLastEditedBy.tsx` + `useNotesLastEditedBy.ts` — subscribes to `provider.awareness.on('change', …)`, computes the most recent non-self user, debounced 500ms so cursor blinks don't flicker the indicator. Empty-peer transitions are immediate (no debounce) so the indicator never lies.
+- `notes-prose.css` — hand-rolled node styling mapped to the glass tokens; deliberately no `@tailwindcss/typography` since its prose ramp fights every glass surface we ship.
+- `NotesEmptyState.tsx` — warm intro card overlaid on an empty document.
+
+**Index + lab routes (mirror the whiteboard structure):**
+
+- `pages/app/labs/NotesIndexPage.tsx` at `/app/labs/notes` — hero card + grid of `NotesBoardCard` tiles + sidebar of recents. Empty / loading / error branches all match the whiteboard index so the two pages feel like siblings.
+- `pages/app/labs/NotesLabPage.tsx` at `/app/labs/notes/:channelId` — single-doc editor inside the standard `AppShellLayout`. Thin wrapper; the editor owns its own header / bubble menu / footer.
+- `components/notes/NotesBoardCard.tsx` — ruled-paper-pattern tile with a deterministic hue blob and three placeholder text-line bars, so the card visually reads as "a written page" without needing a real thumbnail.
+- `queries/notes.ts` — `useMyNotes()` against `GET /notes/mine`; `useClearNotes(channelId)` against `DELETE /notes/:channelId`.
+- Backend: `src/modules/notes/{routes,service,schemas}.ts` mounted at `/notes` in `app.ts`. `listNotesForEditor` filters `ChannelNotes` by `updatedBy === userId` and sorts by `updatedAt desc`, capped at 100.
+
+The original "tabs in the main pane" idea (one page hosting Chat / Notes / Whiteboard tabs) was scrapped in favour of mirroring the whiteboard's index + lab structure. Once channels lands and the real channel page hosts a tab strip, the same `<NotesEditor>` component slots into the Notes tab without any rewrites.
+
+**Tests:**
+
+- `frontend/src/components/notes/useNotesLastEditedBy.test.ts` — 7 vitest cases (debounce trailing edge, self-exclusion, peer switching, clear-on-disconnect, unsubscribe-on-unmount). Backend integration tests for the Hocuspocus gateway are deferred until the project has a Mongo test harness — manual verification covers the round-trip in the meantime (two browsers on the lab route, edit, reload, content survives).
 
 ## Phase 3 — Whiteboard (later)
 

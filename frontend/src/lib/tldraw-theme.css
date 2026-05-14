@@ -104,6 +104,45 @@
   background: transparent !important;
 }
 
+/* Loading state for image / video shapes while our async `resolve` is
+   fetching the bytes from /storage and converting to a blob URL.
+   tldraw doesn't expose a class for this case — when an asset has a
+   `src` but the resolved URL isn't ready yet, it just renders an empty
+   container with no indicator. We target that emptiness via `:empty`
+   and paint a small centered spinner on top of a hairline glass card.
+
+   Once the image lands, tldraw drops the `<img>` inside the container,
+   `:empty` no longer matches, and the spinner disappears in a single
+   re-render — no fade needed. */
+.wiscord-tldraw .tl-image-container:empty,
+.wiscord-tldraw .tl-video-container:empty {
+  background: rgba(20, 20, 26, 0.32);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 0.5rem;
+  position: relative;
+}
+
+.wiscord-tldraw .tl-image-container:empty::after,
+.wiscord-tldraw .tl-video-container:empty::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  margin: -11px 0 0 -11px;
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  border-top-color: rgba(255, 255, 255, 0.72);
+  border-radius: 50%;
+  animation: wiscord-tldraw-asset-spin 0.85s linear infinite;
+}
+
+@keyframes wiscord-tldraw-asset-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* When the user has reduced-motion preferences, kill tldraw's cursor
    chase + entrance transitions. The default chrome still fades, just
    without translation. */

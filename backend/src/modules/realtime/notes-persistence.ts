@@ -60,6 +60,40 @@ export async function clearNotesDoc(channelId: string): Promise<void> {
 }
 
 /**
+ * Ensure a `ChannelNotes` row exists for this channel, claiming it for
+ * the connecting user if it doesn't. Mirrors the whiteboard semantics:
+ * just opening a fresh doc puts it in your `/notes/mine` list immediately
+ * so the labs index page shows it without requiring a keystroke first.
+ *
+ * Unlike `persistNotesDoc`, this only writes on insert — the `updatedBy`
+ * of an existing row is reserved for real content writes via the
+ * debounced `onStoreDocument` hook. Viewing someone else's doc must not
+ * silently reassign authorship.
+ */
+export async function claimNotesDocOnConnect(args: {
+  channelId: string;
+  userId: string;
+  doc: Y.Doc;
+}): Promise<{ created: boolean }> {
+  const update = Y.encodeStateAsUpdate(args.doc);
+  const result = await ChannelNotes.updateOne(
+    { channelId: args.channelId },
+    {
+      $setOnInsert: {
+        channelId: args.channelId,
+        ydoc: Buffer.from(update),
+        updatedBy: args.userId,
+      },
+    },
+    { upsert: true },
+  );
+  // `upsertedCount` is 1 when a new row was inserted; 0 when an existing
+  // row matched the filter. Mongoose ≥7 exposes this on the raw result.
+  const created = (result as { upsertedCount?: number }).upsertedCount === 1;
+  return { created };
+}
+
+/**
  * Hydrate a Hocuspocus-managed `Y.Doc` with the persisted update if one
  * exists. Used inside `onLoadDocument`.
  *

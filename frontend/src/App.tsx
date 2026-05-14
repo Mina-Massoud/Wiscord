@@ -21,6 +21,11 @@ const QuizLabPage = lazy(() => import('@/pages/app/labs/QuizLabPage'));
 const QuizIndexPage = lazy(() => import('@/pages/app/labs/QuizIndexPage'));
 const WhiteboardLabPage = lazy(() => import('@/pages/app/labs/WhiteboardLabPage'));
 const WhiteboardIndexPage = lazy(() => import('@/pages/app/labs/WhiteboardIndexPage'));
+const NotesLabPage = lazy(() => import('@/pages/app/labs/NotesLabPage'));
+const NotesIndexPage = lazy(() => import('@/pages/app/labs/NotesIndexPage'));
+const CalendarPage = lazy(() => import('@/pages/app/CalendarPage'));
+const CalendarLabPage = lazy(() => import('@/pages/app/labs/CalendarLabPage'));
+const CalendarIndexPage = lazy(() => import('@/pages/app/labs/CalendarIndexPage'));
 
 // ---------------------------------------------------------------------------
 // Shared fallback while a lazy chunk is in flight
@@ -91,6 +96,17 @@ export default function App(): React.JSX.Element {
             )}
             {import.meta.env.DEV && (
               <Route path="/app/labs/whiteboard/:channelId" element={<WhiteboardLabPage />} />
+            )}
+            {import.meta.env.DEV && <Route path="/app/labs/notes" element={<NotesIndexPage />} />}
+            {import.meta.env.DEV && (
+              <Route path="/app/labs/notes/:channelId" element={<NotesLabPage />} />
+            )}
+            <Route path="/app/calendar" element={<CalendarPage />} />
+            {import.meta.env.DEV && (
+              <Route path="/app/labs/calendar" element={<CalendarIndexPage />} />
+            )}
+            {import.meta.env.DEV && (
+              <Route path="/app/labs/calendar/:channelId" element={<CalendarLabPage />} />
             )}
           </Route>
         </Route>

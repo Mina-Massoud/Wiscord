@@ -27,6 +27,12 @@ interface AppShellLayoutProps {
   topBar?: ReactNode;
   main: ReactNode;
   rightRail?: ReactNode;
+  /**
+   * When true, forces the right rail to start expanded on mount even if the
+   * user previously collapsed it on another surface. They can still toggle it
+   * shut from inside this surface; the override only runs at mount.
+   */
+  forceRightRailExpanded?: boolean;
   className?: string;
 }
 
@@ -57,10 +63,12 @@ export function AppShellLayout({
   topBar,
   main,
   rightRail,
+  forceRightRailExpanded = false,
   className,
 }: AppShellLayoutProps): React.JSX.Element {
   const [rightRailCollapsed, setRightRailCollapsed] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
+    if (forceRightRailExpanded) return false;
     return window.localStorage.getItem(RIGHT_RAIL_COLLAPSED_KEY) === '1';
   });
 

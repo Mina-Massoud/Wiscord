@@ -25,12 +25,26 @@ const envSchema = z.object({
   LIVEKIT_API_KEY: z.string().optional(),
   LIVEKIT_API_SECRET: z.string().optional(),
 
-  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  STORAGE_DRIVER: z.enum(['local', 's3', 'telegram']).default('telegram'),
   S3_ENDPOINT: z.string().optional(),
   S3_BUCKET: z.string().optional(),
   S3_ACCESS_KEY_ID: z.string().optional(),
   S3_SECRET_ACCESS_KEY: z.string().optional(),
   S3_PUBLIC_URL: z.string().optional(),
+
+  // Telegram-as-bucket (free, no extra cost). Uses MTProto (a user account,
+  // not a bot) so the Bot API's 20 MB download cap doesn't apply — handles
+  // images, voice notes, videos, and gifs.
+  //   1. Register an app at https://my.telegram.org/apps → API_ID + API_HASH
+  //   2. Run `npm run storage:login` once → prints SESSION_STRING to paste here
+  // Storage chat is hardcoded to "Saved Messages" (chat with yourself).
+  TELEGRAM_API_ID: z.coerce.number().int().positive().optional(),
+  TELEGRAM_API_HASH: z.string().optional(),
+  TELEGRAM_SESSION_STRING: z.string().optional(),
+  // Hard ceiling on a single upload. Express buffers the whole request in
+  // memory before handing it off, so this should stay well under available
+  // RAM. Bump only after switching to disk-streaming upload.
+  STORAGE_MAX_BYTES: z.coerce.number().int().positive().default(50 * 1024 * 1024),
 });
 
 const parsed = envSchema.safeParse(process.env);

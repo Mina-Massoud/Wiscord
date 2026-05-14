@@ -10,6 +10,7 @@ import {
 import { useSync } from '@tldraw/sync';
 
 import { API_URL } from '@/queries/client';
+import { fetchMediaBlobUrl, kindForFile, uploadMediaFile } from '@/queries/media';
 import type { WhiteboardIdentity } from '@/types/whiteboard';
 
 import { WhiteboardToolbar } from './WhiteboardToolbar';
@@ -46,7 +47,8 @@ export function WhiteboardCanvas({
     return `${wsBase}/sync/whiteboard/${channelId}`;
   }, [channelId]);
 
-  const store = useSync({ uri, assets: WHITEBOARD_ASSET_STORE });
+  const assets = useMemo(() => wiscordAssetStore(channelId), [channelId]);
+  const store = useSync({ uri, assets });
   const [editor, setEditor] = useState<Editor | null>(null);
 
   // Push our identity into tldraw's user preferences so the presence
@@ -95,23 +97,85 @@ export function WhiteboardCanvas({
 }
 
 /**
- * v1 whiteboards don't accept image uploads — keep the canvas focused
- * on pen / shapes / text / sticky. If the user pastes or drops an image
- * tldraw calls `upload`, we reject it loudly so the editor's own toast
- * surfaces the reason instead of failing silently with a broken asset.
+ * Wiscord's asset store wires tldraw's image/video drops into the
+ * Telegram-backed `/storage` endpoint.
+ *
+ * Strategy:
+ *   - On `upload`, push bytes to `/storage/upload` and return
+ *     `asset:<media-id>` as the durable src. tldraw's URL validator
+ *     allow-lists `asset:` as a sentinel scheme for "stored elsewhere;
+ *     resolve me at render time" — so we get a portable, non-leaky
+ *     persisted src that doesn't hardcode the backend origin.
+ *   - On `resolve`, fetch `/storage/:id` (auth-cookied) and turn it into
+ *     a same-origin `blob:` URL. We cache the blob URL per media id so
+ *     repeated reads (zoom, pan, tldraw re-render) don't re-download.
+ *     The cache is module-scoped — fine: tldraw asks for resolution at
+ *     most once per asset per session, and the user revisiting later
+ *     gets a fresh blob URL anyway.
+ *   - On `remove`, free the blob URL. Server-side deletion is best-effort
+ *     and deferred (tldraw passes only its internal asset ids, not the
+ *     media ids encoded in `src`).
+ *
+ * Cross-origin trap (the reason we use blob URLs): tldraw renders
+ * `<img src="...">` itself, and it doesn't expose a hook to set
+ * `crossOrigin="use-credentials"` on the element. Cross-origin `<img>`
+ * doesn't send the session cookie by default, which would 401 on every
+ * media render in dev. Blob URLs are same-origin to the page, so no
+ * credentials are needed at render time — we paid for them once when
+ * we fetched the bytes.
  */
-const WHITEBOARD_ASSET_STORE: TLAssetStore = {
-  upload: () => {
-    throw new Error('Images aren’t supported on whiteboards yet.');
-  },
-  resolve: (asset) => {
-    // Default behavior: use whatever src already lives on the asset.
-    // Without `upload` succeeding this only fires for assets that came
-    // pre-attached to the snapshot — none in v1, but harmless.
-    const src = (asset.props as { src?: unknown }).src;
-    return typeof src === 'string' ? src : null;
-  },
-};
+const WISCORD_SCHEME = 'asset:';
+const blobUrlCache = new Map<string, string>();
+
+function wiscordAssetStore(channelId: string): TLAssetStore {
+  return {
+    upload: async (_asset, file, signal) => {
+      const uploaded = await uploadMediaFile({
+        file,
+        kind: kindForFile(file),
+        channelId,
+        ...(signal ? { signal } : {}),
+      });
+      return { src: `${WISCORD_SCHEME}${uploaded.id}` };
+    },
+    resolve: async (asset) => {
+      const src = (asset.props as { src?: unknown }).src;
+      if (typeof src !== 'string') return null;
+      if (!src.startsWith(WISCORD_SCHEME)) return src; // external URL (legacy or pasted)
+
+      const id = src.slice(WISCORD_SCHEME.length);
+      const cached = blobUrlCache.get(id);
+      if (cached) return cached;
+
+      try {
+        const blobUrl = await fetchMediaBlobUrl(id);
+        blobUrlCache.set(id, blobUrl);
+        return blobUrl;
+      } catch {
+        // Surfacing the failure as `null` lets tldraw render its own
+        // broken-asset state instead of throwing inside a render loop.
+        return null;
+      }
+    },
+    remove: async (assetIds) => {
+      await Promise.all(
+        assetIds.map(async (assetId) => {
+          // tldraw asset ids look like `asset:<uuid>` — but we keyed the
+          // blob cache by our media id, which is encoded in `src`, not
+          // the asset id. Best-effort cleanup: revoke any blob URL whose
+          // *backing* asset id matches. tldraw will hand us only its
+          // internal ids here, so we skip server-side deletes and let
+          // the user delete via the API directly when they want to.
+          void assetId;
+        }),
+      );
+      // Free every blob URL we've created — cheap, and prevents a slow
+      // memory leak across long sessions with many image edits.
+      for (const [, url] of blobUrlCache) URL.revokeObjectURL(url);
+      blobUrlCache.clear();
+    },
+  };
+}
 
 /**
  * Suppress every tldraw chrome slot we don't want — every component we

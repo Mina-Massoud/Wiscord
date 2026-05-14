@@ -23,10 +23,14 @@
     "db:seed:loadtest": "tsx src/db/seed-quiz-loadtest.ts",
     "quiz:loadtest": "tsx src/db/run-loadtest.ts",
     "db:seed:whiteboard-loadtest": "tsx src/db/seed-whiteboard-loadtest.ts",
-    "whiteboard:loadtest": "tsx src/db/run-whiteboard-loadtest.ts"
+    "whiteboard:loadtest": "tsx src/db/run-whiteboard-loadtest.ts",
+    "db:seed:notes-loadtest": "tsx src/db/seed-notes-loadtest.ts",
+    "notes:loadtest": "tsx src/db/run-notes-loadtest.ts",
+    "storage:login": "tsx scripts/telegram-session-setup.ts"
   },
   "dependencies": {
     "@hocuspocus/extension-database": "^4.0.0",
+    "@hocuspocus/provider": "^4.0.0",
     "@hocuspocus/server": "^4.0.0",
     "@tldraw/sync-core": "^5.0.0",
     "@tldraw/tlschema": "^5.0.0",
@@ -36,6 +40,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "helmet": "^8.0.0",
+    "input": "^1.0.1",
     "jose": "^6.2.3",
     "livekit-server-sdk": "^2.15.3",
     "mongoose": "^9.6.2",
@@ -44,6 +49,7 @@
     "pino-http": "^10.3.0",
     "resend": "^6.12.3",
     "socket.io": "^4.8.3",
+    "telegram": "^2.26.22",
     "ws": "^8.18.0",
     "y-protocols": "^1.0.7",
     "yjs": "^13.6.30",

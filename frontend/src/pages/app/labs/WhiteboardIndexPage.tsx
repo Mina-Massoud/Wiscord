@@ -11,7 +11,7 @@ import { ActiveNowPanel } from '@/components/app-shell/friends/ActiveNowPanel';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { WhiteboardBoardCard } from '@/components/whiteboard/WhiteboardBoardCard';
-import { funnyTitle } from '@/lib/funny-title';
+import { WhiteboardSidebar } from '@/components/whiteboard/WhiteboardSidebar';
 import { useMyWhiteboards } from '@/queries/whiteboard';
 import type { WhiteboardSummary } from '@/types/whiteboard';
 
@@ -45,7 +45,15 @@ export default function WhiteboardIndexPage(): React.JSX.Element {
     <AppShellLayout
       titleBar={<AppTitleBar title="Labs · Whiteboard" />}
       serverRail={<ServerRail />}
-      sidebar={<IndexSidebar boards={boards} onOpen={goToBoard} onCreate={createBoard} />}
+      sidebar={
+        <WhiteboardSidebar
+          boards={boards}
+          isLoading={list.isLoading}
+          isError={list.isError}
+          onOpen={goToBoard}
+          onCreate={createBoard}
+        />
+      }
       userPanel={<UserPanel />}
       topBar={
         <header className="border-glass-border h-app-titlebar flex shrink-0 items-center gap-2 border-b px-4">
@@ -68,59 +76,6 @@ export default function WhiteboardIndexPage(): React.JSX.Element {
       }
       rightRail={<ActiveNowPanel />}
     />
-  );
-}
-
-// ── Sidebar ─────────────────────────────────────────────────────────────────
-
-interface IndexSidebarProps {
-  boards: WhiteboardSummary[];
-  onOpen: (channelId: string) => void;
-  onCreate: () => void;
-}
-
-function IndexSidebar({ boards, onOpen, onCreate }: IndexSidebarProps): React.JSX.Element {
-  return (
-    <div className="bg-glass-chrome border-glass-border w-channel-list flex h-full flex-col border-r">
-      <header className="border-glass-border h-app-titlebar flex shrink-0 items-center gap-2 border-b px-3">
-        <Pencil className="text-ink-muted size-3.5" aria-hidden />
-        <span className="text-ink text-control font-semibold">Whiteboards</span>
-      </header>
-
-      <div className="px-3 pt-3">
-        <Button
-          type="button"
-          variant="default"
-          size="sm"
-          className="w-full justify-start"
-          onClick={onCreate}
-        >
-          <Plus className="mr-2 size-4" aria-hidden />
-          New whiteboard
-        </Button>
-      </div>
-
-      <section className="mt-4 flex flex-1 flex-col gap-1 overflow-auto px-2 pb-3">
-        <span className="text-ink-subtle text-badge px-2 py-1 font-semibold tracking-wider uppercase">
-          Recent
-        </span>
-        {boards.length === 0 ? (
-          <p className="text-ink-muted text-caption px-2 py-2">No boards yet.</p>
-        ) : (
-          boards.slice(0, 12).map((board) => (
-            <button
-              key={board.channelId}
-              type="button"
-              onClick={() => onOpen(board.channelId)}
-              className="hover:bg-surface-hover flex items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors"
-            >
-              <span aria-hidden className="bg-blurple size-1.5 shrink-0 rounded-full opacity-70" />
-              <span className="text-ink text-control truncate">{funnyTitle(board.channelId)}</span>
-            </button>
-          ))
-        )}
-      </section>
-    </div>
   );
 }
 

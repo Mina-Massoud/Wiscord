@@ -14,6 +14,9 @@ import { authRouter } from './modules/auth/routes.js';
 import { voiceRouter } from './modules/voice/routes.js';
 import { quizRouter } from './modules/quiz/routes.js';
 import { whiteboardRouter } from './modules/whiteboard/routes.js';
+import { notesRouter } from './modules/notes/routes.js';
+import { calendarRouter } from './modules/calendar/routes.js';
+import { storageRouter } from './modules/storage/routes.js';
 
 /**
  * Builds the Express app. Boot logic (port binding, Socket.IO attach) lives
@@ -58,6 +61,9 @@ export function createApp(): Express {
   app.use('/voice', voiceRouter);
   app.use('/quiz', quizRouter);
   app.use('/whiteboard', whiteboardRouter);
+  app.use('/notes', notesRouter);
+  app.use('/calendar', calendarRouter);
+  app.use('/storage', storageRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

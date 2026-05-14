@@ -11,3 +11,24 @@ export { ChannelWhiteboard } from './ChannelWhiteboard.js';
 export type { ChannelWhiteboardDoc, ChannelWhiteboardRow } from './ChannelWhiteboard.js';
 export { ChannelNotes } from './ChannelNotes.js';
 export type { ChannelNotesDoc, ChannelNotesRow } from './ChannelNotes.js';
+export {
+  CalendarCategory,
+  CALENDAR_CATEGORY_COLOR_SLUGS,
+  CALENDAR_BUILTIN_SLUGS,
+} from './CalendarCategory.js';
+export type {
+  CalendarCategoryDoc,
+  CalendarCategoryRow,
+  CalendarCategoryScope,
+  CalendarCategoryColor,
+  CalendarBuiltinSlug,
+} from './CalendarCategory.js';
+export { CalendarEvent } from './CalendarEvent.js';
+export type {
+  CalendarEventDoc,
+  CalendarEventRow,
+  CalendarRecurrence,
+  CalendarRecurrenceFreq,
+} from './CalendarEvent.js';
+export { MediaAsset, MEDIA_KINDS } from './MediaAsset.js';
+export type { MediaAssetDoc, MediaAssetRow, MediaKind } from './MediaAsset.js';

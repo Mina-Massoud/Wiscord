@@ -1,51 +1,42 @@
 import { useEffect, useRef, useState } from 'react';
+import { animate, useReducedMotion } from 'framer-motion';
 
 interface UseAnimatedNumberOptions {
   duration?: number;
 }
 
 /**
- * Interpolates from the previously-displayed value to a new target whenever
- * `value` changes. Used for live dashboard counters so socket-driven changes
- * tick instead of snap. Honors `prefers-reduced-motion`.
+ * Tween a number toward `value` using framer-motion's `animate` driver each
+ * time the prop changes. Each frame pushes through React state so the
+ * rendered text actually re-paints. Honors `prefers-reduced-motion`.
+ *
+ * https://motion.dev/docs/react-animate-number
  */
 export function useAnimatedNumber(
   value: number,
-  { duration = 500 }: UseAnimatedNumberOptions = {},
+  { duration = 0.8 }: UseAnimatedNumberOptions = {},
 ): number {
   const [display, setDisplay] = useState(value);
   const displayRef = useRef(value);
   displayRef.current = display;
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReducedMotion) {
-      setDisplay(value);
-      return;
-    }
-
     const from = displayRef.current;
     const to = value;
     if (from === to) return;
-
-    const startTime = performance.now();
-    let rafId = 0;
-
-    const tick = (now: number) => {
-      const elapsed = now - startTime;
-      const t = Math.min(1, elapsed / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setDisplay(from + (to - from) * eased);
-      if (t < 1) {
-        rafId = requestAnimationFrame(tick);
-      }
-    };
-
-    rafId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafId);
-  }, [value, duration]);
+    if (reducedMotion) {
+      setDisplay(to);
+      return;
+    }
+    const controls = animate(from, to, {
+      duration,
+      ease: 'easeOut',
+      onUpdate: (v) => setDisplay(v),
+      onComplete: () => setDisplay(to),
+    });
+    return () => controls.stop();
+  }, [value, duration, reducedMotion]);
 
   return display;
 }
