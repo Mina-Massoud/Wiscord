@@ -5,7 +5,8 @@ import { SettingsDivider, SettingsPanelTitle, SettingsSection } from '../Setting
 import { DisplayNameRow } from './MyAccountPanelDisplayNameRow';
 import { UsernameRow } from './MyAccountPanelUsernameRow';
 import { EmailRow } from './MyAccountPanelEmailRow';
-import { VoiceStyleRadio } from './MyAccountPanelVoiceStyleRadio';
+import { RoleRadio } from './MyAccountPanelRoleRadio';
+import { VibeRadio } from './MyAccountPanelVibeRadio';
 
 /**
  * My Account — identity card + inline-edit rows for the three core fields
@@ -59,19 +60,20 @@ export function MyAccountPanel(): React.JSX.Element {
       <SettingsDivider />
 
       <SettingsSection
-        title="Voice"
-        description="Pick how Wiscord talks to you — toasts, empty states, and tab labels adapt."
+        title="Role"
+        description="Who you are on Wiscord. Drives the recommended vibe and a few teacher-only hints."
       >
-        <VoiceStyleRadio current={profile.voice_style} />
+        <RoleRadio current={profile.role} />
+      </SettingsSection>
+
+      <SettingsDivider />
+
+      <SettingsSection
+        title="Vibe"
+        description="How Wiscord talks to you — toasts, empty states, tab labels, and the Wismate AI's voice all follow."
+      >
+        <VibeRadio current={profile.vibe} />
       </SettingsSection>
     </div>
   );
 }
-
-// ── Reusable inline-edit row ──────────────────────────────────────────────
-
-// ── Field-specific rows ───────────────────────────────────────────────────
-
-// ── Inline text edit ──────────────────────────────────────────────────────
-
-// ── Voice style radio ─────────────────────────────────────────────────────

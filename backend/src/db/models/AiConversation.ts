@@ -26,7 +26,7 @@ export type AiMessageRole = (typeof AI_MESSAGE_ROLES)[number];
  * render persisted messages with the same chip components.
  */
 export interface AiConversationSource {
-  kind: 'note' | 'event' | 'attempt' | 'activity' | 'quiz';
+  kind: 'note' | 'event' | 'attempt' | 'activity' | 'quiz' | 'web';
   id: string;
   title: string;
   /** Optional ISO datetime — populated for events so the inline
@@ -36,6 +36,10 @@ export interface AiConversationSource {
    *  frontend can build the workshop deep link without a separate
    *  lookup. The quiz lives under that channel. */
   channelId?: string;
+  /** Optional URL — populated for `web` citations so the frontend
+   *  can render the chip as an outbound link to the original page
+   *  the model summarized for this turn. */
+  url?: string;
 }
 
 export interface AiConversationToolCall {
@@ -89,12 +93,13 @@ const sourceSchema = new Schema(
     kind: {
       type: String,
       required: true,
-      enum: ['note', 'event', 'attempt', 'activity', 'quiz'],
+      enum: ['note', 'event', 'attempt', 'activity', 'quiz', 'web'],
     },
     id: { type: String, required: true },
     title: { type: String, required: true },
     startAt: { type: String, default: undefined },
     channelId: { type: String, default: undefined },
+    url: { type: String, default: undefined },
   },
   { _id: false },
 );

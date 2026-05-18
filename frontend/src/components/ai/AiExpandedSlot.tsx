@@ -10,6 +10,8 @@ import { ShimmerText } from './ShimmerText';
 import { MessageBubble } from './AiExpandedSlotMessageBubble';
 import { SuggestionRail } from './AiExpandedSlotSuggestionRail';
 import { FadeSwap } from './AiExpandedSlotFadeSwap';
+import { AiQuotaHint } from './AiQuotaHint';
+import { UpgradePromptDialog } from './UpgradePromptDialog';
 
 interface AiExpandedSlotProps {
   onClose: () => void;
@@ -17,7 +19,7 @@ interface AiExpandedSlotProps {
 
 /**
  * Expanded AI ask card. Layout:
- *   row 1   logo + "Personal AI" chip                    · close ×
+ *   row 1   logo + "Wismate" chip                         · close ×
  *   row 2   streaming response area (scrollable, aria-live)
  *   row 3   citation chips for sources used in the answer
  *   row 4   composer (input + send button)
@@ -30,7 +32,7 @@ interface AiExpandedSlotProps {
  */
 export function AiExpandedSlot({ onClose }: AiExpandedSlotProps): React.JSX.Element {
   const reducedMotion = useReducedMotion();
-  const { status, messages, error, ask, clear } = useAskAi();
+  const { status, messages, error, ask, clear, quotaExceeded, dismissQuotaExceeded } = useAskAi();
   const [draft, setDraft] = useState('');
   const [isClearing, setIsClearing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -115,7 +117,7 @@ export function AiExpandedSlot({ onClose }: AiExpandedSlotProps): React.JSX.Elem
           className="size-5 shrink-0 rounded-full object-cover"
         />
         <span className="text-ink text-badge font-semibold tracking-[0.16em] uppercase">
-          Personal AI
+          Wismate
         </span>
         <div className="flex-1" />
         {hasHistory || isClearing ? (
@@ -196,6 +198,7 @@ export function AiExpandedSlot({ onClose }: AiExpandedSlotProps): React.JSX.Elem
         </div>
       </div>
 
+      <AiQuotaHint />
       <form onSubmit={submit} className="flex items-center gap-2">
         <input
           ref={inputRef}
@@ -221,6 +224,7 @@ export function AiExpandedSlot({ onClose }: AiExpandedSlotProps): React.JSX.Elem
           <ArrowUp className="size-4" aria-hidden />
         </Button>
       </form>
+      <UpgradePromptDialog info={quotaExceeded} onDismiss={dismissQuotaExceeded} />
     </div>
   );
 }

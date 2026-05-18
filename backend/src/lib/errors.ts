@@ -5,11 +5,18 @@
 export class AppError extends Error {
   readonly status: number;
   readonly code: string;
+  /** Optional structured payload returned alongside the error
+   *  envelope. Use for machine-readable context the frontend needs
+   *  to render a precise error UI (e.g. quota_exceeded sending
+   *  {limit, used, resetAt} so the upgrade prompt can show
+   *  countdown + actual numbers without an extra round trip). */
+  readonly details?: Record<string, unknown>;
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, details?: Record<string, unknown>) {
     super(message);
     this.status = status;
     this.code = code;
+    this.details = details;
     this.name = 'AppError';
   }
 }

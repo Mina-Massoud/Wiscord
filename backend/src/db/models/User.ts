@@ -22,9 +22,20 @@ const securitySchema = new Schema(
 const billingSchema = new Schema(
   {
     stripeCustomerId: { type: String, default: null },
+    /**
+     * Stripe subscription id (`sub_...`) cached locally so the
+     * auto-renew toggle and any future "update this sub" endpoint
+     * don't need to round-trip Stripe to find it. Set by
+     * `onSubscriptionChanged`; null while the user is Free.
+     */
+    subscriptionId: { type: String, default: null },
     subscriptionStatus: {
       type: String,
-      enum: ['none', 'active', 'trialing', 'past_due', 'canceled'],
+      // Mirrors Stripe's subscription statuses we explicitly track.
+      // `incomplete` / `incomplete_expired` collapse to `canceled`
+      // at the webhook layer — they mean "never successfully
+      // charged" so the user gets free-tier behavior either way.
+      enum: ['none', 'active', 'trialing', 'past_due', 'canceled', 'unpaid', 'paused'],
       default: 'none',
     },
     subscriptionTier: {
@@ -33,6 +44,17 @@ const billingSchema = new Schema(
       default: 'free',
     },
     currentPeriodEnd: { type: Date, default: null },
+    /**
+     * Mirrors Stripe's `subscription.cancel_at_period_end`. When
+     * `true`, the user has clicked Cancel (in our toggle or the
+     * Portal) but the period hasn't elapsed yet — `status` stays
+     * `'active'` until Stripe fires `subscription.deleted` at
+     * `currentPeriodEnd`. Without this field, the StatusBanner
+     * would render "Renews on …" copy for a user who's actually
+     * about to lose access, which is the bug that motivated
+     * exposing the toggle in-app.
+     */
+    cancelAtPeriodEnd: { type: Boolean, default: false },
   },
   { _id: false },
 );
@@ -51,10 +73,25 @@ const userSchema = new Schema(
     displayName: { type: String, default: null, maxlength: 64 },
     avatarUrl: { type: String, default: null },
     onboardedAt: { type: Date, default: null },
-    voiceStyle: {
+    // Who the user is. Drives default `vibe` at onboarding and surfaces
+    // role-specific copy in a few teacher-only spots (e.g. quiz authoring
+    // hints). Locked to two values for v1 — `other` would force every
+    // copy/AI vibe lookup into a fallback path and we'd rather force a
+    // genuine choice than ship a half-cooked third register.
+    role: {
       type: String,
-      enum: ['default', 'genz'],
-      default: 'default',
+      enum: ['student', 'teacher'],
+      default: 'student',
+    },
+    // How Wiscord sounds — toasts, empty states, button labels, AND the
+    // Wismate AI's prompt + few-shot prefill. Three discrete vibes so the
+    // backend can keep N static AI prompt bundles (one per vibe) for
+    // Gemini's implicit prefix cache. Per-role defaults: student → genz,
+    // teacher → professional. User can override in settings.
+    vibe: {
+      type: String,
+      enum: ['genz', 'chill', 'professional'],
+      default: 'genz',
     },
     privacy: { type: privacySchema, default: () => ({}) },
     security: { type: securitySchema, default: () => ({}) },

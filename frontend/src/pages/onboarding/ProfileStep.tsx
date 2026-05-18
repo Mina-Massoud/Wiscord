@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { useUpdateProfile, useUsernameAvailable } from '@/queries/profile';
 import type { ProfileError } from '@/types/auth';
+import { OnboardingProgress } from './OnboardingProgress';
 import { ProfileSkeleton } from './ProfileStepProfileSkeleton';
 import { ProfileLoadError } from './ProfileStepProfileLoadError';
 
@@ -91,13 +92,17 @@ export default function ProfileStep(): React.JSX.Element {
 
   return (
     <div className="flex flex-col items-center gap-6">
+      <div className="w-full">
+        <OnboardingProgress step={3} />
+      </div>
+
       <Identicon seed={user.id} size="lg" />
 
       <div className="w-full">
-        <h2 className="text-foreground mb-1 text-center text-lg font-semibold">
+        <h2 className="text-foreground text-subhead mb-1 text-center font-semibold">
           Set up your profile
         </h2>
-        <p className="text-muted-foreground mb-6 text-center text-sm">
+        <p className="text-muted-foreground text-caption mb-6 text-center">
           Choose a username and display name.
         </p>
 
@@ -130,7 +135,7 @@ export default function ProfileStep(): React.JSX.Element {
                   {watchedUsername.length >= 2 && !isChecking && isAvailable !== null && (
                     <p
                       className={
-                        isAvailable ? 'text-secondary text-xs' : 'text-destructive text-xs'
+                        isAvailable ? 'text-secondary text-badge' : 'text-destructive text-badge'
                       }
                     >
                       {isAvailable ? '✓ Available' : '✗ Taken'}

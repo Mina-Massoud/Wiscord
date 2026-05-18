@@ -1,4 +1,22 @@
-export type VoiceStyle = 'default' | 'genz';
+/**
+ * Who the user is. Captured during onboarding (`/onboarding/role`) and
+ * editable from settings. Drives the *default* `vibe` (`student → genz`,
+ * `teacher → professional`) but the user can override.
+ */
+export type Role = 'student' | 'teacher';
+
+/**
+ * How Wiscord sounds — applies to every user-facing string (toasts,
+ * empty states, button labels) AND to the Wismate AI's voice (system
+ * prompt + few-shot prefill).
+ *
+ * Three vibes, locked at the type level so the backend can keep N
+ * static AI prompt bundles for Gemini's prefix cache:
+ *  - `genz`         — dry, lowkey, group-chat energy. Default for students.
+ *  - `chill`        — warm and casual, no slang, no profanity, light emojis.
+ *  - `professional` — formal, full sentences, zero emojis, teacher-safe. Default for teachers.
+ */
+export type Vibe = 'genz' | 'chill' | 'professional';
 
 export interface Profile {
   id: string;
@@ -7,7 +25,8 @@ export interface Profile {
   display_name: string | null;
   avatar_url: string | null;
   onboarded_at: string | null; // ISO 8601
-  voice_style: VoiceStyle;
+  role: Role;
+  vibe: Vibe;
   created_at: string;
   updated_at: string;
 }
@@ -25,7 +44,8 @@ export type ProfileUpdate = Partial<
     display_name: string | null;
     avatar_url: string | null;
     onboarded_at: string | null;
-    voice_style: VoiceStyle;
+    role: Role;
+    vibe: Vibe;
   }
 >;
 

@@ -4,18 +4,22 @@ import { type Content } from '@google/genai';
 
 import { AppError } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
-import type { AiConversationMessage } from '../../db/models/index.js';
+import { AiUsageLog, utcDateBucket, type AiConversationMessage, type AiUsageKind } from '../../db/models/index.js';
+import { env } from '../../lib/env.js';
 import {
   appendTurn,
   expireStalePendingToolCalls,
   recentTurns,
 } from './conversation-service.js';
+import { strongModelFor } from '../billing/plans.js';
 import { buildPersonalContext, type PersonalContextSources } from './context-builder.js';
 import { registerPendingCall } from './pending-tool-store.js';
 import { getGeminiClient } from './provider/gemini-client.js';
 import { maybeLogCacheGap, streamPersonalAnswer } from './provider/stream-personal.js';
+import { getQuotaStatus } from './quota.js';
 import type { AiScope } from './schemas.js';
 import { isDestructive, runTool, TOOL_NAMES, type ToolName } from './tool-runner.js';
+import type { Vibe } from './voice.js';
 
 /**
  * Async-generator service interface — the route layer pipes these
@@ -39,6 +43,24 @@ export type AskEvent =
       error: string | null;
     }
   | { kind: 'done'; usage: Record<string, number | undefined> }
+  /**
+   * Fresh quota snapshot for the caller, emitted once after `done`
+   * so the frontend can update its "X messages left today" UI
+   * without a separate GET /ai/quota round trip. Includes the row
+   * for THIS turn's kind already counted (the recordUsage write
+   * lands before this event).
+   */
+  | {
+      kind: 'quota';
+      tier: 'free' | 'pro';
+      quotas: Array<{
+        kind: AiUsageKind;
+        limit: number;
+        used: number;
+        remaining: number;
+        resetAt: string;
+      }>;
+    }
   | { kind: 'error'; code: string; message: string };
 
 function isKnownToolName(name: string): name is ToolName {
@@ -54,6 +76,20 @@ interface AskArgs {
    *  anchor relative-time phrases ("tomorrow 9am") to the user's
    *  local clock instead of UTC. */
   timezone?: string;
+  /** Subscription tier of the caller. Drives quota limits, model
+   *  selection (pro gets STRONG_MODEL even on grounded turns), and
+   *  the long-note path. The route layer resolves this from
+   *  `User.billing.subscriptionTier` before dispatching. */
+  tier: 'free' | 'pro';
+  /** Voice vibe of the caller. Selects the system prompt + few-shot
+   *  prefill bundle. Resolved by the route layer from `User.vibe`. */
+  vibe: Vibe;
+  /** UTC date bucket (`YYYY-MM-DD`) the route already computed for
+   *  this request. Passed through so the eventual `recordUsage` write
+   *  and the quota gate's reservation row land in the same bucket
+   *  even when a long stream straddles UTC midnight. Defaults to
+   *  `utcDateBucket(new Date())` for callers that don't care. */
+  today?: string;
 }
 
 /**
@@ -111,6 +147,8 @@ async function* askPersonal(args: AskArgs): AsyncGenerator<AskEvent> {
     userId: args.userId,
     question: args.question,
     timezone: args.timezone,
+    tier: args.tier,
+    vibe: args.vibe,
   });
 
   yield { kind: 'sources', sources: ctx.sources };
@@ -191,11 +229,29 @@ async function* askPersonal(args: AskArgs): AsyncGenerator<AskEvent> {
     error?: string | null;
   }> = [];
 
+  // Model selection by tier + turn shape:
+  //   - free + URL turn  → default model (2.0-flash). The free path
+  //     writes a 200–400 word note from a 4k-char excerpt, well
+  //     within 2.0-flash's reliable JSON-escape envelope.
+  //   - pro  + URL turn  → tier's strong model (2.5-flash today).
+  //     Needed for the 12k-char excerpt + 1500–3000 word long-note
+  //     path; 2.0-flash fumbled this with MALFORMED_FUNCTION_CALL.
+  //   - any tier, non-URL turn → default model.
+  //
+  // H7 — the per-tier strong-model decision is in the PLANS registry.
+  // `strongModelFor(tier)` returns the model id when this tier gets
+  // the upgrade, else null. Adding a tier that should get a strong
+  // model is one entry in `billing/plans.ts`, not a branch here.
+  const isUrlTurn = ctx.sources.webSources.length > 0;
+  const tierStrongModel = strongModelFor(args.tier);
+  const modelOverride = isUrlTurn && tierStrongModel ? tierStrongModel : undefined;
+
   try {
     for await (const event of streamPersonalAnswer({
       client,
       systemPrompt: ctx.system,
       contents,
+      model: modelOverride,
     })) {
       if (event.kind === 'token') {
         assistantText += event.text;
@@ -288,6 +344,47 @@ async function* askPersonal(args: AskArgs): AsyncGenerator<AskEvent> {
           sources: filterCitedSources(ctx.sources, assistantText, toolCallsForTurn),
           toolCalls: toolCallsForTurn.length > 0 ? toolCallsForTurn : undefined,
         });
+        // Record usage AFTER the assistant turn lands. Awaited
+        // (not fire-and-forget) so the quota snapshot we emit next
+        // reflects this turn — without the await, getQuotaStatus
+        // would race the write and return stale counts ~50% of the
+        // time. We still tolerate a write failure: catch logs and
+        // moves on so the user always sees `done` + `quota` even
+        // if the DB hiccuped.
+        const turnKind = classifyTurnKind(ctx.sources.webSources.length, toolCallsForTurn);
+        try {
+          await recordUsage({
+            userId: args.userId,
+            tier: args.tier,
+            kind: turnKind,
+            // Clamp at zero — Gemini occasionally returns -1 on
+            // MAX_TOKENS-truncated turns and the schema's `min: 0`
+            // validator would reject the write, dropping the row.
+            promptTokens: Math.max(0, event.usage.promptTokenCount ?? 0),
+            outputTokens: Math.max(0, event.usage.candidatesTokenCount ?? 0),
+            model: modelOverride ?? env.GEMINI_MODEL,
+            today: args.today,
+          });
+        } catch (err) {
+          // H5 — elevated from warn → error with a stable sentinel
+          // field. The quota counter (separate atomic gate) still
+          // fired, so this isn't a quota bypass — but the audit log
+          // (model id, prompt/output tokens, frozen tier) is what
+          // we read for cost reconciliation against Gemini's billing
+          // and for chargeback dispute trails. A sustained Mongo
+          // write failure during peak usage silently corrupts both.
+          // The `lostUsageLog: true` field is the alert filter.
+          logger.error(
+            {
+              err,
+              userId: args.userId,
+              tier: args.tier,
+              kind: turnKind,
+              lostUsageLog: true,
+            },
+            'ai: usage log write failed — audit trail row dropped',
+          );
+        }
         yield {
           kind: 'done',
           usage: {
@@ -297,6 +394,19 @@ async function* askPersonal(args: AskArgs): AsyncGenerator<AskEvent> {
             totalTokenCount: event.usage.totalTokenCount,
           },
         };
+        // Quota refresh — best-effort, never throws. If the snapshot
+        // query fails we just skip the event; frontend falls back to
+        // its last-known counts from GET /ai/quota.
+        try {
+          const quotas = await getQuotaStatus({
+            userId: args.userId,
+            tier: args.tier,
+            today: args.today,
+          });
+          yield { kind: 'quota', tier: args.tier, quotas };
+        } catch (err) {
+          logger.warn({ err, userId: args.userId }, 'ai: quota snapshot failed');
+        }
       }
     }
   } catch (err) {
@@ -372,10 +482,10 @@ function turnToContents(turn: AiConversationMessage): Content[] {
  * can persist only the chips the AI actually referenced. Avoids
  * stuffing every retrieved row into the turn history.
  */
-const CITATION_RE = /\[(note|event|attempt|activity|quiz):([\w-]+)\]/g;
+const CITATION_RE = /\[(note|event|attempt|activity|quiz|web):([\w-]+)\]/g;
 
 interface CitedSource {
-  kind: 'note' | 'event' | 'attempt' | 'activity' | 'quiz';
+  kind: 'note' | 'event' | 'attempt' | 'activity' | 'quiz' | 'web';
   id: string;
   title: string;
   /** Set only for events — lets the frontend open the inline
@@ -386,6 +496,9 @@ interface CitedSource {
    *  filter-time from the matching `generateExam` tool result on the
    *  same assistant turn. */
   channelId?: string;
+  /** Set only for web chips — the full URL so the UI can render
+   *  the chip as a link out to the source page. */
+  url?: string;
 }
 
 interface TurnToolCall {
@@ -423,6 +536,16 @@ function filterCitedSources(
       out.push({ kind: 'activity', id: v.channelId, title: v.title });
     }
   }
+  // Web sources are 1-indexed in the prompt ([web:1], [web:2], …)
+  // and map back to `sources.webSources` by position. Only the
+  // successful fetches get a chip — failed fetches don't have a
+  // meaningful title to render.
+  sources.webSources.forEach((w, i) => {
+    const id = String(i + 1);
+    if (!cited.has(`web:${id}`)) return;
+    if (!w.ok) return;
+    out.push({ kind: 'web', id, title: w.title, url: w.url });
+  });
   // Quiz citations have no entry in the retrieved-sources array — they
   // refer to a quiz the AI itself just created via a generateExam tool
   // call on this very turn. Pull channelId + title out of the matching
@@ -441,6 +564,62 @@ function filterCitedSources(
     }
   }
   return out;
+}
+
+/**
+ * Classify a finished turn for quota + cost accounting.
+ *
+ * `url_note` is the expensive class: an assistant turn that ran
+ * `createNote` after the prompt carried a populated WEB SOURCES
+ * block — i.e. the user dropped a link and the model wrote a
+ * note grounded in it (typically via the 2.5-flash long-note path).
+ *
+ * Everything else — pure chat, grounded queries, calendar tools,
+ * exam generation — counts as `message`. Pricing-tier limits
+ * differentiate the two classes because URL notes drive ~95% of
+ * the per-user API spend.
+ */
+function classifyTurnKind(webSourcesCount: number, toolCalls: TurnToolCall[]): AiUsageKind {
+  if (webSourcesCount === 0) return 'message';
+  const ranCreateNote = toolCalls.some(
+    (c) => c.name === 'createNote' && c.status === 'executed',
+  );
+  return ranCreateNote ? 'url_note' : 'message';
+}
+
+/**
+ * Append one usage row to AiUsageLog. Caller is responsible for
+ * catching errors — we never want a failed billing-log write to
+ * break the SSE stream.
+ *
+ * Note: this no longer drives the quota cap (AiUsageCounter does, via
+ * `assertWithinQuota`'s atomic upsert at gate time). AiUsageLog is now
+ * the billing/audit trail — per-turn cost, model, and frozen tier.
+ *
+ * The `today` arg lets the route layer pass through the same UTC date
+ * bucket it computed at gate time, so even a stream that straddles UTC
+ * midnight writes its log row into the same bucket the reservation
+ * landed in. Defaults to a fresh `utcDateBucket()` for callers that
+ * don't care (the historical behavior).
+ */
+async function recordUsage(args: {
+  userId: string;
+  tier: 'free' | 'pro';
+  kind: AiUsageKind;
+  promptTokens: number;
+  outputTokens: number;
+  model: string;
+  today?: string;
+}): Promise<void> {
+  await AiUsageLog.create({
+    userId: args.userId,
+    date: args.today ?? utcDateBucket(),
+    kind: args.kind,
+    promptTokens: args.promptTokens,
+    outputTokens: args.outputTokens,
+    model: args.model,
+    tier: args.tier,
+  });
 }
 
 /**

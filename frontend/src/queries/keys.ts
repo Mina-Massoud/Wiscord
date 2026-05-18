@@ -135,6 +135,7 @@ export const qk = {
     root: ['billing'] as const,
     subscription: () => ['billing', 'subscription'] as const,
     invoices: () => ['billing', 'invoices'] as const,
+    plans: () => ['billing', 'plans'] as const,
   },
 
   integrations: {

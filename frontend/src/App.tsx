@@ -21,6 +21,8 @@ import { AuthedMusic } from './AppAuthedMusic';
 const SignInPage = lazy(() => import('@/pages/sign-in/SignInPage'));
 const CallbackPage = lazy(() => import('@/pages/auth/CallbackPage'));
 const OnboardingLayout = lazy(() => import('@/pages/onboarding/OnboardingLayout'));
+const RoleStep = lazy(() => import('@/pages/onboarding/RoleStep'));
+const VibeStep = lazy(() => import('@/pages/onboarding/VibeStep'));
 const ProfileStep = lazy(() => import('@/pages/onboarding/ProfileStep'));
 const AppShellPlaceholder = lazy(() => import('@/pages/app/AppShellPlaceholder'));
 const FriendsPage = lazy(() => import('@/pages/app/FriendsPage'));
@@ -84,7 +86,12 @@ export default function App(): React.JSX.Element {
           {/* Onboarding (auth required; onboarding not yet required) */}
           <Route element={<RequireAuth />}>
             <Route path="/onboarding" element={<OnboardingLayout />}>
-              <Route index element={<ProfileStep />} />
+              {/* Bare `/onboarding` is forwarded to the first incomplete
+                  step by OnboardingLayout. The three steps below render
+                  inside the AuthLayout via <Outlet />. */}
+              <Route path="role" element={<RoleStep />} />
+              <Route path="vibe" element={<VibeStep />} />
+              <Route path="profile" element={<ProfileStep />} />
             </Route>
           </Route>
 

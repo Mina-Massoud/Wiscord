@@ -15,8 +15,44 @@ import { isAiConfigured } from './provider/gemini-client.js';
 import { ask, type AskEvent } from './service.js';
 import { askBodySchema, confirmToolBodySchema } from './schemas.js';
 import { runConfirmedTool } from './tool-runner.js';
-import { ChannelNotes } from '../../db/models/index.js';
+import { ChannelNotes, User } from '../../db/models/index.js';
 import { notFound } from '../../lib/errors.js';
+import { resolveEffectiveTier } from '../billing/effective-tier.js';
+import { assertWithinQuota, classifyRequestKind, getQuotaStatus } from './quota.js';
+import { utcDateBucket } from '../../db/models/index.js';
+
+/**
+ * Read the caller's EFFECTIVE subscription tier. Honors the post-cancel
+ * grace window — a user who cancelled but is still inside the paid
+ * billing period stays on Pro until `currentPeriodEnd` lapses. Defaults
+ * to `free` for missing billing subdocs (legacy rows) or unexpected
+ * status values. Used by /ai/ask for both quota enforcement and
+ * model selection, and by /ai/quota so the displayed limits match.
+ *
+ * Implementation lives in `billing/effective-tier.ts` — see that file
+ * for the full status table and the chargeback-risk rationale.
+ */
+async function resolveTier(userId: string): Promise<'free' | 'pro'> {
+  const user = await User.findById(userId)
+    .select(
+      'billing.subscriptionTier billing.subscriptionStatus billing.currentPeriodEnd',
+    )
+    .lean();
+  return resolveEffectiveTier(user?.billing);
+}
+
+/**
+ * Read the caller's voice vibe. Defaults to `genz` (the historic
+ * Wiscord default) when the user doc is missing the field or
+ * carries something unexpected — keeps existing users on the original
+ * voice without forcing a backfill.
+ */
+async function resolveVibe(userId: string): Promise<'genz' | 'chill' | 'professional'> {
+  const user = await User.findById(userId).select('vibe').lean();
+  const value = user?.vibe;
+  if (value === 'chill' || value === 'professional' || value === 'genz') return value;
+  return 'genz';
+}
 
 export const aiRouter: Router = Router();
 
@@ -125,6 +161,24 @@ aiRouter.get('/sources/note/:channelId', requireAuth, async (req, res, next) => 
   }
 });
 
+/**
+ * GET /ai/quota
+ * Returns the caller's daily AI usage counters per kind. Frontend
+ * uses this to render "X messages left today" hints and to gate UI
+ * affordances (e.g. dim the URL note CTA at 0 remaining).
+ */
+aiRouter.get('/quota', requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.userId!;
+    const tier = await resolveTier(userId);
+    const today = utcDateBucket();
+    const status = await getQuotaStatus({ userId, tier, today });
+    res.json(ok({ tier, quotas: status }));
+  } catch (err) {
+    next(err);
+  }
+});
+
 aiRouter.post('/ask', requireAuth, async (req, res, next) => {
   try {
     const body = askBodySchema.parse(req.body);
@@ -137,9 +191,25 @@ aiRouter.post('/ask', requireAuth, async (req, res, next) => {
       );
     }
 
+    const userId = req.userId!;
+    const [tier, vibe] = await Promise.all([resolveTier(userId), resolveVibe(userId)]);
+
+    // Quota gate BEFORE opening SSE headers. A 402 here lands as a
+    // normal JSON error response (envelope shape with details), which
+    // is much easier for the frontend to branch on than a mid-stream
+    // SSE error event. Once we've written SSE headers, every error
+    // must be an SSE error event — there's no way back.
+    //
+    // `today` is computed once and threaded through both the gate's
+    // atomic reservation and the eventual `recordUsage` write, so a
+    // stream that straddles UTC midnight can't gate against yesterday
+    // and write against today (which would silently refund the slot).
+    const today = utcDateBucket();
+    const requestKind = classifyRequestKind(body.question);
+    await assertWithinQuota({ userId, tier, kind: requestKind, today });
+
     openSseHeaders(res);
 
-    const userId = req.userId!;
     const abort = new AbortController();
 
     // Heartbeat keeps proxies from killing the idle connection
@@ -168,10 +238,17 @@ aiRouter.post('/ask', requireAuth, async (req, res, next) => {
         scopeId: body.scopeId,
         question: body.question,
         timezone: body.timezone,
+        tier,
+        vibe,
+        today,
       })) {
         if (abort.signal.aborted || res.writableEnded) break;
         writeSseEvent(res, toWireEvent(event));
-        if (event.kind === 'done' || event.kind === 'error') break;
+        // The service yields `done` first, then `quota` (post-write
+        // so the count is fresh). Break only after quota or error —
+        // breaking on `done` would suppress the quota event the
+        // frontend needs to update its remaining counters.
+        if (event.kind === 'quota' || event.kind === 'error') break;
       }
     } catch (err) {
       // Mid-stream failure: send a single error event then close.
@@ -213,6 +290,17 @@ type WireEvent =
       error: string | null;
     }
   | { type: 'done'; usage: Record<string, number | undefined> }
+  | {
+      type: 'quota';
+      tier: 'free' | 'pro';
+      quotas: Array<{
+        kind: string;
+        limit: number;
+        used: number;
+        remaining: number;
+        resetAt: string;
+      }>;
+    }
   | { type: 'error'; code: string; message: string };
 
 function toWireEvent(event: AskEvent): WireEvent {
@@ -238,6 +326,8 @@ function toWireEvent(event: AskEvent): WireEvent {
       };
     case 'done':
       return { type: 'done', usage: event.usage };
+    case 'quota':
+      return { type: 'quota', tier: event.tier, quotas: event.quotas };
     case 'error':
       return { type: 'error', code: event.code, message: event.message };
   }

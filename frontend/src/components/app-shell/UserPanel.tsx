@@ -8,6 +8,7 @@ import { MediaImg } from '@/components/ui/media-img';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { VoiceQuickControls } from '@/components/voice/VoiceQuickControls';
 import { PresenceDot } from './atoms/PresenceDot';
+import { UserPanelProBadge, useProAvatarRingClass } from './UserPanelProBadge';
 
 interface UserPanelProps {
   /**
@@ -29,6 +30,7 @@ interface UserPanelProps {
 export function UserPanel({ variant = 'standalone' }: UserPanelProps = {}): React.JSX.Element {
   const { profile } = useAuth();
   const openSettings = useSettingsStore((s) => s.open);
+  const proRingClass = useProAvatarRingClass();
 
   const seed = profile?.username ?? profile?.email ?? 'unknown';
   const avatarSrc = profile?.avatar_url ?? getIdenticonDataUrl(seed);
@@ -50,14 +52,21 @@ export function UserPanel({ variant = 'standalone' }: UserPanelProps = {}): Reac
         }}
       >
         <span className="relative shrink-0">
-          <MediaImg src={avatarSrc} alt="" width={32} height={32} className="size-8 rounded-full" />
+          <MediaImg
+            src={avatarSrc}
+            alt=""
+            width={32}
+            height={32}
+            className={cn('size-8 rounded-full', proRingClass)}
+          />
           <span className="absolute -right-0.5 -bottom-0.5">
             <PresenceDot presence="online" size={12} ringClassName="ring-glass-callout" />
           </span>
         </span>
         <span className="min-w-0 flex-1">
-          <span className="text-ink text-control block truncate leading-tight font-semibold">
-            {displayName}
+          <span className="text-ink text-control flex min-w-0 items-center leading-tight font-semibold">
+            <span className="truncate">{displayName}</span>
+            <UserPanelProBadge />
           </span>
           <span className="text-ink-muted text-caption block truncate leading-tight">Online</span>
         </span>

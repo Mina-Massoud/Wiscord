@@ -1,3 +1,6 @@
+import { AlertCircle } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useInvoices } from '@/queries/billing';
 import { SettingsPanelTitle, SettingsSection } from '../SettingsShell';
@@ -5,7 +8,7 @@ import { InvoiceRow } from './BillingPanelInvoiceRow';
 import { EmptyState } from './BillingPanelEmptyState';
 
 export function BillingPanel(): React.JSX.Element {
-  const { data, isLoading, error } = useInvoices();
+  const { data, isLoading, error, refetch } = useInvoices();
 
   return (
     <div>
@@ -22,9 +25,26 @@ export function BillingPanel(): React.JSX.Element {
             <Skeleton className="h-14 w-full" />
           </div>
         ) : error ? (
-          <p className="text-destructive text-control">
-            Couldn&apos;t load your invoices. Try refreshing the dialog.
-          </p>
+          // M7 — distinct error state. The original "couldn't load…
+          // try refreshing the dialog" copy was visually identical
+          // to a clean empty list (centered text on whitespace), so
+          // users with intermittent errors thought they had no
+          // invoices. The destructive-tinted card + retry button
+          // makes the failure unmistakable + recoverable in-place.
+          <div className="border-destructive/40 bg-destructive/10 flex items-start gap-3 rounded-md border px-4 py-3">
+            <AlertCircle className="text-destructive size-5 shrink-0" aria-hidden />
+            <div className="flex flex-1 flex-col gap-2">
+              <p className="text-destructive text-control">couldn&apos;t load your invoices.</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="self-start"
+                onClick={() => void refetch()}
+              >
+                try again
+              </Button>
+            </div>
+          </div>
         ) : !data || data.length === 0 ? (
           <EmptyState />
         ) : (

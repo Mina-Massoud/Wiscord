@@ -159,6 +159,20 @@ When customization is genuinely needed: extend the component's `className`, pass
 
 **When custom is OK.** Feature-specific surfaces that aren't shadcn primitives in the first place — voice participant tiles, the connected-card chrome, channel rows, the focus timer ring. The rule above applies to *primitives* (dropdown, dialog, switch, …), not to every component.
 
+#### Raw `<button>` audit + ESLint guard
+
+Raw `<button>` is flagged by ESLint (`react/forbid-elements`) and surfaces as a warning. The rule is staged: it lands as `warn` with `--max-warnings 114` as the current baseline; new code may not increase that number, and the baseline ratchets down as the codebase migrates. To inventory and classify existing call-sites:
+
+```bash
+node scripts/audit-raw-button.mjs                      # full report
+node scripts/audit-raw-button.mjs --filter button-like # likely real migrations
+node scripts/audit-raw-button.mjs --filter tile-like   # legitimate exceptions
+node scripts/audit-raw-button.mjs --json               # machine-readable
+node scripts/audit-raw-button.mjs --only src/components/voice
+```
+
+The script's heuristic (button-like / tile-like / ambiguous) is a hint, not a verdict — `button-like` usages are the migration target; `tile-like` are the bespoke-surface exception. For each `tile-like` you keep raw, leave a one-line JSDoc above the element explaining the surface, and silence the rule there with `// eslint-disable-next-line react/forbid-elements`. Do not turn the rule off globally.
+
 ### Sidebar shell + PaneHeader — one primitive, content via children
 
 Any "labs sidebar" surface (Voice, Quiz, Notes, Whiteboard, future Calendar, future Flashcards, …) **must** consume `components/ui/sidebar-shell` for its outer shell, titlebar, body padding, section header, empty/error/skeleton chrome. Feature code only supplies the row renderer and any feature-specific atoms.

@@ -50,6 +50,8 @@ describe('ask() scope dispatch', () => {
           userId: 'user-1',
           scope: 'personal',
           question: 'hi',
+          tier: 'free',
+          vibe: 'genz',
         })) {
           // unreachable — the generator throws on first iteration
           void _;
@@ -60,19 +62,19 @@ describe('ask() scope dispatch', () => {
 
   test('channel scope rejects with scope_not_implemented', async () => {
     await expect(
-      drain(ask({ userId: 'user-1', scope: 'channel', question: 'hi' })),
+      drain(ask({ userId: 'user-1', scope: 'channel', question: 'hi', tier: 'free', vibe: 'genz' })),
     ).rejects.toMatchObject({ status: 501, code: 'scope_not_implemented' });
   });
 
   test('server scope rejects with scope_not_implemented', async () => {
     await expect(
-      drain(ask({ userId: 'user-1', scope: 'server', question: 'hi' })),
+      drain(ask({ userId: 'user-1', scope: 'server', question: 'hi', tier: 'free', vibe: 'genz' })),
     ).rejects.toMatchObject({ status: 501, code: 'scope_not_implemented' });
   });
 
   test('voice scope rejects with scope_not_implemented', async () => {
     await expect(
-      drain(ask({ userId: 'user-1', scope: 'voice', question: 'hi' })),
+      drain(ask({ userId: 'user-1', scope: 'voice', question: 'hi', tier: 'free', vibe: 'genz' })),
     ).rejects.toMatchObject({ status: 501, code: 'scope_not_implemented' });
   });
 });

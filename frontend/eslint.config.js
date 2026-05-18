@@ -73,11 +73,36 @@ const config = [
           message: 'fetch() is forbidden outside src/queries/.',
         },
       ],
+      // Raw <button> is banned in favor of the shadcn <Button> primitive at
+      // @/components/ui/button. Landed as `warn` while the existing ~114
+      // call-sites are migrated; the `--max-warnings` baseline in
+      // package.json ratchets down to zero over time. Run
+      //   node scripts/audit-raw-button.mjs
+      // for an inventory with heuristic classification. Bespoke surfaces
+      // (channel rows, participant tiles, color swatches) are legitimate
+      // exceptions per frontend/CLAUDE.md — disable per-line with a JSDoc
+      // explaining the surface, do NOT silence the rule globally.
+      'react/forbid-elements': [
+        'warn',
+        {
+          forbid: [
+            {
+              element: 'button',
+              message:
+                "Use <Button> from '@/components/ui/button' instead of a raw <button>. Bespoke surfaces (tile, row, swatch) may stay raw — add a JSDoc note and `// eslint-disable-next-line react/forbid-elements`.",
+            },
+          ],
+        },
+      ],
     },
   },
   {
     files: ['src/components/ui/**/*.tsx'],
-    rules: { 'max-lines': 'off' },
+    // shadcn primitive `button.tsx` legitimately renders a raw <button>.
+    rules: {
+      'max-lines': 'off',
+      'react/forbid-elements': 'off',
+    },
   },
   {
     files: ['src/queries/client.ts'],

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAiCapsuleStore } from '@/components/ai/useAiCapsuleStore';
 import { logger } from '@/lib/logger';
 import { toast } from '@/lib/toast';
-import { api, API_URL } from './client.js';
+import { api, API_URL, type ApiFailure } from './client.js';
 import { qk } from './keys.js';
 
 /**
@@ -44,6 +44,34 @@ export interface AiUsage {
 }
 
 export type AiStatus = 'idle' | 'streaming' | 'done' | 'error';
+
+/**
+ * One daily quota row for the signed-in user. Mirrors the SSE
+ * `quota` event payload AND the GET /ai/quota response so the same
+ * type powers both surfaces.
+ */
+export interface AiQuotaRow {
+  kind: 'message' | 'url_note';
+  limit: number;
+  used: number;
+  remaining: number;
+  /** ISO datetime of the next reset (UTC midnight tonight). */
+  resetAt: string;
+}
+
+/**
+ * Snapshot of a user's hit on a daily quota — the payload the
+ * server sends in the `details` field of a 402 quota_exceeded
+ * response. The frontend uses it to drive the upgrade prompt
+ * (which kind, when it resets) without a second round trip.
+ */
+export interface QuotaExceededInfo {
+  kind: 'message' | 'url_note';
+  tier: 'free' | 'pro';
+  limit: number;
+  used: number;
+  resetAt: string;
+}
 
 /**
  * One message in the persisted conversation. Mirrors the shape
@@ -87,6 +115,16 @@ export interface AskAiState {
   isLoading: boolean;
   usage: AiUsage | null;
   error: string | null;
+  /** Latest daily quota snapshot from the most recent SSE `quota`
+   *  event. Null until the first turn lands. Used to render the
+   *  "X messages left today" footer chip in the AI capsule. */
+  quotas: AiQuotaRow[] | null;
+  /** Set when the most recent `ask()` was rejected with 402
+   *  quota_exceeded. Drives the upgrade prompt dialog. Cleared on
+   *  the next successful `ask()`. */
+  quotaExceeded: QuotaExceededInfo | null;
+  /** Dismisses the quota_exceeded dialog without sending a new ask. */
+  dismissQuotaExceeded: () => void;
   ask: (question: string, scope?: AiScope, scopeId?: string) => Promise<void>;
   /** Wipes the conversation server-side and locally. */
   clear: () => Promise<void>;
@@ -306,6 +344,7 @@ type WireEvent =
       error: string | null;
     }
   | { type: 'done'; usage: AiUsage }
+  | { type: 'quota'; tier: 'free' | 'pro'; quotas: AiQuotaRow[] }
   | { type: 'error'; code: string; message: string };
 
 /**
@@ -352,6 +391,10 @@ export function useAskAi(): AskAiState {
   const [usage, setUsage] = useState<AiUsage | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingUserText, setPendingUserText] = useState<string | null>(null);
+  const [quotas, setQuotas] = useState<AiQuotaRow[] | null>(null);
+  const [quotaExceeded, setQuotaExceeded] = useState<QuotaExceededInfo | null>(null);
+
+  const dismissQuotaExceeded = useCallback(() => setQuotaExceeded(null), []);
 
   const abortRef = useRef<AbortController | null>(null);
   // Tracks the createdAt stamp for the in-flight optimistic turn so the
@@ -449,6 +492,10 @@ export function useAskAi(): AskAiState {
       setUsage(null);
       setError(null);
       setPendingUserText(question);
+      // Clear any prior quota-exceeded dialog so the new ask gets a
+      // clean shot — if THIS request also hits the cap, the catch
+      // block sets it again.
+      setQuotaExceeded(null);
 
       try {
         const response = await fetch(`${API_URL}/ai/ask`, {
@@ -470,6 +517,18 @@ export function useAskAi(): AskAiState {
         });
 
         if (!response.ok) {
+          // 402 quota_exceeded — the backend rejects BEFORE opening
+          // SSE headers, so the body is a normal JSON envelope.
+          // Parse the structured details so we can render the upgrade
+          // prompt without a second round trip. Other non-ok statuses
+          // fall through to the generic error path.
+          if (response.status === 402) {
+            const info = await parseQuotaExceededBody(response);
+            setPendingUserText(null);
+            setStatus('idle');
+            setQuotaExceeded(info);
+            return;
+          }
           const fallback = await response.text().catch(() => '');
           throw new Error(
             response.status === 503
@@ -616,6 +675,16 @@ export function useAskAi(): AskAiState {
               setStatus('idle');
             });
             return;
+          case 'quota':
+            setQuotas(event.quotas);
+            // Mirror into the GET /ai/quota cache so the standalone
+            // chip on the composer (which uses useAiQuota, not the
+            // ask hook) stays fresh without a refetch every turn.
+            queryClient.setQueryData(['ai', 'quota'] as const, {
+              tier: event.tier,
+              quotas: event.quotas,
+            });
+            return;
           case 'error':
             setStatus('error');
             setError(event.message);
@@ -634,7 +703,58 @@ export function useAskAi(): AskAiState {
     isLoading: conversation.isLoading,
     usage,
     error,
+    quotas,
+    quotaExceeded,
+    dismissQuotaExceeded,
     ask,
     clear,
   };
+}
+
+/**
+ * Stand-alone hook for surfaces that want to render quota counters
+ * without opening an SSE stream — e.g. the AI capsule's idle-state
+ * footer showing "12 messages left today" before the user types
+ * anything. Refresh on focus is opt-out by default (60s stale time
+ * is plenty for a daily counter).
+ */
+export function useAiQuota() {
+  return useQuery({
+    queryKey: ['ai', 'quota'] as const,
+    queryFn: () => api<{ tier: 'free' | 'pro'; quotas: AiQuotaRow[] }>('/ai/quota'),
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * Parse a 402 quota_exceeded response body into the structured
+ * payload the upgrade prompt needs. The backend sends the standard
+ * `{success:false, error:{code, message, details}}` envelope where
+ * `details` carries `{kind, tier, limit, used, resetAt}`. Falls back
+ * to a safe default if the body is malformed (extremely unlikely
+ * since we own both sides, but keeps the type honest).
+ */
+async function parseQuotaExceededBody(response: Response): Promise<QuotaExceededInfo> {
+  const fallback: QuotaExceededInfo = {
+    kind: 'message',
+    tier: 'free',
+    limit: 0,
+    used: 0,
+    resetAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  };
+  try {
+    const body = (await response.json()) as ApiFailure;
+    if (!body || body.success !== false) return fallback;
+    const details = body.error.details as Partial<QuotaExceededInfo> | undefined;
+    if (!details) return fallback;
+    return {
+      kind: details.kind === 'url_note' ? 'url_note' : 'message',
+      tier: details.tier === 'pro' ? 'pro' : 'free',
+      limit: typeof details.limit === 'number' ? details.limit : fallback.limit,
+      used: typeof details.used === 'number' ? details.used : fallback.used,
+      resetAt: typeof details.resetAt === 'string' ? details.resetAt : fallback.resetAt,
+    };
+  } catch {
+    return fallback;
+  }
 }

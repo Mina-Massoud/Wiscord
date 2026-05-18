@@ -76,3 +76,12 @@ export type {
   AiConversationToolCall,
   AiMessageRole,
 } from './AiConversation.js';
+export { AiUsageLog, AI_USAGE_KINDS, utcDateBucket } from './AiUsageLog.js';
+export type { AiUsageLogDoc, AiUsageLogRow, AiUsageKind } from './AiUsageLog.js';
+export { AiUsageCounter } from './AiUsageCounter.js';
+export type { AiUsageCounterDoc, AiUsageCounterRow } from './AiUsageCounter.js';
+export { ProcessedWebhookEvent } from './ProcessedWebhookEvent.js';
+export type {
+  ProcessedWebhookEventDoc,
+  ProcessedWebhookEventRow,
+} from './ProcessedWebhookEvent.js';

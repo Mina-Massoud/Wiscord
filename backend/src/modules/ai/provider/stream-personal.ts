@@ -83,7 +83,7 @@ const AI_TOOLS: Tool[] = [
       {
         name: 'createNote',
         description:
-          "Save a new note doc to the user's notes lab. Call this whenever the user asks you to write a plan, summary, study guide, checklist, breakdown, or any long-form structured content they want to keep. Creates a fresh notes doc and surfaces it as a clickable pill in the chat; the user can open it in the editor or delete it from /app/labs/notes. Runs immediately, no confirmation. Write `markdown` in your normal genz voice.\n\nSTRUCTURE — Notion-style. Get these right or the note reads as a wall of text.\n\nHeading levels — ONLY `#`, `##`, `###`. NEVER `####`, `#####`, `######` — those have no styling and render as plain bold text indistinguishable from a body paragraph (the renderer coerces them to `###` anyway, so use `###` directly). Hierarchy is: `#` = document title (use ONCE, at the top), `##` = major section, `###` = subsection.\n\nLists are the default for itemized content. The MOMENT you find yourself writing two-plus paragraphs that each start with `Term:` / `Name:` / `Date:` / `Period:` followed by an explanation, STOP — that is a bullet list, not paragraphs. Write it as `- Term: explanation` (one bullet per line). Same for steps (`1.` ordered) and short examples. A list of 4 items as paragraphs reads as a wall; the same 4 items as bullets read as a scannable list. THIS IS THE #1 STRUCTURE MISTAKE — do not make it.\n\nBLANK LINE between every block — heading, paragraph, list, blockquote, code. Markdown collapses adjacent lines into the same paragraph; a blank line is what creates a new block.\n\nFor multi-line explanations under a heading, ONE paragraph of prose THEN a bullet list of named items is the canonical Notion shape. Avoid heading → heading → heading with no body — sections need at least a sentence of context before the list.\n\nCode in fenced ``` blocks. Quotes in `> blockquote`. DO NOT use `**bold**`, `*italic*`, `~~strike~~`, or `[links](url)` — inline marks are stripped at parse time, so the asterisks vanish and the text reads plain anyway. Lean on headings + list nesting + a single well-placed blockquote for visual hierarchy instead.\n\nTypical length 150–600 words; longer only if the user explicitly asks for depth. Don't pad — a tight, well-structured plan beats a wordy one.",
+          "Save a new note doc to the user's notes lab. Call this whenever the user asks you to write a plan, summary, study guide, checklist, breakdown, or any long-form structured content they want to keep. Creates a fresh notes doc and surfaces it as a clickable pill in the chat; the user can open it in the editor or delete it from /app/labs/notes. Runs immediately, no confirmation. Write `markdown` in your normal genz voice.\n\nSTRUCTURE — Notion-style. Get these right or the note reads as a wall of text.\n\nHeading levels — ONLY `#`, `##`, `###`. NEVER `####`, `#####`, `######` — those have no styling and render as plain bold text indistinguishable from a body paragraph (the renderer coerces them to `###` anyway, so use `###` directly). Hierarchy is: `#` = document title (use ONCE, at the top), `##` = major section, `###` = subsection.\n\nLists are the default for itemized content. The MOMENT you find yourself writing two-plus paragraphs that each start with `Term:` / `Name:` / `Date:` / `Period:` followed by an explanation, STOP — that is a bullet list, not paragraphs. Write it as `- Term: explanation` (one bullet per line). Same for steps (`1.` ordered) and short examples. A list of 4 items as paragraphs reads as a wall; the same 4 items as bullets read as a scannable list. THIS IS THE #1 STRUCTURE MISTAKE — do not make it.\n\nBLANK LINE between every block — heading, paragraph, list, blockquote, code. Markdown collapses adjacent lines into the same paragraph; a blank line is what creates a new block.\n\nFor multi-line explanations under a heading, ONE paragraph of prose THEN a bullet list of named items is the canonical Notion shape. Avoid heading → heading → heading with no body — sections need at least a sentence of context before the list.\n\nCode in fenced ``` blocks. Quotes in `> blockquote`. DO NOT use `**bold**`, `*italic*`, `~~strike~~`, or `[links](url)` — inline marks are stripped at parse time, so the asterisks vanish and the text reads plain anyway. Lean on headings + list nesting + a single well-placed blockquote for visual hierarchy instead.\n\nTypical length 150–600 words. EXCEPTION: when the user prompt includes a `=== WEB SOURCES ===` block AND the user asked you to explain / summarize / break down / make a note about a URL, write 1500–3000 words grounded in the fetched content — multiple `##` sections, real depth, the user wants to scroll through actual material. Cite `[web:n]` inline wherever you pull a specific fact so claims are traceable. Don't pad — every paragraph earns its place — but don't half-ass a summary of a 5000-word source either.",
         parameters: {
           type: Type.OBJECT,
           properties: {
@@ -204,10 +204,56 @@ interface StreamArgs {
    * without invoking the tool).
    */
   contents: Content[];
+  /**
+   * Optional override for the Gemini model id. Defaults to
+   * `env.GEMINI_MODEL`. URL-summarization turns pass a stronger model
+   * (gemini-2.5-flash) because 2.0-flash fumbles long JSON-escaped
+   * tool args and surfaces `MALFORMED_FUNCTION_CALL`. Keeping the
+   * default cheap means casual chat turns still use the small model.
+   */
+  model?: string;
 }
 
-export async function* streamPersonalAnswer(args: StreamArgs): AsyncGenerator<StreamEvent> {
-  const { client, systemPrompt, contents } = args;
+/**
+ * Stronger model used when long-form structured output is expected
+ * (URL-summarization turns). 2.5-flash is far more reliable than
+ * 2.0-flash at escaping multi-thousand-character JSON tool args,
+ * which is exactly what `createNote` with a 1500–3000 word body
+ * requires. Cost is ~1.5× per token but applies only to the rare
+ * turns that need it.
+ */
+export const STRONG_MODEL = 'gemini-2.5-flash';
+
+/**
+ * Single attempt at a Gemini stream. Yields events as they arrive
+ * AND returns final state via `result` so the orchestrator above
+ * can decide whether to retry. Yielded events are committed —
+ * caller can't un-yield, so this function only yields tokens and
+ * tool calls once we're confident the stream isn't going to bail
+ * with MALFORMED_FUNCTION_CALL on no output.
+ *
+ * The buffering compromise: we DO yield tokens live as they arrive
+ * (low latency), but if the stream finishes with zero output the
+ * caller (`streamPersonalAnswer`) can safely retry — because no
+ * tokens were yielded in that case, the user never saw a partial
+ * reply that the retry would overwrite.
+ */
+async function* runOneAttempt(args: {
+  client: GoogleGenAI;
+  systemPrompt: string;
+  contents: Content[];
+  model: string;
+}): AsyncGenerator<
+  StreamEvent,
+  {
+    tokenChunks: number;
+    toolCallCount: number;
+    finishReason: string | undefined;
+    usage: StreamUsage;
+    iteratorError: unknown;
+  }
+> {
+  const { client, systemPrompt, contents, model } = args;
 
   // Gemini's `contents` is the canonical multi-turn channel. With
   // proper functionCall/functionResponse parts in history, tool-use
@@ -220,11 +266,18 @@ export async function* streamPersonalAnswer(args: StreamArgs): AsyncGenerator<St
   // `auto` (the default): the model decides per turn whether to
   // call or just reply.
   const response = await client.models.generateContentStream({
-    model: env.GEMINI_MODEL,
+    model,
     contents,
     config: {
       systemInstruction: systemPrompt,
-      maxOutputTokens: 1536,
+      // 8192 is Gemini 2.x Flash's per-response cap. We size to the
+      // ceiling so URL-summarization turns can emit a full long-form
+      // markdown body inside a `createNote` tool call (the tool args
+      // are part of the output token budget). The short-reply default
+      // is enforced by the voice rules, not by the token cap — most
+      // turns still emit ≤200 tokens, so the bump only costs us
+      // anything when the model actually needs the room.
+      maxOutputTokens: 8192,
       // 0.8 gives the model room to land the dry-confident voice
       // edges without slipping into incoherence.
       temperature: 0.8,
@@ -240,10 +293,7 @@ export async function* streamPersonalAnswer(args: StreamArgs): AsyncGenerator<St
 
   // Wrap the SDK iterator in try so a mid-stream network blip, 429,
   // or malformed chunk doesn't drop the `done` event entirely — the
-  // caller (`service.ts`) relies on `done` to persist the assistant
-  // turn. We still surface the error to the caller via re-throw
-  // after the diagnostic log + done event so it can emit a typed
-  // `error` SSE event with the partial usage attached.
+  // caller relies on the returned state to decide retry vs commit.
   try {
     for await (const chunk of response) {
       // `.text` is a getter that returns the concatenated text of all
@@ -294,35 +344,93 @@ export async function* streamPersonalAnswer(args: StreamArgs): AsyncGenerator<St
     iteratorError = err;
   }
 
-  // If the model finished with a non-STOP reason and produced no
-  // visible output (no text + no tool call), emit a synthetic
+  return {
+    tokenChunks,
+    toolCallCount,
+    finishReason: lastFinishReason,
+    usage: lastUsage,
+    iteratorError,
+  };
+}
+
+/**
+ * Finish reasons that indicate the model returned nothing usable
+ * because its function-call output failed JSON validation on
+ * Gemini's side. Retryable — usually the same prompt produces
+ * valid JSON on a second pass, especially on the strong model.
+ */
+const RETRYABLE_MALFORMED = new Set(['MALFORMED_FUNCTION_CALL', 'UNEXPECTED_TOOL_CALL']);
+
+export async function* streamPersonalAnswer(args: StreamArgs): AsyncGenerator<StreamEvent> {
+  const { client, systemPrompt, contents, model } = args;
+  const resolvedModel = model ?? env.GEMINI_MODEL;
+
+  const first = yield* runOneAttempt({ client, systemPrompt, contents, model: resolvedModel });
+
+  let { tokenChunks, toolCallCount, finishReason, usage, iteratorError } = first;
+  let retried = false;
+
+  // Retry exactly once when the model produced ZERO output and
+  // failed with a malformed-call reason. Zero output means we
+  // haven't shipped anything to the caller yet, so a clean second
+  // attempt yields fresh events without overwriting a partial reply
+  // the user already saw. We bump to STRONG_MODEL on retry — if the
+  // weak model malformed once, the strong one is likelier to
+  // succeed on the same prompt.
+  if (
+    tokenChunks === 0 &&
+    toolCallCount === 0 &&
+    finishReason !== undefined &&
+    RETRYABLE_MALFORMED.has(finishReason)
+  ) {
+    logger.warn(
+      { finishReason, originalModel: resolvedModel, retryModel: STRONG_MODEL },
+      'ai: retrying after malformed function call',
+    );
+    retried = true;
+    const second = yield* runOneAttempt({
+      client,
+      systemPrompt,
+      contents,
+      model: STRONG_MODEL,
+    });
+    tokenChunks = second.tokenChunks;
+    toolCallCount = second.toolCallCount;
+    finishReason = second.finishReason;
+    usage = second.usage;
+    iteratorError = second.iteratorError;
+  }
+
+  // If the model STILL finished with a non-STOP reason and produced
+  // no visible output (no text + no tool call), emit a synthetic
   // apology token so the UI has *something* to render. Without
   // this, the user sees a blank assistant turn for SAFETY /
   // RECITATION / OTHER / MAX_TOKENS finishes and has no way to
   // tell whether the request worked.
-  if (tokenChunks === 0 && toolCallCount === 0 && lastFinishReason && lastFinishReason !== 'STOP') {
-    const fallback = synthesizeFinishReasonMessage(lastFinishReason);
+  if (tokenChunks === 0 && toolCallCount === 0 && finishReason && finishReason !== 'STOP') {
+    const fallback = synthesizeFinishReasonMessage(finishReason);
     if (fallback.length > 0) {
       yield { kind: 'token', text: fallback };
     }
   }
 
-  // Diagnostic — fires once per stream. Empty completions
-  // (tokenChunks=0, toolCallCount=0) surface `finishReason` so
-  // we can see SAFETY / OTHER / MAX_TOKENS without parsing
-  // chunks ourselves.
+  // Diagnostic — fires once per stream (after retry, if any).
+  // Empty completions (tokenChunks=0, toolCallCount=0) surface
+  // `finishReason` so we can see SAFETY / OTHER / MAX_TOKENS
+  // without parsing chunks ourselves.
   logger.info(
     {
       tokenChunks,
       toolCallCount,
-      finishReason: lastFinishReason,
-      totalTokens: lastUsage.totalTokenCount,
+      finishReason,
+      totalTokens: usage.totalTokenCount,
+      retried,
       iteratorError: iteratorError instanceof Error ? iteratorError.message : iteratorError,
     },
     'ai: stream complete',
   );
 
-  yield { kind: 'done', usage: lastUsage };
+  yield { kind: 'done', usage };
 
   // Re-throw after `done` so the caller's catch still fires and
   // emits an `error` SSE event — but the assistant turn has now
@@ -354,7 +462,10 @@ function synthesizeFinishReasonMessage(reason: string): string {
       return "Ran out of room mid-thought. Ask me to continue or narrow the question?";
     case 'MALFORMED_FUNCTION_CALL':
     case 'UNEXPECTED_TOOL_CALL':
-      return "Tool call came back malformed — try again or rephrase what you want done.";
+      // After retry this means BOTH attempts malformed. Usually the
+      // prompt is too long/complex for the model to round-trip into a
+      // valid JSON tool call — suggest narrowing scope.
+      return "couldn't get a clean reply on that one. if it's a big link, try a shorter one or paste the key bits and i'll work from those.";
     case 'LANGUAGE':
       return "Couldn't process that language. Try English?";
     case 'OTHER':

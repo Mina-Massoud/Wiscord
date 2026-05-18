@@ -70,7 +70,14 @@ export async function consumeMagicLink(
 /**
  * Wire-format user shape. Snake_case to match the existing frontend
  * `Profile` type so consumers don't need to be touched in this slice.
+ *
+ * `role` and `vibe` come back on every /auth/me read. They have schema
+ * defaults so legacy rows that predate this migration still serialize
+ * cleanly without a one-off backfill.
  */
+export type UserRole = 'student' | 'teacher';
+export type UserVibe = 'genz' | 'chill' | 'professional';
+
 export interface CurrentUserDto {
   id: string;
   email: string;
@@ -78,7 +85,8 @@ export interface CurrentUserDto {
   display_name: string | null;
   avatar_url: string | null;
   onboarded_at: string | null;
-  voice_style: 'default' | 'genz';
+  role: UserRole;
+  vibe: UserVibe;
   created_at: string;
   updated_at: string;
 }
@@ -94,7 +102,8 @@ export async function getCurrentUser(userId: string): Promise<CurrentUserDto> {
     display_name: user.displayName ?? null,
     avatar_url: user.avatarUrl ?? null,
     onboarded_at: user.onboardedAt ? user.onboardedAt.toISOString() : null,
-    voice_style: (user.voiceStyle ?? 'default') as 'default' | 'genz',
+    role: (user.role ?? 'student') as UserRole,
+    vibe: (user.vibe ?? 'genz') as UserVibe,
     created_at: user.createdAt.toISOString(),
     updated_at: user.updatedAt.toISOString(),
   };
@@ -121,7 +130,8 @@ export async function updateProfile(
   if (patch.onboarded_at !== undefined) {
     update.onboardedAt = patch.onboarded_at ? new Date(patch.onboarded_at) : null;
   }
-  if (patch.voice_style !== undefined) update.voiceStyle = patch.voice_style;
+  if (patch.role !== undefined) update.role = patch.role;
+  if (patch.vibe !== undefined) update.vibe = patch.vibe;
 
   await User.updateOne({ _id: userId }, { $set: update });
   return getCurrentUser(userId);

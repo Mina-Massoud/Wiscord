@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { useFriends } from '@/queries/friends';
 import type { FriendDto } from '@/queries/client';
 import { Info, Search, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { AnnouncementBanner } from './showcase/AnnouncementBanner';
 import { fakeFriendsAnnouncement } from '@/data/fake-active-now';
 import { FriendsEmptyState } from './FriendsEmptyState';
@@ -44,9 +45,9 @@ export function FriendsList({ activeTab, onTabChange }: FriendsListProps): React
           <Info className="text-ink-muted size-4 shrink-0" />
           <p className="text-ink-muted flex-1">
             Looking for accounts you&apos;ve blocked or ignored?{' '}
-            <button type="button" className="text-blurple hover:underline">
+            <Button variant="link" className="text-blurple h-auto p-0">
               Go to settings
-            </button>
+            </Button>
           </p>
           <button
             type="button"

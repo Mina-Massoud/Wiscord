@@ -106,7 +106,7 @@ export function AiCapsule(): React.JSX.Element | null {
         role={expanded ? 'dialog' : 'button'}
         aria-haspopup={expanded ? undefined : 'dialog'}
         aria-expanded={expanded}
-        aria-label={expanded ? 'Personal AI' : 'Open AI assistant'}
+        aria-label={expanded ? 'Wismate' : 'Open Wismate'}
         tabIndex={expanded ? -1 : 0}
         onClick={expanded ? undefined : open}
         onKeyDown={

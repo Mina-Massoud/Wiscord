@@ -23,6 +23,7 @@ import { friendsRouter } from './modules/friends/routes.js';
 import { privacyRouter } from './modules/privacy/routes.js';
 import { securityRouter } from './modules/security/routes.js';
 import { billingRouter } from './modules/billing/routes.js';
+import { adminRouter } from './modules/admin/routes.js';
 import { stripeWebhookBodyParser, stripeWebhookHandler } from './modules/billing/webhook.js';
 import { integrationsRouter } from './modules/integrations/routes.js';
 import { listenTogetherRouter } from './modules/listen-together/routes.js';
@@ -85,6 +86,7 @@ export function createApp(): Express {
   app.use('/billing', billingRouter);
   app.use('/integrations', integrationsRouter);
   app.use('/listen-together', listenTogetherRouter);
+  app.use('/admin', adminRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

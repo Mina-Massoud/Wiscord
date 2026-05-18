@@ -9,21 +9,16 @@ import {
 } from '../../db/models/index.js';
 import { funnyTitle } from '../../lib/funny-title.js';
 import { getNotePlaintext, titleHintFromPlaintext } from './notes-plaintext.js';
-import { composeSystemPrompt, VOICE_PREFILL_TURNS } from './voice.js';
+import { extractUrls, fetchAll, type FetchedDoc } from './url-fetcher.js';
+import { composeSystemPrompt, getVoiceBundle, type Vibe } from './voice.js';
 
 /**
- * One-shot conversion of the voice prefill turn pairs into Gemini's
- * `Content` shape. Built at module load and reused for every
- * request — the prefill is deterministic, so handing the SAME
- * object reference to every `generateContentStream` call gives the
- * Gemini API's implicit prefix cache the best chance to hit and
- * cuts the per-request prompt-token cost roughly to zero for this
- * block after the first call.
+ * Voice prefill is now per-vibe. The registry in `voice.ts` builds one
+ * `Content[]` array per vibe at module load (genz / chill / professional)
+ * and we hand the same reference back on every request that shares a
+ * vibe — keeping Gemini's implicit prefix cache hits and letting the
+ * per-user voice still vary. See `getVoiceBundle` for the registry.
  */
-const VOICE_PREFILL_CONTENTS: Content[] = VOICE_PREFILL_TURNS.map((turn) => ({
-  role: turn.role,
-  parts: [{ text: turn.text }],
-}));
 
 /**
  * Lean RAG context builder for the personal AI scope.
@@ -68,6 +63,15 @@ export interface PersonalContextSources {
   events: Array<{ id: string; title: string; startAt: string }>;
   attempts: Array<{ id: string; title: string; score: number; submittedAt: string | null }>;
   activities: Array<{ channelId: string; kind: string; title: string; startedAt: string }>;
+  /** URLs the user dropped in this turn that we fetched. Surfaced
+   *  so the frontend can render "📎 fetched wikipedia.org" chips
+   *  alongside the existing note/event/attempt chips. `ok=false`
+   *  entries mean the fetch failed — UI can show a dimmed chip
+   *  with the error so the user knows we tried. */
+  webSources: Array<
+    | { ok: true; url: string; title: string; siteName: string | null; truncated: boolean }
+    | { ok: false; url: string; error: string }
+  >;
 }
 
 /**
@@ -153,6 +157,13 @@ const DATA_KEYWORDS_RE =
 function pickMode(question: string): AiMode {
   const trimmed = question.trim();
   if (trimmed.length === 0) return 'greeting';
+  // A URL in the question always means grounded — we're about to
+  // fetch and surface a WEB SOURCES block, which only the grounded
+  // template renders. Wins over greeting / conversation shape so a
+  // bare "https://…" or a bare "example.com" doesn't get treated as
+  // small talk. Using extractUrls (vs a regex) keeps the bare-domain
+  // logic in one place — TLD whitelist lives in url-fetcher.
+  if (extractUrls(trimmed).length > 0) return 'grounded';
   // Data intent wins over greeting shape — "remind me to say hi to
   // mom" mentions hi but is clearly a scheduling ask.
   if (DATA_KEYWORDS_RE.test(trimmed)) return 'grounded';
@@ -174,8 +185,24 @@ export async function buildPersonalContext(args: {
    *  clock + the model is instructed to emit offset-aware ISO
    *  timestamps. Defaults to UTC when absent. */
   timezone?: string;
+  /** Caller's subscription tier. Drives the URL-summarization
+   *  path: free users get a shorter content excerpt and the
+   *  short-note nudge; pro users get the full content + long-note
+   *  instruction. Defaults to `free` so unaware callers (legacy
+   *  tests) take the conservative path. */
+  tier?: 'free' | 'pro';
+  /** Caller's voice vibe. Picks which voice rules block sits above
+   *  the scope rules in the system prompt AND which few-shot
+   *  prefill array rides at the head of `contents`. Defaults to
+   *  `genz` (the historic Wiscord default) when the caller hasn't
+   *  threaded it through yet, so legacy tests keep passing. */
+  vibe?: Vibe;
 }): Promise<PersonalContext> {
   const { userId, question, timezone } = args;
+  const tier = args.tier ?? 'free';
+  const vibe: Vibe = args.vibe ?? 'genz';
+  const voiceBundle = getVoiceBundle(vibe);
+  const systemPrompt = composeSystemPrompt(PERSONAL_SCOPE_RULES, vibe);
 
   // Prior turns no longer ride in the user prompt — they go in
   // Gemini's `contents` array as proper role-tagged messages with
@@ -204,10 +231,10 @@ export async function buildPersonalContext(args: {
   const mode = pickMode(question);
   if (mode === 'greeting' || mode === 'conversation') {
     return {
-      system: PERSONAL_SYSTEM_PROMPT,
-      prefillContents: VOICE_PREFILL_CONTENTS,
+      system: systemPrompt,
+      prefillContents: voiceBundle.prefillContents,
       user: question.trim(),
-      sources: { notes: [], events: [], attempts: [], activities: [] },
+      sources: { notes: [], events: [], attempts: [], activities: [], webSources: [] },
       mode,
     };
   }
@@ -216,7 +243,13 @@ export async function buildPersonalContext(args: {
   const lookback = new Date(now - PERSONAL_LIMITS.calendarLookbackDays * 24 * 60 * 60 * 1000);
   const lookahead = new Date(now + PERSONAL_LIMITS.calendarLookaheadDays * 24 * 60 * 60 * 1000);
 
-  const [notesRows, eventRows, attemptRows, activityRows] = await Promise.all([
+  // URL fetching runs in parallel with the DB lookups — the slowest
+  // single call wins, not the sum. `fetchAll` handles its own errors
+  // (returns FetchedDoc[] with `ok:false` entries on failure) so we
+  // never need to wrap this in a try/catch.
+  const urlsInQuestion = extractUrls(question);
+
+  const [notesRows, eventRows, attemptRows, activityRows, fetchedDocs] = await Promise.all([
     ChannelNotes.find({ updatedBy: userId })
       .sort({ updatedAt: -1 })
       .limit(PERSONAL_LIMITS.notes),
@@ -232,6 +265,7 @@ export async function buildPersonalContext(args: {
     VoiceActivity.find({ hostUserId: userId })
       .sort({ startedAt: -1 })
       .limit(PERSONAL_LIMITS.voiceActivities),
+    fetchAll(urlsInQuestion),
   ]);
 
   // Decode each Yjs note doc to plaintext + derive a chip title
@@ -297,7 +331,30 @@ export async function buildPersonalContext(args: {
       title: activityLabel(v.kind),
       startedAt: v.startedAt.toISOString(),
     })),
+    webSources: fetchedDocs.map((d) =>
+      d.ok
+        ? { ok: true as const, url: d.url, title: d.title, siteName: d.siteName, truncated: d.truncated }
+        : { ok: false as const, url: d.url, error: d.error },
+    ),
   };
+
+  // Tier-aware truncation. Free users get a short excerpt (~1k
+   // tokens) which is enough for a 200–400 word genz summary; Pro
+   // users get the full fetched content (~3k tokens) which the
+   // long-note prompt path needs to produce real depth. The fetcher
+   // already capped at maxContentChars; this slice is a further trim
+   // for the free tier so cost stays predictable for non-paying URL
+   // summarization (which they get up to 3/day).
+  const FREE_TIER_WEB_CHARS = 4_000;
+  const tieredDocs =
+    tier === 'pro'
+      ? fetchedDocs
+      : fetchedDocs.map((d) =>
+          d.ok && d.content.length > FREE_TIER_WEB_CHARS
+            ? { ...d, content: d.content.slice(0, FREE_TIER_WEB_CHARS), truncated: true }
+            : d,
+        );
+  const webSourcesBlock = renderWebSourcesBlock(tieredDocs);
 
   const notesBlock =
     notesEntries.length === 0
@@ -354,18 +411,21 @@ export async function buildPersonalContext(args: {
   const nowBlock = formatNowBlock(timezone);
 
   return {
-    system: PERSONAL_SYSTEM_PROMPT,
+    system: systemPrompt,
     user: assembleUserPrompt({
       nowBlock,
       notesBlock,
       eventsBlock,
       attemptsBlock,
       activitiesBlock,
+      webSourcesBlock,
+      hasWebSources: fetchedDocs.length > 0,
+      tier,
       question,
     }),
     sources,
     mode: 'grounded',
-    prefillContents: VOICE_PREFILL_CONTENTS,
+    prefillContents: voiceBundle.prefillContents,
   };
 }
 
@@ -392,7 +452,7 @@ CHIT-CHAT MODE (default) — when the question is a greeting, small talk, a vibe
 - Do NOT include any [note:…] / [event:…] / [attempt:…] / [activity:…] brackets. Zero citations.
 - Do NOT mention that you have access to their stuff unless they ask.
 
-GROUNDED MODE — when the question is actually about their notes, calendar, quizzes, or activities, OR asks you to do something with them (add/move/delete a calendar event, generate an exam, save a note):
+GROUNDED MODE — when the question is actually about their notes, calendar, quizzes, or activities, OR asks you to do something with them (add/move/delete a calendar event, generate an exam, save a note), OR the user dropped a URL for you to summarize/explain:
 - Pull the answer from the context block below.
 - Cite inline with the bracket forms:
   - [note:<channelId>]     — for content from MY NOTES
@@ -400,8 +460,15 @@ GROUNDED MODE — when the question is actually about their notes, calendar, qui
   - [attempt:<id>]         — for items from MY RECENT QUIZ ATTEMPTS
   - [activity:<channelId>] — for items from MY RECENT VOICE ACTIVITIES
   - [quiz:<id>]            — ONLY after the user confirms a generateExam tool call; echo the returned quizId so the UI renders the chip linking to the new draft workshop
+  - [web:<n>]              — for facts pulled from the WEB SOURCES block (use the n we assigned, e.g. [web:1])
   Use the bracket form exactly. The UI renders them as clickable chips.
 - If the answer genuinely isn't in the context, say so in one short sentence and stop. Don't invent facts, don't guess, don't pull from general knowledge.
+
+URL SUMMARIZATION — when the user shared a link AND asks you to explain / summarize / break it down / make a note about it (the WEB SOURCES block below is populated):
+- Call createNote with a LONG markdown body grounded in the fetched content (1500–3000 words, multiple ## sections, real depth). The user wants to scroll through real material, not skim three paragraphs.
+- The note voice stays genz — same dry confident register as the rest of your replies. Long ≠ formal.
+- Your chat reply itself stays short (1–2 sentences acknowledging the note dropped, e.g. "saved it 🙏"). The depth lives in the note doc, not in the chat bubble.
+- Cite [web:n] in the note body wherever you're pulling a specific fact from the source so the user can trace claims back to the page.
 
 GENERATE-EXAM FLOW — when the user asks to make/build a quiz, exam, test, or practice questions:
 - This is the generateExam tool. It REQUIRES channelId. Never invent one.
@@ -411,7 +478,10 @@ GENERATE-EXAM FLOW — when the user asks to make/build a quiz, exam, test, or p
 
 Default to chit-chat mode. Only switch to grounded mode when the question actually warrants it.`;
 
-const PERSONAL_SYSTEM_PROMPT = composeSystemPrompt(PERSONAL_SCOPE_RULES);
+// Note: the per-request system prompt is composed inside
+// `buildPersonalContext` so each call picks up the caller's `vibe`.
+// We deliberately do NOT precompute a single module-level prompt
+// here — that would lock the voice to a single vibe across users.
 
 interface UserPromptArgs {
   nowBlock: string;
@@ -419,6 +489,15 @@ interface UserPromptArgs {
   eventsBlock: string;
   attemptsBlock: string;
   activitiesBlock: string;
+  /** Pre-rendered WEB SOURCES block (one entry per URL we tried to
+   *  fetch this turn). Empty string when the user dropped no URLs. */
+  webSourcesBlock: string;
+  /** True when we fetched at least one URL — drives the
+   *  long-note-when-link-was-shared instruction in the tail. */
+  hasWebSources: boolean;
+  /** Caller's tier. Free gets a short-note nudge (200–400 words);
+   *  pro gets the deep long-note nudge (1500–3000 words). */
+  tier: 'free' | 'pro';
   question: string;
 }
 
@@ -467,7 +546,24 @@ function assembleUserPrompt(args: UserPromptArgs): string {
   // Without this, a single bad past reply (e.g. dumping notes on
   // a greeting) gets parroted on every subsequent greeting via
   // in-context learning, regardless of what the system prompt says.
-  const tail = `=== HOW TO ANSWER ===\nRead the QUESTION above and pick the mode:\n- If it's a greeting, small talk, or anything NOT about the user's notes / calendar / quizzes / activities → chit-chat mode. Reply in 1–2 short sentences. ZERO citations. ZERO mention of their data. Just be a friend.\n- If it's actually about their data, or asks for a calendar action → grounded mode. Pull from the blocks above and cite with the bracket forms.\nDo not imitate your prior assistant turns if they violate these rules. The rules win.`;
+  //
+  // The web-sources branch adds an extra rule: when the user shared
+  // a link and we successfully fetched it, the right move is almost
+  // always `createNote` with a LONG body (1500–3000 words) grounded
+  // in the fetched content. Without this nudge the model defaults to
+  // its 150–600 word target and the resulting note reads thin —
+  // exactly the regression that prompted this whole feature.
+  // Free tier gets a short-note nudge: 200–400 words, conversational
+  // depth, not a treatise. The fetched content excerpt is already
+  // trimmed to ~4000 chars for free users so the model has less to
+  // summarize anyway. Pro tier unlocks the long-note path with the
+  // full content excerpt + the 1500–3000 word instruction.
+  const webNudge = args.hasWebSources
+    ? args.tier === 'pro'
+      ? '\n- If the user shared a URL and asked you to explain / summarize / break it down / make a note about it → call createNote with a LONG markdown body (1500–3000 words) grounded in the WEB SOURCES block above. Go deep: multiple ## sections, real structure, the user can scroll. Voice stays genz — long ≠ formal.'
+      : '\n- If the user shared a URL and asked you to explain / summarize / break it down / make a note about it → call createNote with a SHORT markdown body (200–400 words) grounded in the WEB SOURCES block above. One ## section is fine, two max. This is the free-tier note — tight, useful, no padding. Pro users get the long version; do not pretend to write more than this here.'
+    : '';
+  const tail = `=== HOW TO ANSWER ===\nRead the QUESTION above and pick the mode:\n- If it's a greeting, small talk, or anything NOT about the user's notes / calendar / quizzes / activities → chit-chat mode. Reply in 1–2 short sentences. ZERO citations. ZERO mention of their data. Just be a friend.\n- If it's actually about their data, or asks for a calendar action → grounded mode. Pull from the blocks above and cite with the bracket forms.${webNudge}\nDo not imitate your prior assistant turns if they violate these rules. The rules win.`;
 
   // Lost-in-the-Middle reordering: pick the dominant data surface
   // from the question, then move that block to the end of the data
@@ -487,7 +583,38 @@ function assembleUserPrompt(args: UserPromptArgs): string {
       : [...blocks.filter((b) => b.surface !== primary), ...blocks.filter((b) => b.surface === primary)];
 
   const dataSection = orderedBlocks.map((b) => `${b.header}\n${b.body}`).join('\n\n');
-  return `=== NOW ===\n${args.nowBlock}\n\n${dataSection}\n\n=== QUESTION ===\n${args.question}\n\n${tail}`;
+  // Web sources block lives AFTER the user's own data — when the
+  // user dropped a link, that link is almost always the primary
+  // surface for this turn, so it goes right before QUESTION to land
+  // in the attention peak (same Lost-in-the-Middle logic).
+  const webSection = args.hasWebSources ? `\n\n${args.webSourcesBlock}` : '';
+  return `=== NOW ===\n${args.nowBlock}\n\n${dataSection}${webSection}\n\n=== QUESTION ===\n${args.question}\n\n${tail}`;
+}
+
+/**
+ * Render the WEB SOURCES data block from a list of `FetchedDoc`s.
+ * Successful fetches show title + byline + content; failed fetches
+ * show just the URL + error so the model can acknowledge that we
+ * tried but couldn't read it.
+ *
+ * Returns the empty string when `docs` is empty — caller checks
+ * `hasWebSources` before splicing it into the prompt.
+ */
+function renderWebSourcesBlock(docs: FetchedDoc[]): string {
+  if (docs.length === 0) return '';
+  const lines: string[] = ['=== WEB SOURCES (fetched for this turn) ==='];
+  docs.forEach((doc, i) => {
+    const idx = i + 1;
+    if (!doc.ok) {
+      lines.push(
+        `\n[web:${idx}] ${doc.url}\n  fetch failed: ${doc.error}\n  Acknowledge to the user that this link couldn't be read; don't invent content.`,
+      );
+      return;
+    }
+    const header = `[web:${idx}] ${doc.url}\nTitle: ${doc.title}${doc.siteName ? `\nSite: ${doc.siteName}` : ''}${doc.byline ? `\nByline: ${doc.byline}` : ''}${doc.truncated ? '\nNote: content was truncated to fit the context budget.' : ''}`;
+    lines.push(`\n${header}\n---\n${doc.content}\n---`);
+  });
+  return lines.join('\n');
 }
 
 /**
