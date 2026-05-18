@@ -13,8 +13,15 @@ interface YouTubePlayerLike {
   pauseVideo: () => void;
   seekTo: (seconds: number, allowSeekAhead?: boolean) => void;
   getCurrentTime: () => number;
+  /** Total seconds — 0 until the player has loaded metadata. */
+  getDuration: () => number;
+  /** Returns the YT.PlayerState code (UNSTARTED=-1, ENDED=0, PLAYING=1, …). */
+  getPlayerState: () => number;
+  /** Hot-swap to a different video (avoids destroying the iframe). */
+  loadVideoById: (videoId: string) => void;
   mute: () => void;
   unMute: () => void;
+  setVolume: (volume: number) => void;
   destroy: () => void;
 }
 

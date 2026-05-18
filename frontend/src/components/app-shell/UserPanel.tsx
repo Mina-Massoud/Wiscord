@@ -1,20 +1,11 @@
-import { useNavigate } from 'react-router';
 import { Settings } from 'lucide-react';
 
 import { useAuth } from '@/hooks/useAuth';
-import { useUpdateProfile } from '@/queries/profile';
 import { getIdenticonDataUrl } from '@/lib/avatar';
-import { toast } from '@/lib/toast';
+import { useSettingsStore } from '@/lib/settings-store';
 import { cn } from '@/lib/cn';
+import { MediaImg } from '@/components/ui/media-img';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { VoiceQuickControls } from '@/components/voice/VoiceQuickControls';
 import { PresenceDot } from './atoms/PresenceDot';
 
@@ -36,41 +27,12 @@ interface UserPanelProps {
  * The settings cog opens a dropdown menu containing the sign-out action.
  */
 export function UserPanel({ variant = 'standalone' }: UserPanelProps = {}): React.JSX.Element {
-  const navigate = useNavigate();
-  const { profile, signOut } = useAuth();
-  const updateProfile = useUpdateProfile();
+  const { profile } = useAuth();
+  const openSettings = useSettingsStore((s) => s.open);
 
   const seed = profile?.username ?? profile?.email ?? 'unknown';
   const avatarSrc = profile?.avatar_url ?? getIdenticonDataUrl(seed);
   const displayName = profile?.display_name ?? profile?.username ?? 'You';
-  const isGenZ = profile?.voice_style === 'genz';
-
-  function handleToggleGenZ(checked: boolean): void {
-    updateProfile.mutate(
-      { voice_style: checked ? 'genz' : 'default' },
-      {
-        onError: () => {
-          toast.error("Couldn't save your voice preference. Try again?");
-        },
-      },
-    );
-  }
-
-  async function handleSignOut(): Promise<void> {
-    try {
-      await signOut();
-      void navigate('/sign-in');
-    } catch (err: unknown) {
-      const message =
-        err !== null &&
-        typeof err === 'object' &&
-        'message' in err &&
-        typeof (err as { message: unknown }).message === 'string'
-          ? (err as { message: string }).message
-          : 'Could not sign out. Please try again.';
-      toast.error(message);
-    }
-  }
 
   const containerClassName = cn(
     'h-user-panel flex shrink-0 items-center gap-1 px-2',
@@ -88,7 +50,7 @@ export function UserPanel({ variant = 'standalone' }: UserPanelProps = {}): Reac
         }}
       >
         <span className="relative shrink-0">
-          <img src={avatarSrc} alt="" width={32} height={32} className="size-8 rounded-full" />
+          <MediaImg src={avatarSrc} alt="" width={32} height={32} className="size-8 rounded-full" />
           <span className="absolute -right-0.5 -bottom-0.5">
             <PresenceDot presence="online" size={12} ringClassName="ring-glass-callout" />
           </span>
@@ -103,54 +65,21 @@ export function UserPanel({ variant = 'standalone' }: UserPanelProps = {}): Reac
 
       <VoiceQuickControls />
 
-      <DropdownMenu>
-        <Tooltip delayDuration={100}>
-          <TooltipTrigger asChild>
-            <DropdownMenuTrigger
-              className="text-ink-muted hover:bg-glass-hover hover:text-ink focus-visible:ring-blurple flex size-8 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none"
-              aria-label="User settings"
-            >
-              <Settings className="size-5" />
-            </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="top" sideOffset={6}>
-            User Settings
-          </TooltipContent>
-        </Tooltip>
-        <DropdownMenuContent align="end" side="top" className="w-56">
-          {/*
-            shadcn convention: when a menu contains a CheckboxItem (which
-            reserves a `pl-8` indicator slot), every sibling Item gets
-            `inset` so they all align under that slot. Don't roll a custom
-            On/Off pill — let Radix handle the check indicator + a11y.
-          */}
-          <DropdownMenuItem inset disabled>
-            Account (coming soon)
-          </DropdownMenuItem>
-          <DropdownMenuItem inset disabled>
-            Notifications (coming soon)
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuCheckboxItem
-            checked={isGenZ}
-            onCheckedChange={handleToggleGenZ}
-            disabled={!profile || updateProfile.isPending}
-            onSelect={(e) => e.preventDefault()}
+      <Tooltip delayDuration={100}>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => openSettings('myAccount')}
+            className="text-ink-muted hover:bg-glass-hover hover:text-ink focus-visible:ring-blurple flex size-8 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            aria-label="User settings"
           >
-            Gen Z mode
-          </DropdownMenuCheckboxItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            inset
-            onSelect={() => {
-              void handleSignOut();
-            }}
-            className="text-destructive focus:text-destructive"
-          >
-            Sign out
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <Settings className="size-5" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={6}>
+          User Settings
+        </TooltipContent>
+      </Tooltip>
     </div>
   );
 }

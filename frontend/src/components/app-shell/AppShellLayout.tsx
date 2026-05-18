@@ -11,6 +11,14 @@ const RIGHT_RAIL_KEYBOARD_STEP_PX = 16;
 const clampRailWidth = (n: number): number =>
   Math.min(RIGHT_RAIL_MAX_WIDTH_PX, Math.max(RIGHT_RAIL_MIN_WIDTH_PX, n));
 
+const SIDEBAR_DEFAULT_WIDTH_PX = 280; // matches the `channel-list` token in tailwind.config.ts
+const SIDEBAR_MIN_WIDTH_PX = 220;
+const SIDEBAR_MAX_WIDTH_PX = 420;
+const SIDEBAR_KEYBOARD_STEP_PX = 16;
+
+const clampSidebarWidth = (n: number): number =>
+  Math.min(SIDEBAR_MAX_WIDTH_PX, Math.max(SIDEBAR_MIN_WIDTH_PX, n));
+
 interface AppShellLayoutProps {
   /** Optional full-width titlebar that sits above every column. */
   titleBar?: ReactNode;
@@ -38,6 +46,7 @@ interface AppShellLayoutProps {
 
 const RIGHT_RAIL_COLLAPSED_KEY = 'wiscord.shell.rightRailCollapsed';
 const RIGHT_RAIL_WIDTH_KEY = 'wiscord.shell.rightRailWidth';
+const SIDEBAR_WIDTH_KEY = 'wiscord.shell.sidebarWidth';
 
 /**
  * Glass shell: one rounded slab that floats over the body-level wallpaper.
@@ -94,6 +103,23 @@ export function AppShellLayout({
   const [isResizing, setIsResizing] = useState(false);
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null);
 
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    if (typeof window === 'undefined') return SIDEBAR_DEFAULT_WIDTH_PX;
+    const stored = window.localStorage.getItem(SIDEBAR_WIDTH_KEY);
+    if (stored === null) return SIDEBAR_DEFAULT_WIDTH_PX;
+    const parsed = Number.parseInt(stored, 10);
+    if (Number.isNaN(parsed)) return SIDEBAR_DEFAULT_WIDTH_PX;
+    return clampSidebarWidth(parsed);
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth));
+  }, [sidebarWidth]);
+
+  const [isResizingSidebar, setIsResizingSidebar] = useState(false);
+  const sidebarDragRef = useRef<{ startX: number; startWidth: number } | null>(null);
+
   const hasRightRail = Boolean(rightRail);
   const showRightRail = hasRightRail && !rightRailCollapsed;
 
@@ -147,9 +173,59 @@ export function AppShellLayout({
     }
   }, []);
 
+  const handleSidebarResizePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      sidebarDragRef.current = { startX: event.clientX, startWidth: sidebarWidth };
+      setIsResizingSidebar(true);
+
+      const handleMove = (moveEvent: PointerEvent) => {
+        const ctx = sidebarDragRef.current;
+        if (!ctx) return;
+        // Handle sits on the right edge of the sidebar, so dragging right grows it.
+        const delta = moveEvent.clientX - ctx.startX;
+        setSidebarWidth(clampSidebarWidth(ctx.startWidth + delta));
+      };
+
+      const handleUp = () => {
+        sidebarDragRef.current = null;
+        setIsResizingSidebar(false);
+        window.removeEventListener('pointermove', handleMove);
+        window.removeEventListener('pointerup', handleUp);
+        window.removeEventListener('pointercancel', handleUp);
+      };
+
+      window.addEventListener('pointermove', handleMove);
+      window.addEventListener('pointerup', handleUp);
+      window.addEventListener('pointercancel', handleUp);
+    },
+    [sidebarWidth],
+  );
+
+  const handleSidebarResizeKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    // Handle is on the sidebar's right edge: ArrowRight grows, ArrowLeft shrinks.
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      setSidebarWidth((w) => clampSidebarWidth(w + SIDEBAR_KEYBOARD_STEP_PX));
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      setSidebarWidth((w) => clampSidebarWidth(w - SIDEBAR_KEYBOARD_STEP_PX));
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      setSidebarWidth(SIDEBAR_MAX_WIDTH_PX);
+    } else if (event.key === 'End') {
+      event.preventDefault();
+      setSidebarWidth(SIDEBAR_MIN_WIDTH_PX);
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      setSidebarWidth(SIDEBAR_DEFAULT_WIDTH_PX);
+    }
+  }, []);
+
   // Disable text selection + force resize cursor while a drag is in flight.
   useEffect(() => {
-    if (!isResizing) return;
+    if (!isResizing && !isResizingSidebar) return;
     const previousUserSelect = document.body.style.userSelect;
     const previousCursor = document.body.style.cursor;
     document.body.style.userSelect = 'none';
@@ -158,7 +234,7 @@ export function AppShellLayout({
       document.body.style.userSelect = previousUserSelect;
       document.body.style.cursor = previousCursor;
     };
-  }, [isResizing]);
+  }, [isResizing, isResizingSidebar]);
 
   const reducedMotion = useReducedMotion();
   const railTransition =
@@ -186,8 +262,38 @@ export function AppShellLayout({
                 {serverRail}
               </aside>
               {sidebar ? (
-                <aside aria-label="Channels" className="w-channel-list flex shrink-0 flex-col">
+                <aside
+                  aria-label="Channels"
+                  className="relative flex shrink-0 flex-col"
+                  style={{ width: sidebarWidth }}
+                >
                   {sidebar}
+                  <div
+                    role="separator"
+                    aria-orientation="vertical"
+                    aria-label="Resize sidebar"
+                    aria-valuemin={SIDEBAR_MIN_WIDTH_PX}
+                    aria-valuemax={SIDEBAR_MAX_WIDTH_PX}
+                    aria-valuenow={sidebarWidth}
+                    tabIndex={0}
+                    onPointerDown={handleSidebarResizePointerDown}
+                    onKeyDown={handleSidebarResizeKeyDown}
+                    onDoubleClick={() => setSidebarWidth(SIDEBAR_DEFAULT_WIDTH_PX)}
+                    className={cn(
+                      'group absolute top-0 right-0 z-10 flex h-full w-1.5 translate-x-1/2 cursor-col-resize touch-none items-center justify-center focus-visible:outline-none',
+                      isResizingSidebar && 'bg-blurple/30',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'h-12 w-0.5 rounded-full transition-colors',
+                        isResizingSidebar
+                          ? 'bg-blurple'
+                          : 'group-hover:bg-glass-border-strong group-focus-visible:bg-blurple bg-transparent',
+                      )}
+                      aria-hidden
+                    />
+                  </div>
                 </aside>
               ) : null}
             </div>
@@ -202,13 +308,13 @@ export function AppShellLayout({
 
           <div className="bg-glass-canvas flex min-w-0 flex-1 flex-col">
             {topBar || hasRightRail ? (
-              <div className="flex shrink-0 items-stretch">
+              <div className="flex shrink-0 items-stretch py-[4px]">
                 {topBar ? <div className="min-w-0 flex-1">{topBar}</div> : null}
                 {hasRightRail ? (
                   <div
                     className={cn(
                       'flex shrink-0 items-center pr-2 pl-1',
-                      !topBar && 'border-glass-border h-app-titlebar border-b',
+                      !topBar && 'h-app-titlebar',
                     )}
                   >
                     <button

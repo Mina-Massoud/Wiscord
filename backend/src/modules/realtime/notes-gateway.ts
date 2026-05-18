@@ -47,9 +47,56 @@ export interface NotesSyncGateway {
   stop: () => Promise<void>;
 }
 
+/**
+ * Tracks live WebSocket connections per channel so the snapshot-loader
+ * can boot every active client off a document when the persisted Yjs
+ * update is replaced under their feet. Clients auto-reconnect via the
+ * Hocuspocus provider and re-hydrate from the updated Mongo row.
+ */
+const activeSockets = new Map<string, Set<WebSocket>>();
+
+function trackSocket(channelId: string, ws: WebSocket): void {
+  let set = activeSockets.get(channelId);
+  if (!set) {
+    set = new Set();
+    activeSockets.set(channelId, set);
+  }
+  set.add(ws);
+  ws.once('close', () => {
+    const current = activeSockets.get(channelId);
+    if (!current) return;
+    current.delete(ws);
+    if (current.size === 0) activeSockets.delete(channelId);
+  });
+}
+
+/**
+ * Close every live notes WebSocket for `channelId`. Called by the
+ * snapshot loader so every connected client reconnects and re-hydrates
+ * from the freshly-written Mongo state. Idempotent — no error if there
+ * are no live sockets.
+ */
+export function closeNotesDocument(channelId: string): void {
+  const set = activeSockets.get(channelId);
+  if (!set) return;
+  for (const ws of Array.from(set)) {
+    try {
+      ws.close(1012, 'snapshot_load');
+    } catch {
+      // Ignore — close errors mean the socket is already dead.
+    }
+  }
+  activeSockets.delete(channelId);
+}
+
 const PATH_PREFIX = '/sync/notes/';
+// Permissive hex-only UUID shape — matches the realtime gateway and the
+// voice token mint, both of which accept any UUID-shaped string. The
+// previous strict version+variant pattern rejected dev/test UUIDs that
+// voice channels use today (e.g. `11111111-1111-1111-1111-111111111111`),
+// leaving the notes editor stuck in its initial loading state.
 const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface NotesContext {
   userId: string;
@@ -158,6 +205,7 @@ export function startNotesSyncGateway(httpServer: HttpServer): NotesSyncGateway 
 
   const wss = new WebSocketServer({ noServer: true });
   wss.on('connection', (ws: WebSocket, request: IncomingMessage, context: NotesContext) => {
+    trackSocket(context.channelId, ws);
     // Hocuspocus 4 wants a Fetch-like Request shape — IncomingMessage's
     // `.url` and `.headers` map closely enough that the runtime uses them
     // directly (it only reads `.url` and treats `.headers` as a dictionary).

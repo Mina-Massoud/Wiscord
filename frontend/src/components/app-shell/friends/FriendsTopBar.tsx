@@ -3,18 +3,18 @@ import { cn } from '@/lib/cn';
 import { useCopy } from '@/lib/copy/useCopy';
 import type { CopyKey } from '@/lib/copy/registry';
 
-export type FriendsTab = 'online' | 'all' | 'suggestions' | 'add';
+export type FriendsTab = 'online' | 'all' | 'pending' | 'add';
 
 interface FriendsTopBarProps {
   activeTab: FriendsTab;
-  suggestionsCount?: number;
+  pendingCount?: number;
   onTabChange: (tab: FriendsTab) => void;
 }
 
 const TABS: Array<{ key: Exclude<FriendsTab, 'add'>; copyKey: CopyKey }> = [
   { key: 'online', copyKey: 'friends.tab.online' },
   { key: 'all', copyKey: 'friends.tab.all' },
-  { key: 'suggestions', copyKey: 'friends.tab.suggestions' },
+  { key: 'pending', copyKey: 'friends.tab.pending' },
 ];
 
 /**
@@ -24,7 +24,7 @@ const TABS: Array<{ key: Exclude<FriendsTab, 'add'>; copyKey: CopyKey }> = [
  */
 export function FriendsTopBar({
   activeTab,
-  suggestionsCount,
+  pendingCount,
   onTabChange,
 }: FriendsTopBarProps): React.JSX.Element {
   const t = useCopy();
@@ -52,9 +52,9 @@ export function FriendsTopBar({
             )}
           >
             <span>{t(tab.copyKey)}</span>
-            {tab.key === 'suggestions' && suggestionsCount ? (
+            {tab.key === 'pending' && pendingCount ? (
               <span className="bg-destructive text-badge inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 font-bold text-white">
-                {suggestionsCount > 99 ? '99+' : suggestionsCount}
+                {pendingCount > 99 ? '99+' : pendingCount}
               </span>
             ) : null}
           </button>

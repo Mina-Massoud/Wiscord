@@ -1,5 +1,6 @@
 import { Crown } from 'lucide-react';
 
+import { MediaImg } from '@/components/ui/media-img';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { getIdenticonDataUrl } from '@/lib/avatar';
 import { cn } from '@/lib/cn';
@@ -47,8 +48,9 @@ export function ViewerDots({
                   'border-glass-shell relative -ml-2 size-6 overflow-visible rounded-full border-2 first:ml-0',
                 )}
               >
-                <img
-                  src={viewer.avatarUrl || getIdenticonDataUrl(viewer.identity)}
+                <MediaImg
+                  src={viewer.avatarUrl || undefined}
+                  fallbackSrc={getIdenticonDataUrl(viewer.identity)}
                   alt=""
                   className="size-full rounded-full"
                   width={24}

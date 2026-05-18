@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { cn } from '@/lib/cn';
+import { MediaImg } from '@/components/ui/media-img';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { PillIndicator } from './atoms/PillIndicator';
 import { UnreadBadge } from './atoms/UnreadBadge';
@@ -61,7 +62,7 @@ export function ServerRailIcon({
             )}
           >
             {avatarSrc ? (
-              <img
+              <MediaImg
                 src={avatarSrc}
                 alt=""
                 width={32}

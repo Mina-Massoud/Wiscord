@@ -4,6 +4,7 @@ import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query';
 import { api, ApiError } from '@/queries/client';
 import { qk } from '@/queries/keys';
 import { normalizeAuthError } from '@/lib/auth';
+import { useVoiceSessionStore } from '@/lib/voice-session-store';
 import type { AuthError, Profile } from '@/types/auth';
 
 /**
@@ -69,6 +70,11 @@ export function useSignOut(): UseMutationResult<void, AuthError, void> {
       }
     },
     onSettled: () => {
+      // Drop any live LiveKit voice session before the auth state clears
+      // so the global `<LiveKitRoom>` disconnects cleanly. Without this,
+      // the room would keep its peer connection open against the now-
+      // invalidated token until the next browser navigation.
+      useVoiceSessionStore.getState().leaveChannel();
       qc.setQueryData(qk.auth.session(), null);
       qc.clear();
     },

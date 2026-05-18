@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
 import { useAutoAnimate } from '@formkit/auto-animate/react';
 
-import type { WatchPartySnapshot } from '@/queries/client';
-import { useWatchControl } from '@/queries/watch';
+import type { WatchActivitySnapshot } from '@/queries/client';
+import { useActivityControl } from '@/queries/voice-activity';
 import { useWatchSync } from '@/hooks/useWatchSync';
 import { detectWatchSource } from '@/lib/watch-source';
 import { toast } from '@/lib/toast';
@@ -16,7 +16,7 @@ import { ViewerDots, type Viewer } from './ViewerDots';
 import type { PlayerAdapter } from './playerAdapter';
 
 interface WatchPlayerProps {
-  party: WatchPartySnapshot;
+  party: WatchActivitySnapshot;
   isHost: boolean;
   hostDisplayName: string;
   viewers: Viewer[];
@@ -42,7 +42,7 @@ export function WatchPlayer({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<PlayerAdapter | null>(null);
   const [adapter, setAdapter] = useState<PlayerAdapter | null>(null);
-  const control = useWatchControl();
+  const control = useActivityControl();
   const [dotsRef] = useAutoAnimate<HTMLDivElement>();
 
   const setPlayerRef = useCallback((p: PlayerAdapter | null) => {

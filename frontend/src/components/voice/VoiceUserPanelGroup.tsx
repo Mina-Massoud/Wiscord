@@ -1,63 +1,62 @@
+import { useMemo } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { useConnectionState, useRoomContext } from '@livekit/components-react';
+import { useConnectionState } from '@livekit/components-react';
 import { ConnectionState } from 'livekit-client';
-import { Loader2, PhoneOff, Signal } from 'lucide-react';
 
 import { UserPanel } from '@/components/app-shell/UserPanel';
-import { ActivityLauncherButton } from '@/components/activity/ActivityLauncherButton';
 import type { ActivityDefinition } from '@/components/activity/ActivityRegistry';
-import { cn } from '@/lib/cn';
-import { useCopy } from '@/lib/copy/useCopy';
+import { useConnectedChannelId } from '@/lib/voice-session-store';
 
-import { VoiceMicStatusButton } from './VoiceMicStatusButton';
+import { VoiceStatusRow } from './VoiceStatusRow';
 
 interface VoiceUserPanelGroupProps {
-  channelSlug: string;
   /**
-   * Fires when the user picks an activity from the launcher dialog. Omit to
-   * hide the launcher icon in the connected row.
+   * Override the slug shown in the row's subtitle. Defaults to the
+   * last six chars of the connected channel id from the store, which
+   * is what every surface except the in-channel voice page wants.
+   */
+  channelSlug?: string;
+  /**
+   * Wires the activity launcher button. Provided by the voice page,
+   * omitted on every other page.
    */
   onActivitySelect?: (activity: ActivityDefinition) => void;
+  /**
+   * Wires the "jump to channel" button. Provided on every non-voice
+   * page (so the user can return to the call surface in one click).
+   */
+  onJump?: () => void;
 }
 
 /**
  * The bottom-left card on the voice route. Wraps the Discord-style
- * "Voice Connected" section *and* the existing UserPanel into one shared
- * rounded container, with a divider between them. The connected section
- * animates in/out with a height + fade transition (Framer Motion); the
- * outer card grows naturally to accommodate it.
- *
- * Honors `prefers-reduced-motion` — collapses the transition to 0ms.
+ * "Voice Connected" row above the existing UserPanel in one rounded
+ * container. The status section animates in/out on connection state.
+ * Honors `prefers-reduced-motion`.
  */
 export function VoiceUserPanelGroup({
   channelSlug,
   onActivitySelect,
-}: VoiceUserPanelGroupProps): React.JSX.Element {
+  onJump,
+}: VoiceUserPanelGroupProps = {}): React.JSX.Element {
   const state = useConnectionState();
-  const room = useRoomContext();
   const reducedMotion = useReducedMotion();
-  const t = useCopy();
+  const connectedChannelId = useConnectedChannelId();
 
-  const isConnected = state === ConnectionState.Connected;
-  const isConnecting = state === ConnectionState.Connecting;
-  const isReconnecting = state === ConnectionState.Reconnecting;
-  const isLive = isConnected || isConnecting || isReconnecting;
+  const resolvedSlug = useMemo(() => {
+    if (channelSlug) return channelSlug;
+    return connectedChannelId ? connectedChannelId.slice(-6) : '';
+  }, [channelSlug, connectedChannelId]);
+
+  const isLive =
+    Boolean(connectedChannelId) &&
+    (state === ConnectionState.Connected ||
+      state === ConnectionState.Connecting ||
+      state === ConnectionState.Reconnecting);
 
   const transition = reducedMotion
     ? { duration: 0 }
     : { duration: 0.22, ease: [0.4, 0, 0.2, 1] as const };
-
-  const title = isConnected
-    ? t('voicePanel.connected.title')
-    : isReconnecting
-      ? t('voicePanel.reconnecting.title')
-      : t('voicePanel.connecting.title');
-
-  // Title color and icon track the live state. Connected = success
-  // (green Signal); Connecting/Reconnecting = blurple (spinner) so the
-  // card visibly reads as "in progress" rather than "you're already in."
-  const titleColorClass = isConnected ? 'text-success' : 'text-blurple';
-  const iconBgClass = isConnected ? 'bg-success/15' : 'bg-blurple/15';
 
   return (
     <div className="bg-surface-2 border-border shadow-elevated mx-3 mb-3 overflow-hidden rounded-lg border">
@@ -71,52 +70,12 @@ export function VoiceUserPanelGroup({
             transition={transition}
             style={{ overflow: 'hidden' }}
           >
-            <div className="border-border flex items-center gap-3 border-b px-3 py-2.5">
-              <span
-                className={cn(
-                  'flex size-9 shrink-0 items-center justify-center rounded-md',
-                  iconBgClass,
-                )}
-                aria-hidden
-              >
-                {isConnected ? (
-                  <Signal className="text-success size-5" />
-                ) : (
-                  <Loader2 className="text-blurple size-5 animate-spin" />
-                )}
-              </span>
-
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span
-                  className={cn('text-control leading-tight font-semibold', titleColorClass)}
-                  aria-live="polite"
-                >
-                  {title}
-                </span>
-                <span className="text-ink-muted text-caption truncate leading-tight">
-                  Voice / {channelSlug}
-                </span>
-              </div>
-
-              <div className="flex shrink-0 items-center gap-0.5">
-                {isConnected ? <VoiceMicStatusButton /> : null}
-                {isConnected && onActivitySelect ? (
-                  <ActivityLauncherButton
-                    onActivitySelect={onActivitySelect}
-                    className="text-ink-muted hover:bg-glass-hover hover:text-ink size-8 rounded-md"
-                  />
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => {
-                    void room.disconnect();
-                  }}
-                  aria-label={isConnected ? 'Disconnect from voice' : 'Cancel join'}
-                  className="text-ink-muted hover:bg-destructive/10 hover:text-destructive focus-visible:ring-destructive flex size-8 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none"
-                >
-                  <PhoneOff className="size-4" aria-hidden />
-                </button>
-              </div>
+            <div className="border-border border-b">
+              <VoiceStatusRow
+                channelSlug={resolvedSlug}
+                onActivitySelect={onActivitySelect}
+                onJump={onJump}
+              />
             </div>
           </motion.div>
         ) : null}

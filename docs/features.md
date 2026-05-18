@@ -111,18 +111,18 @@ A few features need a non-obvious external library choice — those have a **Rec
 
 ---
 
-## AI Assistant (Room-Scoped)
+## AI Assistant (Scoped — Personal first, Channel/Server/Voice later)
 
-- **Ask box per channel** — "Ask anything about this room" [AI] [UI]
-- **Context builder** — pull recent N messages + notes for channel [AI] [DB]
-- **Streaming response** — Claude Haiku via Express SSE endpoint [AI] [RT] [UI]
-- **Citations** — answer links back to source message IDs [AI] [UI]
-- **Prompt caching** — cache stable system + room context [AI]
+- **Personal ask (v1)** — surfaces as a Dynamic Island option next to the calendar / pomodoro islands; pulls the caller's own notes / calendar / recent activity for grounding [AI] [UI]
+- **Channel / server / voice scopes (later)** — same SSE endpoint, different context builder per scope; routes accept a `scope` field [AI] [DB]
+- **Streaming response** — Gemma 4 (`gemma-4-26b-a4b-it`) via Express SSE endpoint [AI] [RT] [UI]
+- **Citations** — answer links back to source ids (note channelId, calendar event id, message id when the channel scope lands) [AI] [UI]
+- **Context caching** — cache the stable system + scope preamble when the provider supports it for Gemma; degrade gracefully when it doesn't [AI]
 
 **Recommended tech**
-- **Model: Claude Haiku 4.5** via the official `@anthropic-ai/sdk`. Room-scoped questions are small-context and latency-sensitive — no need for Opus. ~3× cheaper, ~2× faster for this prompt shape.
-- **Transport: Server-Sent Events (SSE), not Socket.IO.** The stream is one-way (server → client), trivial to debug with `curl`, and the Anthropic streaming response is already an SSE-shaped event stream. Socket.IO adds room semantics we don't need.
-- **Prompt caching:** Anthropic's `cache_control: { type: 'ephemeral' }` on the system prompt + channel-context preamble. ~90% cost cut on repeat asks within the 5-minute TTL.
+- **Model: Gemma 4 (`gemma-4-26b-a4b-it`)** via the official `@google/genai` Node SDK. The MoE variant has ~4B active params — fast, free-tier-friendly, and well-sized for short-context room and personal asks. We expose a single `GEMINI_MODEL` env var so we can switch to the dense `gemma-4-31b-it` for tutoring-heavy use cases without code changes.
+- **Transport: Server-Sent Events (SSE), not Socket.IO.** The stream is one-way (server → client), trivial to debug with `curl`, and the Gemini streaming response is already a chunked async-iterator we can re-encode as SSE. Socket.IO adds room semantics we don't need.
+- **Context caching:** wire Gemini's [context caching](https://ai.google.dev/gemini-api/docs/caching) on the system prompt + scope-context preamble. The Gemma-on-Gemini docs don't yet confirm caching support across all Gemma 4 variants — we attempt-and-degrade: if the cache call fails, log once and ship the request uncached. Personal-scope contexts cap at ~8 notes + 20 events + 10 activity rows (≈ <8k tokens), so uncached is still affordable.
 
 ---
 

@@ -91,9 +91,23 @@ export const qk = {
     mine: () => ['media', 'mine'] as const,
   },
 
-  watch: {
-    root: ['watch'] as const,
-    byChannel: (channelId: string) => ['watch', channelId] as const,
+  voiceActivity: {
+    root: ['voice-activity'] as const,
+    byChannel: (channelId: string) => ['voice-activity', channelId] as const,
+  },
+
+  friends: {
+    root: ['friends'] as const,
+    list: () => ['friends', 'list'] as const,
+    incoming: () => ['friends', 'requests', 'incoming'] as const,
+    outgoing: () => ['friends', 'requests', 'outgoing'] as const,
+    search: (q: string) => ['friends', 'search', q] as const,
+  },
+
+  activityHistory: {
+    root: ['activity-history'] as const,
+    byKindChannel: (kind: 'notes' | 'whiteboard', channelId: string) =>
+      ['activity-history', kind, channelId] as const,
   },
 
   calendar: {
@@ -105,5 +119,31 @@ export const qk = {
     categories: (scope: 'user' | 'channel', ownerId: string) =>
       ['calendar', 'categories', scope, ownerId] as const,
     categoriesRoot: ['calendar', 'categories'] as const,
+  },
+
+  privacy: {
+    root: ['privacy'] as const,
+    me: () => ['privacy', 'me'] as const,
+  },
+
+  security: {
+    root: ['security'] as const,
+    currentSession: () => ['security', 'current-session'] as const,
+  },
+
+  billing: {
+    root: ['billing'] as const,
+    subscription: () => ['billing', 'subscription'] as const,
+    invoices: () => ['billing', 'invoices'] as const,
+  },
+
+  integrations: {
+    root: ['integrations'] as const,
+    all: () => ['integrations', 'all'] as const,
+  },
+
+  music: {
+    root: ['music'] as const,
+    search: (q: string) => ['music', 'search', q] as const,
   },
 } as const;

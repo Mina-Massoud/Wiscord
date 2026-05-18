@@ -10,7 +10,23 @@ import { voicePresence, type VoiceStateChange } from '../voice/presence-store.js
 import { Quiz } from '../../db/models/index.js';
 import { quizAnalytics } from '../quiz/analytics-store.js';
 import type { QuizAnalyticsSnapshot } from '../quiz/analytics.js';
-import { watchPartyEvents, type WatchPartyChange } from '../watchparty/service.js';
+import {
+  voiceActivityEvents,
+  type VoiceActivityChange,
+} from '../voice-activity/service.js';
+import {
+  friendEvents,
+  type FriendRemovedEvent,
+  type FriendRequestIncomingEvent,
+  type FriendRequestRespondedEvent,
+} from '../friends/service.js';
+import {
+  listenTogetherStore,
+  type ListenTogetherInviteResolvedEvent,
+  type ListenTogetherInviteSentEvent,
+  type ListenTogetherPlaybackEvent,
+  type ListenTogetherSessionEndedEvent,
+} from '../listen-together/sessionStore.js';
 
 interface SessionSocketData {
   userId?: string;
@@ -32,12 +48,39 @@ export interface ServerToClientEvents {
   'quiz:analytics_changed': (snapshot: QuizAnalyticsSnapshot) => void;
   'calendar:event_changed': (change: CalendarEventChanged) => void;
   /**
-   * Watch Together snapshot fan-out. `snapshot` is null on a stop event
-   * (host ended the party); non-null on start / play / pause / seek /
-   * transfer. Viewers project their playhead against
-   * `snapshot.currentTimeMs + (now - new Date(snapshot.lastTickAt))`.
+   * Voice-activity snapshot fan-out. `snapshot` is null on a stop event;
+   * non-null on start / playback control / quiz pin / host transfer.
+   *
+   * Watch kinds (`youtube`, `screen-share`) carry `state` + `currentTimeMs`
+   * + `lastTickAt` so viewers project their playhead against
+   * `currentTimeMs + (now - new Date(lastTickAt))`. The other kinds use
+   * realtime channels owned by their own subsystem (Hocuspocus for notes,
+   * tldraw sync for whiteboard, the existing quiz analytics socket), so
+   * the snapshot is mainly a "this channel is doing X" signal for them.
    */
-  'watch:state_changed': (change: WatchPartyChange) => void;
+  'voice:activity_changed': (change: VoiceActivityChange) => void;
+  /** A new pending request just landed in the recipient's inbox. */
+  'friend_request:incoming': (event: FriendRequestIncomingEvent) => void;
+  /** The recipient accepted a request you sent — `newFriend` is non-null. */
+  'friend_request:accepted': (event: FriendRequestRespondedEvent) => void;
+  /** The recipient declined a request you sent. `newFriend` is null. */
+  'friend_request:declined': (event: FriendRequestRespondedEvent) => void;
+  /** The sender cancelled a request that was pending in your inbox. */
+  'friend_request:cancelled': (event: FriendRequestRespondedEvent) => void;
+  /** A friendship was unilaterally removed — invalidate your friends list. */
+  'friend:removed': (event: FriendRemovedEvent) => void;
+  /** A friend has invited you to listen together. */
+  'listen_together:invite_received': (event: ListenTogetherInviteSentEvent) => void;
+  /**
+   * Resolution for an invite involving you — either the one you sent was
+   * accepted/declined, or one you received expired. `session` is non-null
+   * only on `outcome === 'accepted'`.
+   */
+  'listen_together:invite_resolved': (event: ListenTogetherInviteResolvedEvent) => void;
+  /** The other participant left, was replaced, or disconnected. */
+  'listen_together:session_ended': (event: ListenTogetherSessionEndedEvent) => void;
+  /** Host playback command — play/pause/seek/track_changed. Viewers only. */
+  'listen_together:playback': (event: ListenTogetherPlaybackEvent) => void;
 }
 
 interface ClientToServerEvents {
@@ -58,12 +101,12 @@ interface ClientToServerEvents {
   'calendar:subscribe_channel': (channelId: string, ack: (ok: boolean) => void) => void;
   'calendar:unsubscribe_channel': (channelId: string) => void;
   /**
-   * Watch Party room subscribe. Any authed caller can subscribe — the
+   * Voice-activity room subscribe. Any authed caller can subscribe — the
    * membership gate lands when the channels module ships, same shape as
    * the calendar subscribe above.
    */
-  'watch:subscribe_channel': (channelId: string, ack: (ok: boolean) => void) => void;
-  'watch:unsubscribe_channel': (channelId: string) => void;
+  'voice:subscribe_activity': (channelId: string, ack: (ok: boolean) => void) => void;
+  'voice:unsubscribe_activity': (channelId: string) => void;
 }
 
 type WiscordIoServer = IoServer<
@@ -180,22 +223,31 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
       void socket.leave(`channel:${channelId}:calendar`);
     });
 
-    socket.on('watch:subscribe_channel', async (channelId, ack) => {
+    socket.on('voice:subscribe_activity', async (channelId, ack) => {
       if (typeof channelId !== 'string' || !UUID_RE.test(channelId)) {
         ack(false);
         return;
       }
-      await socket.join(`channel:${channelId}:watch`);
+      await socket.join(`channel:${channelId}:activity`);
       ack(true);
     });
 
-    socket.on('watch:unsubscribe_channel', (channelId) => {
+    socket.on('voice:unsubscribe_activity', (channelId) => {
       if (typeof channelId !== 'string') return;
-      void socket.leave(`channel:${channelId}:watch`);
+      void socket.leave(`channel:${channelId}:activity`);
     });
 
     socket.on('disconnect', (reason) => {
       logger.info({ userId, sid: socket.id, reason }, 'realtime: client disconnected');
+      // Only tear down listen-together state when *all* of the user's
+      // sockets are gone — same user with two tabs open shouldn't lose
+      // their session because one tab closed. The socket emitting
+      // `disconnect` has already left its rooms by the time this fires,
+      // so a remaining room size of 0 means they were the last tab.
+      const room = io?.sockets.adapter.rooms.get(`user:${userId}`);
+      if (!room || room.size === 0) {
+        listenTogetherStore.handleDisconnect(userId);
+      }
     });
   });
 
@@ -213,11 +265,54 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
     io?.to(`quiz:${snapshot.quizId}:host`).emit('quiz:analytics_changed', snapshot);
   });
 
-  // Bridge the Watch Together service. Subscribers in `channel:<id>:watch`
-  // get every state change for that channel's party.
-  watchPartyEvents.on('state_changed', (change: WatchPartyChange) => {
-    io?.to(`channel:${change.channelId}:watch`).emit('watch:state_changed', change);
+  // Bridge the voice-activity service. Subscribers in
+  // `channel:<id>:activity` get every state change for that channel.
+  voiceActivityEvents.on('state_changed', (change: VoiceActivityChange) => {
+    io?.to(`channel:${change.channelId}:activity`).emit('voice:activity_changed', change);
   });
+
+  // Bridge the friends service. Every friend event carries a `toUserId` —
+  // we deliver to that user's `user:<id>` room, which every socket of that
+  // user joins on connection. No cross-user leakage by construction.
+  friendEvents.on('request:incoming', (event: FriendRequestIncomingEvent) => {
+    io?.to(`user:${event.toUserId}`).emit('friend_request:incoming', event);
+  });
+  friendEvents.on('request:accepted', (event: FriendRequestRespondedEvent) => {
+    io?.to(`user:${event.toUserId}`).emit('friend_request:accepted', event);
+  });
+  friendEvents.on('request:declined', (event: FriendRequestRespondedEvent) => {
+    io?.to(`user:${event.toUserId}`).emit('friend_request:declined', event);
+  });
+  friendEvents.on('request:cancelled', (event: FriendRequestRespondedEvent) => {
+    io?.to(`user:${event.toUserId}`).emit('friend_request:cancelled', event);
+  });
+  friendEvents.on('removed', (event: FriendRemovedEvent) => {
+    io?.to(`user:${event.toUserId}`).emit('friend:removed', event);
+  });
+
+  // Bridge the listen-together store. Every event carries a `toUserId`;
+  // we deliver to that user's `user:<id>` room. No cross-user leakage.
+  listenTogetherStore.on('invite:sent', (event: ListenTogetherInviteSentEvent) => {
+    io?.to(`user:${event.toUserId}`).emit('listen_together:invite_received', event);
+  });
+  listenTogetherStore.on(
+    'invite:resolved',
+    (event: ListenTogetherInviteResolvedEvent) => {
+      io?.to(`user:${event.toUserId}`).emit('listen_together:invite_resolved', event);
+    },
+  );
+  listenTogetherStore.on(
+    'session:ended',
+    (event: ListenTogetherSessionEndedEvent) => {
+      io?.to(`user:${event.toUserId}`).emit('listen_together:session_ended', event);
+    },
+  );
+  listenTogetherStore.on(
+    'session:playback',
+    (event: ListenTogetherPlaybackEvent) => {
+      io?.to(`user:${event.toUserId}`).emit('listen_together:playback', event);
+    },
+  );
 
   logger.info('realtime: socket.io gateway started');
   return io;
@@ -225,4 +320,16 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
 
 export function getRealtimeServer(): WiscordIoServer | null {
   return io;
+}
+
+/**
+ * True when the user has at least one live socket connected. Used by the
+ * listen-together service to reject invites addressed to offline users —
+ * by the time they'd sign back on, the inviter is likely on a different
+ * track anyway. Pure read of the adapter; no allocations.
+ */
+export function isUserOnline(userId: string): boolean {
+  if (!io) return false;
+  const room = io.sockets.adapter.rooms.get(`user:${userId}`);
+  return room !== undefined && room.size > 0;
 }

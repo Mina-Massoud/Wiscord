@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Clock } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
@@ -18,7 +19,6 @@ interface CalendarTimeFieldProps {
   ariaLabel?: string;
 }
 
-const MINUTES = ['00', '15', '30', '45'];
 const HOURS_12 = Array.from({ length: 12 }, (_, i) => String(i + 1));
 
 /**
@@ -35,10 +35,32 @@ export function CalendarTimeField({
 }: CalendarTimeFieldProps): React.JSX.Element {
   const [open, setOpen] = useState(false);
   const parts = useMemo(() => parseValue(value), [value]);
+  const [minuteInput, setMinuteInput] = useState(parts.minute);
+
+  useEffect(() => {
+    setMinuteInput(parts.minute);
+  }, [parts.minute]);
 
   const setPart = (next: Partial<typeof parts>): void => {
     const merged = { ...parts, ...next };
     onChange(formatValue(merged));
+  };
+
+  const handleMinuteChange = (raw: string): void => {
+    const digits = raw.replace(/\D/g, '').slice(0, 2);
+    setMinuteInput(digits);
+    if (digits.length === 0) return;
+    const n = Number(digits);
+    if (n >= 0 && n <= 59) {
+      setPart({ minute: digits.padStart(2, '0') });
+    }
+  };
+
+  const handleMinuteBlur = (): void => {
+    const n = Math.max(0, Math.min(59, Number(minuteInput) || 0));
+    const padded = String(n).padStart(2, '0');
+    setMinuteInput(padded);
+    setPart({ minute: padded });
   };
 
   return (
@@ -48,13 +70,19 @@ export function CalendarTimeField({
           type="button"
           variant="outline"
           aria-label={ariaLabel}
-          className="bg-surface-composer text-ink hover:bg-glass-hover w-full justify-start gap-2 font-normal"
+          // bg-background + border-input match the shadcn SelectTrigger
+          // so this trigger reads as a sibling of the Category select
+          // when they sit next to each other in the quick-add popover.
+          className="bg-background border-input text-ink hover:bg-glass-hover w-full justify-start gap-2 font-normal"
         >
           <Clock className="text-ink-muted size-4" aria-hidden />
           <span className="text-control tabular-nums">{format12(parts)}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="bg-glass-surface-2 border-glass-border w-auto p-3">
+      <PopoverContent
+        align="start"
+        className="bg-surface-2 border-glass-border w-auto p-3 shadow-xl"
+      >
         <div className="flex items-center gap-2">
           <Select value={parts.hour12} onValueChange={(v) => setPart({ hour12: v })}>
             <SelectTrigger className="w-20 tabular-nums" aria-label="Hour">
@@ -69,18 +97,18 @@ export function CalendarTimeField({
             </SelectContent>
           </Select>
           <span className="text-ink-muted">:</span>
-          <Select value={parts.minute} onValueChange={(v) => setPart({ minute: v })}>
-            <SelectTrigger className="w-20 tabular-nums" aria-label="Minute">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MINUTES.map((m) => (
-                <SelectItem key={m} value={m} className="tabular-nums">
-                  {m}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={2}
+            value={minuteInput}
+            onChange={(e) => handleMinuteChange(e.target.value)}
+            onBlur={handleMinuteBlur}
+            onFocus={(e) => e.currentTarget.select()}
+            aria-label="Minute"
+            className="w-16 text-center tabular-nums"
+          />
           <Select value={parts.period} onValueChange={(v) => setPart({ period: v as 'AM' | 'PM' })}>
             <SelectTrigger className="w-20" aria-label="AM or PM">
               <SelectValue />
@@ -109,8 +137,7 @@ function parseValue(value: string): TimeParts {
   const min = Math.max(0, Math.min(59, Number(m[2])));
   const period: 'AM' | 'PM' = h24 < 12 ? 'AM' : 'PM';
   const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-  const snappedMin = nearestStep(min);
-  return { hour12: String(h12), minute: String(snappedMin).padStart(2, '0'), period };
+  return { hour12: String(h12), minute: String(min).padStart(2, '0'), period };
 }
 
 function formatValue(parts: TimeParts): string {
@@ -121,18 +148,4 @@ function formatValue(parts: TimeParts): string {
 
 function format12(parts: TimeParts): string {
   return `${parts.hour12}:${parts.minute} ${parts.period}`;
-}
-
-function nearestStep(min: number): number {
-  const candidates = [0, 15, 30, 45, 60];
-  let best = 0;
-  let bestDist = Infinity;
-  for (const c of candidates) {
-    const d = Math.abs(c - min);
-    if (d < bestDist) {
-      bestDist = d;
-      best = c === 60 ? 0 : c;
-    }
-  }
-  return best;
 }

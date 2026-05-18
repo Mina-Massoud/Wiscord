@@ -11,7 +11,7 @@ const config: Config = {
         canvas: '#1A1A1E',
         'surface-1': '#232428',
         'surface-2': '#26262b',
-        'surface-3': '#0A0A0C',
+        'surface-3': '#1f1f1f',
         // Subtle raised card sitting directly on `canvas` (e.g. right-rail empty-state callout).
         'surface-callout': '#202024',
         // Shared "chrome" surface for the app shell — titlebar + DM/channel sidebar.
@@ -42,7 +42,7 @@ const config: Config = {
         // Used when the app sits on top of a photographic background (auth-bg.webp).
         // Component code uses these tokens; never embeds rgba() literals directly.
         // The outer shell/card owns the only backdrop-blur; inner zones layer on top of it.
-        'glass-shell': 'rgba(18, 18, 22, 0.62)',
+        'glass-shell': 'rgba(18, 18, 22, 0.92)',
         'glass-canvas': 'rgba(26, 26, 30, 0.55)',
         'glass-chrome': 'rgba(14, 14, 17, 0.55)',
         'glass-surface-1': 'rgba(35, 36, 40, 0.55)',
@@ -54,7 +54,7 @@ const config: Config = {
         // the wallpaper's local luminance.
         'glass-veil': 'rgba(10, 10, 13, 0.45)',
         // Hairlines on glass — low-alpha white reads as a "glass edge" on any photo tint.
-        'glass-border': 'rgba(255, 255, 255, 0.16)',
+        'glass-border': 'rgba(255, 255, 255, 0.11)',
         'glass-border-strong': 'rgba(255, 255, 255, 0.22)',
 
         // ── Brand / accent ──
@@ -147,6 +147,12 @@ const config: Config = {
         lg: '16px',
         xl: '24px',
         pill: '9999px',
+        // Dynamic Island shape tiers — three discrete curvatures the
+        // island's shape morph passes through, picked to match the
+        // proportions of each tier (small pill → compact card → sheet).
+        'island-pill': '13px',
+        'island-card': '28px',
+        'island-sheet': '36px',
         // shadcn bridge
         DEFAULT: 'calc(var(--radius))',
       },
@@ -244,6 +250,9 @@ const config: Config = {
           from: { height: 'var(--radix-accordion-content-height)' },
           to: { height: '0' },
         },
+        // `music-wave-bar` keyframe lives in src/styles/globals.css so
+        // inline `animation` styles can reference it without Tailwind's
+        // purge stripping the definition.
       },
       animation: {
         'accordion-down': 'accordion-down 200ms cubic-bezier(0.4, 0, 0.2, 1)',
@@ -267,6 +276,14 @@ const config: Config = {
           'contain-intrinsic-size': 'auto 200px',
         },
       });
+    },
+    // Density variants — `<html data-density="…">` is set by useApplyAppearance
+    // from the appearance store. These let any child opt into compact / spacious
+    // rhythm via `compact:py-1` etc., without prop-drilling the density value.
+    // The `default` density is implicit (no variant required).
+    function ({ addVariant }: { addVariant: (name: string, selector: string) => void }) {
+      addVariant('compact', 'html[data-density="compact"] &');
+      addVariant('spacious', 'html[data-density="spacious"] &');
     },
   ],
 };

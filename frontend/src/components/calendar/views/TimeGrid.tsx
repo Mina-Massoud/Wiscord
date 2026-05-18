@@ -17,7 +17,7 @@ interface TimeGridProps {
   categories: CalendarCategory[];
   onSelectEvent?: (event: CalendarEvent) => void;
   /** Fires when an empty slot is clicked — caller opens the composer prefilled to this exact start time. */
-  onSelectSlot?: (slotStart: Date) => void;
+  onSelectSlot?: (slotStart: Date, anchorRect: DOMRect) => void;
   onDragStart?: (args: BeginDragArgs, e: React.PointerEvent) => void;
   draggingId?: string | null;
   /** Pixels per hour. Defaults to 48 (matches the Tailwind h-12 row token). */
@@ -27,9 +27,18 @@ interface TimeGridProps {
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 
 /**
- * Shared hour-grid renderer for Week and Day views. The all-day strip and
- * column header live in the caller; this component owns the scrolling
- * hour body and event positioning.
+ * Build the grid-template-columns rule for the time grid. The caller owns
+ * the grid container (so it can also be the scroll container) — this just
+ * keeps the column math in one place.
+ */
+export function timeGridColumns(dayCount: number): string {
+  return `4rem repeat(${dayCount}, minmax(0, 1fr))`;
+}
+
+/**
+ * Shared hour-grid renderer for Week and Day views. Returns a fragment of
+ * grid-children — the caller is responsible for wrapping in a grid
+ * container with `timeGridColumns(days.length)` and owning scroll.
  */
 export function TimeGrid({
   days,
@@ -57,10 +66,7 @@ export function TimeGrid({
   const [hover, setHover] = useState<{ dayIso: string; y: number } | null>(null);
 
   return (
-    <div
-      className="border-glass-border bg-glass-canvas grid overflow-hidden rounded-md border"
-      style={{ gridTemplateColumns: `4rem repeat(${days.length}, minmax(0, 1fr))` }}
-    >
+    <>
       <div className="border-glass-border bg-glass-chrome border-r" style={{ height: totalHeight }}>
         {HOURS.map((h) => (
           <div
@@ -97,7 +103,11 @@ export function TimeGrid({
               if (!onSelectSlot) return;
               const rect = e.currentTarget.getBoundingClientRect();
               const y = Math.max(0, Math.min(rect.height, e.clientY - rect.top));
-              onSelectSlot(slotDateFromY(day, y, hourHeightPx));
+              // Anchor the quick-add popover to a narrow band around the
+              // click rather than the whole day column, so it appears
+              // beside the user's pointer.
+              const slotRect = new DOMRect(rect.left, rect.top + y - 20, rect.width, 40);
+              onSelectSlot(slotDateFromY(day, y, hourHeightPx), slotRect);
             }}
             className={cn(
               'border-glass-border relative border-r last:border-r-0',
@@ -167,7 +177,7 @@ export function TimeGrid({
           </div>
         );
       })}
-    </div>
+    </>
   );
 }
 

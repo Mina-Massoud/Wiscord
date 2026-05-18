@@ -30,7 +30,7 @@ export function VoiceControlBar({
   const pending = micToggle.pending;
 
   return (
-    <div className="pointer-events-none flex justify-center px-6 pt-3 pb-6">
+    <div className="pointer-events-none flex justify-center px-6 pt-3 pb-3">
       <div className="bg-surface-2 border-border shadow-elevated rounded-pill pointer-events-auto flex items-center gap-2 border px-3 py-2">
         <button
           type="button"

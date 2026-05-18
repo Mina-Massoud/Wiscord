@@ -5,7 +5,7 @@ import { ListChecks, Loader2 } from 'lucide-react';
 import { AppShellLayout } from '@/components/app-shell/AppShellLayout';
 import { AppTitleBar } from '@/components/app-shell/AppTitleBar';
 import { ServerRail } from '@/components/app-shell/ServerRail';
-import { UserPanel } from '@/components/app-shell/UserPanel';
+import { GlobalUserPanel } from '@/components/app-shell/GlobalUserPanel';
 import { ActiveNowPanel } from '@/components/app-shell/friends/ActiveNowPanel';
 
 import { Button } from '@/components/ui/button';
@@ -83,7 +83,7 @@ export default function QuizLabPage(): React.JSX.Element {
           onSelect={handleSelectQuiz}
         />
       }
-      userPanel={<UserPanel />}
+      userPanel={<GlobalUserPanel />}
       topBar={
         <PaneHeader
           variant="topbar"

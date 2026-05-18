@@ -49,7 +49,12 @@ interface SidebarBodyProps {
  */
 function SidebarBody({ children, className }: SidebarBodyProps) {
   return (
-    <div className={cn('flex flex-1 flex-col gap-3 overflow-auto px-2 pt-4 pb-3', className)}>
+    <div
+      className={cn(
+        'compact:gap-2 compact:pt-3 compact:pb-2 spacious:gap-4 spacious:pt-5 spacious:pb-4 flex flex-1 flex-col gap-3 overflow-auto px-2 pt-4 pb-3',
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -66,9 +71,9 @@ interface SidebarSectionProps {
 
 function SidebarSection({ title, trailing, children, className }: SidebarSectionProps) {
   return (
-    <section className={cn('flex flex-col gap-1', className)}>
+    <section className={cn('compact:gap-0.5 spacious:gap-2 flex flex-col gap-1', className)}>
       {(title || trailing) && (
-        <div className="flex items-center justify-between px-2 py-1">
+        <div className="compact:py-0.5 spacious:py-1.5 flex items-center justify-between px-2 py-1">
           {title ? <SidebarSectionHeader>{title}</SidebarSectionHeader> : <span />}
           {trailing}
         </div>

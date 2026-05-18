@@ -29,8 +29,80 @@ const COPY = {
   'friends.title': { default: 'Friends', genz: 'The Gang' },
   'friends.tab.online': { default: 'Focusing now', genz: 'Locked In' },
   'friends.tab.all': { default: 'All', genz: 'Everyone' },
-  'friends.tab.suggestions': { default: 'Discover', genz: 'Who to Know' },
+  'friends.tab.pending': { default: 'Pending', genz: 'On Pending' },
   'friends.add': { default: 'Add Friend', genz: 'Add Bestie' },
+  'friends.empty.online.title': {
+    default: "Nobody's locked in right now.",
+    genz: 'The gang is touching grass.',
+  },
+  'friends.empty.online.body': {
+    default: "Your friends are offline or off study mode. Catch them when they're back.",
+    genz: 'Your besties are off the grid. Ping them later to lock in together.',
+  },
+  'friends.empty.all.title': {
+    default: 'No study buddies yet.',
+    genz: 'The gang is empty rn.',
+  },
+  'friends.empty.all.body': {
+    default: 'Send a friend request to start studying together.',
+    genz: 'Add a bestie to start locking in together.',
+  },
+  'friends.empty.cta': { default: 'Add a friend', genz: 'Add a Bestie' },
+  'friends.empty.incoming.title': {
+    default: 'No incoming requests.',
+    genz: 'Inbox is dry.',
+  },
+  'friends.empty.outgoing.title': {
+    default: "You haven't sent any requests.",
+    genz: "You haven't slid in anywhere.",
+  },
+  'friends.add.title': {
+    default: 'Add Friend',
+    genz: 'Add a Bestie',
+  },
+  'friends.add.subtitle': {
+    default: 'You can add a friend with their username.',
+    genz: "Drop their @ and we'll send the slide.",
+  },
+  'friends.add.placeholder': {
+    default: 'Enter a username',
+    genz: 'their @',
+  },
+  'friends.add.cta': { default: 'Send Friend Request', genz: 'Slide In' },
+  'friends.add.success': {
+    default: 'Friend request sent to @{username}.',
+    genz: 'Slid into @{username}.',
+  },
+  'friends.add.accepted': {
+    default: 'You and @{username} are now friends.',
+    genz: 'Bestie locked in with @{username}.',
+  },
+  'friends.row.message': { default: 'Message', genz: 'DM' },
+  'friends.row.more': { default: 'More', genz: 'Options' },
+  'friends.row.remove': { default: 'Remove friend', genz: 'Drop the bestie' },
+  'friends.row.accept': { default: 'Accept', genz: 'Pull Up' },
+  'friends.row.decline': { default: 'Decline', genz: 'Decline' },
+  'friends.row.cancel': { default: 'Cancel', genz: 'Take Back' },
+  'friends.remove.confirm.title': {
+    default: 'Remove friend?',
+    genz: 'Drop the bestie?',
+  },
+  'friends.remove.confirm.body': {
+    default: 'You can always send a new request later.',
+    genz: 'You can always slide back in later.',
+  },
+  'friends.toast.sent': {
+    default: 'Request sent.',
+    genz: 'Slid in.',
+  },
+  'friends.toast.accepted': {
+    default: 'Friend added.',
+    genz: 'Bestie locked in.',
+  },
+  'friends.toast.removed': {
+    default: 'Friend removed.',
+    genz: 'Dropped the bestie.',
+  },
 
   // ── Voice lounge — channel header ─────────────────────────────────
   'voice.title': { default: 'Voice lounge', genz: 'The Voice Vibe' },
@@ -57,7 +129,7 @@ const COPY = {
   'voice.toast.left': { default: 'Left the voice lounge', genz: 'Dipped from the call' },
 
   // ── Bottom-left connected card ────────────────────────────────────
-  'voicePanel.connected.title': { default: 'Voice Connected', genz: "You're Live" },
+  'voicePanel.connected.title': { default: 'Voice Connected', genz: 'Voice Connected' },
   'voicePanel.connecting.title': { default: 'Connecting…', genz: 'Pulling Up…' },
   'voicePanel.reconnecting.title': { default: 'Reconnecting…', genz: 'Rebooting Vibe…' },
 } as const;

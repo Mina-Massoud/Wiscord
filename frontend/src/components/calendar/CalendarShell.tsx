@@ -7,8 +7,10 @@ import { cn } from '@/lib/cn';
 import {
   addDays,
   addMonths,
+  dayLabel,
   endOfMonthGrid,
   endOfWeek,
+  isSameDay,
   monthTitle,
   startOfDay,
   endOfDay,
@@ -25,6 +27,7 @@ import { CalendarSkeleton } from './CalendarSkeleton';
 import { CategoryManager } from './CategoryManager';
 import { DragGhost } from './DragGhost';
 import { EventComposer } from './EventComposer';
+import { EventQuickAddPopover } from './EventQuickAddPopover';
 import { useCalendarRealtime } from './useCalendarRealtime';
 import { useCalendarShortcuts } from './useCalendarShortcuts';
 import { useCalendarDrag, type BeginDragArgs } from './useCalendarDrag';
@@ -37,12 +40,35 @@ interface CalendarShellProps {
   /** `null` for the personal calendar; channel UUID for a shared one. */
   channelId: string | null;
   ownerId: string;
+  /** Initial cursor date — used when the calendar opens scoped to a
+   *  specific moment (e.g. the AI capsule opens it on a cited event's
+   *  day). Defaults to "today". */
+  initialDate?: Date;
+  /** Initial view — when scoping to a single day we want 'day' view,
+   *  otherwise the default 'month'. */
+  initialView?: CalendarView;
+  /** Hour (0–23) to scroll the day grid to on mount. When opening
+   *  from a cited event, derive from the event's start time so
+   *  the user sees the event without scrolling. */
+  initialScrollHour?: number;
 }
 
+/**
+ * The composer has two surfaces:
+ *
+ *   - `quick` — small Popover anchored to the clicked day/slot cell.
+ *     Covers the 90% case (title + when + maybe a note) without a
+ *     modal. Set automatically when the user clicks a cell.
+ *   - `full` — the original EventComposer Dialog. Used for editing
+ *     existing events, or when the user clicks "Add details" in the
+ *     quick popover to promote.
+ */
 interface ComposerState {
-  open: boolean;
+  mode: 'closed' | 'quick' | 'full';
   editing: CalendarEvent | null;
   prefillDay: Date | null;
+  /** Bounding rect of the clicked cell; popover anchors here. */
+  anchorRect: DOMRect | null;
 }
 
 /**
@@ -54,26 +80,45 @@ interface ComposerState {
  * Sub-views are stateless presentations; the shell hands them the data they
  * need plus event-selection callbacks.
  */
-export function CalendarShell({ channelId, ownerId }: CalendarShellProps): React.JSX.Element {
-  const [cursor, setCursor] = useState<Date>(() => new Date());
-  const [view, setView] = useState<CalendarView>('month');
+export function CalendarShell({
+  channelId,
+  ownerId,
+  initialDate,
+  initialView,
+  initialScrollHour,
+}: CalendarShellProps): React.JSX.Element {
+  const [cursor, setCursor] = useState<Date>(() => initialDate ?? new Date());
+  const [view, setView] = useState<CalendarView>(initialView ?? 'month');
   const [composer, setComposer] = useState<ComposerState>({
-    open: false,
+    mode: 'closed',
     editing: null,
     prefillDay: null,
+    anchorRect: null,
   });
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
 
-  const openCreate = (day: Date | null = null): void =>
-    setComposer({ open: true, editing: null, prefillDay: day });
+  // Cell-click create flow → quick popover anchored to the cell rect.
+  // The `null` rect path (e.g. keyboard shortcut "n") falls through to
+  // the full Dialog because there's nothing to anchor a popover to.
+  const openCreate = (day: Date | null = null, anchorRect: DOMRect | null = null): void =>
+    setComposer({
+      mode: anchorRect ? 'quick' : 'full',
+      editing: null,
+      prefillDay: day,
+      anchorRect,
+    });
   const openEdit = (event: CalendarEvent): void =>
-    setComposer({ open: true, editing: event, prefillDay: null });
-  const closeComposer = (open: boolean): void => setComposer((s) => ({ ...s, open }));
+    setComposer({ mode: 'full', editing: event, prefillDay: null, anchorRect: null });
+  const setComposerOpen = (open: boolean): void =>
+    setComposer((s) => (open ? s : { ...s, mode: 'closed' }));
+  // Quick → full promotion. Keeps any rect around in case we want to
+  // re-anchor later, but the Dialog itself centers regardless.
+  const promoteToFull = (): void => setComposer((s) => ({ ...s, mode: 'full' }));
 
   useCalendarRealtime(channelId);
 
   useCalendarShortcuts({
-    enabled: !composer.open && !categoryManagerOpen,
+    enabled: composer.mode === 'closed' && !categoryManagerOpen,
     onSetView: setView,
     onToday: () => setCursor(new Date()),
     onPrev: () => setCursor((c) => stepCursor(c, view, -1)),
@@ -128,8 +173,13 @@ export function CalendarShell({ channelId, ownerId }: CalendarShellProps): React
           >
             <ChevronLeft className="size-4" />
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setCursor(new Date())}>
-            Today
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setCursor(new Date())}
+            title="Jump to today"
+          >
+            {isSameDay(cursor, new Date()) ? 'Today' : dayLabel(cursor)}
           </Button>
           <Button
             variant="ghost"
@@ -166,7 +216,7 @@ export function CalendarShell({ channelId, ownerId }: CalendarShellProps): React
         </div>
       </header>
 
-      <div className={cn('flex-1 overflow-auto')}>
+      <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden')}>
         {eventsQuery.isLoading ? (
           <CalendarSkeleton />
         ) : eventsQuery.isError ? (
@@ -200,6 +250,7 @@ export function CalendarShell({ channelId, ownerId }: CalendarShellProps): React
             onSelectSlot={openCreate}
             onDragStart={onDragStart}
             draggingId={drag.draggingId}
+            scrollToHour={initialScrollHour}
           />
         ) : events.length === 0 ? (
           <CalendarEmpty onCreate={() => openCreate(null)} />
@@ -208,9 +259,19 @@ export function CalendarShell({ channelId, ownerId }: CalendarShellProps): React
         )}
       </div>
 
+      <EventQuickAddPopover
+        open={composer.mode === 'quick'}
+        onOpenChange={setComposerOpen}
+        anchorRect={composer.anchorRect}
+        prefillDay={composer.prefillDay}
+        channelId={channelId}
+        categories={categories}
+        onPromoteToFull={promoteToFull}
+      />
+
       <EventComposer
-        open={composer.open}
-        onOpenChange={closeComposer}
+        open={composer.mode === 'full'}
+        onOpenChange={setComposerOpen}
         channelId={channelId}
         categories={categories}
         editing={composer.editing}

@@ -90,15 +90,22 @@ Per-channel collaborative canvas — pen, shapes, text, sticky notes — themed 
 - **PNG export** — client-side via `editor.toImage(shapeIds, { format: 'png', background: false })`. Exports the full content bounds (not viewport) and writes a transparent-background PNG so the saved file isn't a dark rectangle.
 - **Dev route** — `/app/labs/whiteboard/:channelId` (DEV-only); the inner `<WhiteboardCanvas>` mounts inside the real channel page's Whiteboard tab once channels lands.
 
-## AI Assistant (Room-Scoped)
+## AI Assistant (Scoped — Personal first, Channel/Server/Voice later)
 
-Claude scoped to the current channel's context — recent messages + the notes doc.
+A Gemma 4 model (`gemma-4-26b-a4b-it`) on the Gemini API, scoped to a single "context surface" per request. Four planned scopes:
 
-- **Ask box per channel** — composer that says "Ask anything about this room".
-- **Context builder** — server-side, pulls last N messages and the notes blob for the channel.
-- **Streaming response** — Claude Haiku via the `POST /ai/ask` Express endpoint, tokens streamed back over SSE.
-- **Citations** — answer cites specific message IDs it pulled from, rendered as inline chips that scroll-to-source.
-- **Prompt caching** — stable system prompt + room context cached on Anthropic's side for cheaper repeat asks.
+- **Personal (v1, shipping)** — surfaces as an option inside the Dynamic Island next to calendar / pomodoro. Tap the AI tick → the pill morphs into the AI card with a composer + streaming response area. Context = the caller's own notes (across channels), upcoming/recent calendar events, recent quiz attempts, recent voice activity. Used for "what was I doing last week," "summarise my IELTS notes," "what's next on my calendar."
+- **Channel (later)** — composer in the chat tab; context = recent messages + the channel's shared notes + whiteboard captions. Same SSE endpoint, different context builder.
+- **Server (later)** — context spans every channel in the server the caller has access to; used for "what's the server been focused on this week?"
+- **Voice room (ready to wire)** — bound to the LiveKit room you're currently in; uses transient transcribed snippets + the room's pinned notes. Wired only after we have a live transcription source.
+
+Common pieces:
+
+- **Composer** — sparkle-prefixed input ("Ask…"). Sparkle icons are reserved for the AI surface itself per `frontend/CLAUDE.md`.
+- **Context builder** — server-side, scope-keyed. Lean RAG: filter + sort + cap by `userId` (and `channelId` / `serverId` as scopes land). No embeddings in v1.
+- **Streaming response** — `POST /ai/ask` Express endpoint, tokens streamed back over SSE. Frontend reads the same `{type:"token"|"done"|"error"}` event shape regardless of scope.
+- **Citations** — the model is prompted to cite source ids inline; the UI renders them as clickable chips. Form is `[note:<channelId>]` / `[event:<id>]` / `[msg:<uuid>]` depending on which sources the scope's context builder yielded.
+- **Context caching** — attempt Gemini context caching on the stable system + scope preamble; if Gemma rejects it, degrade silently and log once.
 
 ## Notifications
 

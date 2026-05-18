@@ -49,7 +49,15 @@ export function WhiteboardColorSwatch({ editor }: WhiteboardColorSwatchProps): R
               title={swatch.label}
               onClick={() => {
                 editor.setStyleForNextShapes(DefaultColorStyle, swatch.id);
-                editor.setStyleForSelectedShapes(DefaultColorStyle, swatch.id);
+                // Only repaint already-drawn shapes when the user is in
+                // select mode and explicitly has shapes selected. In
+                // draw / eraser / shape / text / note modes, tldraw keeps
+                // the most-recent shape selected after release, and
+                // recoloring it would change strokes the user thought
+                // were already committed in their old color.
+                if (editor.getCurrentToolId() === 'select') {
+                  editor.setStyleForSelectedShapes(DefaultColorStyle, swatch.id);
+                }
               }}
               className={cn(
                 'flex size-8 items-center justify-center rounded-full',

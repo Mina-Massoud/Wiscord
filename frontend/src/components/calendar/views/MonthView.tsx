@@ -18,7 +18,7 @@ interface MonthViewProps {
   events: CalendarEvent[];
   categories: CalendarCategory[];
   onSelectEvent?: (event: CalendarEvent) => void;
-  onSelectDay?: (day: Date) => void;
+  onSelectDay?: (day: Date, anchorRect: DOMRect) => void;
   onDragStart?: (args: BeginDragArgs, e: React.PointerEvent) => void;
   draggingId?: string | null;
 }
@@ -58,7 +58,7 @@ export function MonthView({
   const today = new Date();
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-auto">
       <div
         className="text-caption text-ink-muted grid grid-cols-7 gap-1 px-1 tracking-wide uppercase"
         role="row"
@@ -86,7 +86,7 @@ export function MonthView({
               type="button"
               role="gridcell"
               aria-label={dayLabel(day)}
-              onClick={() => onSelectDay?.(day)}
+              onClick={(e) => onSelectDay?.(day, e.currentTarget.getBoundingClientRect())}
               data-calendar-drop={`day:${localDayIso(day)}`}
               className={cn(
                 'group bg-glass-canvas flex h-32 flex-col gap-1 p-2 text-left',

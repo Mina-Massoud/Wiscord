@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react';
 
-import type { WatchPartySnapshot } from '@/queries/client';
+import type { WatchActivitySnapshot } from '@/queries/client';
 import type { PlayerAdapter } from '@/components/watch/playerAdapter';
 
 /**
@@ -11,7 +11,7 @@ import type { PlayerAdapter } from '@/components/watch/playerAdapter';
 const DRIFT_TOLERANCE_MS = 1500;
 
 interface UseWatchSyncOptions {
-  party: WatchPartySnapshot | null;
+  party: WatchActivitySnapshot | null;
   isHost: boolean;
   playerRef: RefObject<PlayerAdapter | null>;
 }
@@ -34,7 +34,7 @@ interface UseWatchSyncOptions {
 export function useWatchSync({ party, isHost, playerRef }: UseWatchSyncOptions): void {
   // Keep the latest party in a ref so the polling interval can read it
   // without re-binding the interval on every change.
-  const partyRef = useRef<WatchPartySnapshot | null>(party);
+  const partyRef = useRef<WatchActivitySnapshot | null>(party);
   partyRef.current = party;
 
   const isHostRef = useRef(isHost);
@@ -63,7 +63,7 @@ export function useWatchSync({ party, isHost, playerRef }: UseWatchSyncOptions):
   }, [party, isHost, playerRef]);
 }
 
-function applySync(party: WatchPartySnapshot, player: PlayerAdapter | null): void {
+function applySync(party: WatchActivitySnapshot, player: PlayerAdapter | null): void {
   if (!player) return;
 
   const expectedMs = computeExpectedMs(party);
@@ -85,7 +85,7 @@ function applySync(party: WatchPartySnapshot, player: PlayerAdapter | null): voi
  * Pure helper — exported so unit tests can verify the projection math
  * without dragging a player into the harness.
  */
-export function computeExpectedMs(party: WatchPartySnapshot): number {
+export function computeExpectedMs(party: WatchActivitySnapshot): number {
   if (party.state !== 'playing') return party.currentTimeMs;
   const lastTickMs = new Date(party.lastTickAt).getTime();
   const elapsed = Date.now() - lastTickMs;

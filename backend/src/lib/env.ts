@@ -18,8 +18,14 @@ const envSchema = z.object({
   RESEND_FROM_EMAIL: z.string().email().default('onboarding@resend.dev'),
   RESEND_FROM_NAME: z.string().default('Wiscord'),
 
-  ANTHROPIC_API_KEY: z.string().optional(),
-  ANTHROPIC_MODEL: z.string().default('claude-haiku-4-5-20251001'),
+  // Gemini API. Optional in dev so the rest of the app boots
+  // without a key; /ai/ask returns 503 `ai_not_configured` when
+  // GOOGLE_API_KEY is missing. Default is `gemini-2.0-flash` —
+  // handles tool calling + casual chat in the same call without
+  // the empty-reply quirks of the Gemma open variants. Swap to
+  // `gemini-2.5-flash` for stronger reasoning at higher cost.
+  GOOGLE_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default('gemini-2.0-flash'),
 
   LIVEKIT_URL: z.string().optional(),
   LIVEKIT_API_KEY: z.string().optional(),
@@ -45,6 +51,34 @@ const envSchema = z.object({
   // memory before handing it off, so this should stay well under available
   // RAM. Bump only after switching to disk-streaming upload.
   STORAGE_MAX_BYTES: z.coerce.number().int().positive().default(50 * 1024 * 1024),
+
+  // Stripe — required to enable the billing module. All optional in dev so
+  // the rest of the app boots without a Stripe account. The billing routes
+  // throw a friendly 503 when STRIPE_SECRET_KEY is missing.
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_PRO_MONTHLY: z.string().optional(),
+
+  // Music integrations (Spotify + YouTube Music via Google OAuth). All
+  // optional in dev — the /integrations routes return 503
+  // `integration_not_configured` when the provider's vars are missing.
+  // Redirect URIs must match the providers' dashboards exactly.
+  SPOTIFY_CLIENT_ID: z.string().optional(),
+  SPOTIFY_CLIENT_SECRET: z.string().optional(),
+  SPOTIFY_REDIRECT_URI: z.string().url().optional(),
+
+  GOOGLE_CLIENT_ID: z.string().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_REDIRECT_URI: z.string().url().optional(),
+
+  // 32-byte hex (64 chars) — encrypts refresh/access tokens at rest. If
+  // unset, the integrations module derives a key from JWT_SECRET via HKDF
+  // so dev sign-ups don't require extra setup, but rotating JWT_SECRET
+  // then invalidates every stored token. Set this explicitly in prod.
+  INTEGRATION_ENCRYPTION_KEY: z
+    .string()
+    .regex(/^[0-9a-f]{64}$/i, 'INTEGRATION_ENCRYPTION_KEY must be 64 hex chars (32 bytes)')
+    .optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);

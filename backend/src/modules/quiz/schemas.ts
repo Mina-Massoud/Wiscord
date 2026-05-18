@@ -65,6 +65,15 @@ export const quizQuestionSchema = z.discriminatedUnion('type', [
 ]);
 export type QuizQuestion = z.infer<typeof quizQuestionSchema>;
 
+/**
+ * Hard ceiling on questions per quiz. Enforced at the REST boundary
+ * (PATCH /quiz/:id) and again by the AI exam generator so a runaway
+ * model call can't blow past the limit. Bumped from 50 to 100 when
+ * the AI generator landed — humans rarely author past 30, but a
+ * "generate me a full final" should comfortably hit a real exam size.
+ */
+export const MAX_QUESTIONS_PER_QUIZ = 100;
+
 export const quizSettingsSchema = z.object({
   timePerQuestionSec: z.number().int().min(5).max(300).nullable(),
   shuffleQuestions: z.boolean(),
@@ -112,7 +121,7 @@ export const updateQuizBody = z
     // Title may be transiently empty while the host is retyping; launch
     // enforces non-empty.
     title: z.string().max(120).optional(),
-    questions: z.array(quizQuestionSchema).max(50).optional(),
+    questions: z.array(quizQuestionSchema).max(MAX_QUESTIONS_PER_QUIZ).optional(),
     settings: quizSettingsSchema.partial().optional(),
   })
   .refine((b) => b.title !== undefined || b.questions !== undefined || b.settings !== undefined, {

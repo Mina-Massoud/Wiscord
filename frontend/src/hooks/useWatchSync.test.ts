@@ -1,13 +1,14 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 import { computeExpectedMs } from './useWatchSync';
-import type { WatchPartySnapshot } from '@/queries/client';
+import type { WatchActivitySnapshot } from '@/queries/client';
 
 const FIXED_NOW = new Date('2026-05-14T10:00:10Z').getTime();
 
-function makeParty(overrides: Partial<WatchPartySnapshot> = {}): WatchPartySnapshot {
+function makeParty(overrides: Partial<WatchActivitySnapshot> = {}): WatchActivitySnapshot {
   return {
     channelId: '11111111-1111-1111-1111-111111111111',
+    kind: 'youtube',
     hostUserId: 'host',
     source: { kind: 'youtube', url: 'https://youtu.be/abcdefghijk', title: null },
     state: 'playing',

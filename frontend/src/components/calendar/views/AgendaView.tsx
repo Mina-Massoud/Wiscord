@@ -30,14 +30,16 @@ export function AgendaView({
 
   if (groups.length === 0) {
     return (
-      <p className="text-caption text-ink-muted px-4 py-8 text-center">
-        Nothing scheduled in this window.
-      </p>
+      <div className="h-full min-h-0 overflow-auto">
+        <p className="text-caption text-ink-muted px-4 py-8 text-center">
+          Nothing scheduled in this window.
+        </p>
+      </div>
     );
   }
 
   return (
-    <ol className="border-glass-border divide-glass-border bg-glass-canvas divide-y rounded-md border">
+    <ol className="border-glass-border divide-glass-border bg-glass-canvas h-full min-h-0 divide-y overflow-auto rounded-md border">
       {groups.map(({ day, items }) => (
         <li key={day.toISOString()} className="px-4 py-3">
           <p className="text-caption text-ink-muted mb-2 tracking-wide uppercase">

@@ -5,8 +5,12 @@ interface AppTitleBarProps {
 }
 
 /**
- * Full-width app titlebar that sits above the four-column shell.
- * Centered title (icon + label) with passive inbox / help affordances on the far right.
+ * Full-width app titlebar above the four-column shell.
+ *
+ * The Dynamic Island is *not* mounted here — it lives at the document
+ * root via a portal so it can grow past the shell's `overflow-hidden`
+ * boundary into a full-screen expanded view. The titlebar stays
+ * minimal: centered page label + far-right inbox/help affordances.
  */
 export function AppTitleBar({ title }: AppTitleBarProps): React.JSX.Element {
   return (

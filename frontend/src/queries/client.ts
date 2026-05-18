@@ -2,6 +2,12 @@ import { QueryClient } from '@tanstack/react-query';
 import { io, type Socket } from 'socket.io-client';
 
 import type { QuizAnalyticsSnapshot } from '@/types/quiz';
+import type {
+  ListenTogetherInviteResolvedEvent,
+  ListenTogetherInviteSentEvent,
+  ListenTogetherPlaybackEvent,
+  ListenTogetherSessionEndedEvent,
+} from '@/types/listen-together';
 
 const apiUrl = import.meta.env['VITE_API_URL'] as string | undefined;
 
@@ -115,7 +121,12 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
 
 export interface VoiceStateChange {
   channelId: string;
-  participants: Array<{ identity: string; name: string; joinedAt: number }>;
+  participants: Array<{
+    identity: string;
+    name: string;
+    joinedAt: number;
+    activityKind: ActivityKind | null;
+  }>;
 }
 
 export interface CalendarEventChanged {
@@ -127,9 +138,79 @@ export interface CalendarEventChanged {
 export type WatchSourceKind = 'youtube' | 'direct' | 'screen';
 export type WatchPartyState = 'idle' | 'playing' | 'paused';
 
-export interface WatchPartySnapshot {
+/**
+ * The six activity kinds a voice channel can be running. Watch kinds
+ * (`youtube`, `screen-share`) carry source + playhead fields; lab kinds
+ * (`notes`, `whiteboard`, `quiz`) ride on their own realtime channel and
+ * the activity snapshot is mainly a "this channel is doing X" signal.
+ * `pomodoro` is a server-anchored shared timer — see `pomodoro` on the
+ * snapshot for the per-phase fields.
+ */
+export type ActivityKind =
+  | 'youtube'
+  | 'screen-share'
+  | 'notes'
+  | 'whiteboard'
+  | 'quiz'
+  | 'pomodoro';
+
+export type PomodoroPhase = 'focus' | 'break';
+
+export interface PomodoroSnapshot {
+  phase: PomodoroPhase;
+  round: number;
+  totalRounds: number;
+  /** ISO 8601 — server-anchored end time of the current phase. null while
+   *  paused. Clients compute remaining-ms locally from this. */
+  endsAt: string | null;
+  /** Remaining ms snapshotted at pause. null while running. */
+  pausedRemainingMs: number | null;
+  /** Pending reset request from a non-host participant. Auto-expires
+   *  server-side after 30s. */
+  resetRequest: {
+    byUserId: string;
+    requestedAt: string;
+  } | null;
+}
+
+export interface VoiceActivitySnapshot {
   channelId: string;
+  kind: ActivityKind;
   hostUserId: string;
+  startedAt: string;
+  /** Watch-only — null for non-watch kinds. */
+  source: {
+    kind: WatchSourceKind;
+    url: string;
+    title: string | null;
+  } | null;
+  /** Watch-only. */
+  state: WatchPartyState | null;
+  currentTimeMs: number;
+  /** ISO 8601 timestamp — wall clock the playhead is anchored to. Watch-only. */
+  lastTickAt: string | null;
+  /** Quiz-only — the host-pinned quiz to broadcast, or null. */
+  quizId: string | null;
+  /** Pomodoro-only — phase/round/endsAt/etc. null for non-pomodoro kinds. */
+  pomodoro: PomodoroSnapshot | null;
+}
+
+export interface VoiceActivityChange {
+  channelId: string;
+  /** null on a stop event — viewers should exit the activity. */
+  snapshot: VoiceActivitySnapshot | null;
+}
+
+/**
+ * Narrowed view of a `VoiceActivitySnapshot` when the kind is a watch kind.
+ * Watch-only components (`WatchPlayer`, `useWatchSync`) accept this so they
+ * don't have to defend against nullable watch fields at every read site.
+ */
+export interface WatchActivitySnapshot {
+  channelId: string;
+  kind: 'youtube' | 'screen-share';
+  hostUserId: string;
+  startedAt: string;
   source: {
     kind: WatchSourceKind;
     url: string;
@@ -137,22 +218,77 @@ export interface WatchPartySnapshot {
   };
   state: WatchPartyState;
   currentTimeMs: number;
-  /** ISO 8601 timestamp — wall clock the playhead is anchored to. */
   lastTickAt: string;
-  startedAt: string;
 }
 
-export interface WatchPartyChange {
-  channelId: string;
-  /** null on a stop event — viewers should exit watch mode. */
-  snapshot: WatchPartySnapshot | null;
+/**
+ * Narrow a `VoiceActivitySnapshot` to its watch-only projection, or return
+ * null if the activity isn't a watch kind / is missing required fields.
+ */
+export function asWatchActivity(activity: VoiceActivitySnapshot): WatchActivitySnapshot | null {
+  if (activity.kind !== 'youtube' && activity.kind !== 'screen-share') return null;
+  if (!activity.source || !activity.state || !activity.lastTickAt) return null;
+  return {
+    channelId: activity.channelId,
+    kind: activity.kind,
+    hostUserId: activity.hostUserId,
+    startedAt: activity.startedAt,
+    source: activity.source,
+    state: activity.state,
+    currentTimeMs: activity.currentTimeMs,
+    lastTickAt: activity.lastTickAt,
+  };
+}
+
+export interface FriendUserDto {
+  id: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+}
+
+export interface FriendRequestDto {
+  id: string;
+  status: 'pending' | 'accepted' | 'declined' | 'cancelled';
+  createdAt: string;
+  respondedAt: string | null;
+  user: FriendUserDto;
+  outgoing: boolean;
+}
+
+export interface FriendDto {
+  user: FriendUserDto;
+  friendedAt: string;
+}
+
+export interface FriendRequestIncomingEvent {
+  toUserId: string;
+  request: FriendRequestDto;
+}
+export interface FriendRequestRespondedEvent {
+  toUserId: string;
+  requestId: string;
+  newFriend: FriendDto | null;
+}
+export interface FriendRemovedEvent {
+  toUserId: string;
+  removedUserId: string;
 }
 
 export interface ServerToClientEvents {
   'voice:state_changed': (change: VoiceStateChange) => void;
   'quiz:analytics_changed': (snapshot: QuizAnalyticsSnapshot) => void;
   'calendar:event_changed': (change: CalendarEventChanged) => void;
-  'watch:state_changed': (change: WatchPartyChange) => void;
+  'voice:activity_changed': (change: VoiceActivityChange) => void;
+  'friend_request:incoming': (event: FriendRequestIncomingEvent) => void;
+  'friend_request:accepted': (event: FriendRequestRespondedEvent) => void;
+  'friend_request:declined': (event: FriendRequestRespondedEvent) => void;
+  'friend_request:cancelled': (event: FriendRequestRespondedEvent) => void;
+  'friend:removed': (event: FriendRemovedEvent) => void;
+  'listen_together:invite_received': (event: ListenTogetherInviteSentEvent) => void;
+  'listen_together:invite_resolved': (event: ListenTogetherInviteResolvedEvent) => void;
+  'listen_together:session_ended': (event: ListenTogetherSessionEndedEvent) => void;
+  'listen_together:playback': (event: ListenTogetherPlaybackEvent) => void;
 }
 
 export interface ClientToServerEvents {
@@ -160,8 +296,8 @@ export interface ClientToServerEvents {
   'quiz:unsubscribe_host': (quizId: string) => void;
   'calendar:subscribe_channel': (channelId: string, ack: (ok: boolean) => void) => void;
   'calendar:unsubscribe_channel': (channelId: string) => void;
-  'watch:subscribe_channel': (channelId: string, ack: (ok: boolean) => void) => void;
-  'watch:unsubscribe_channel': (channelId: string) => void;
+  'voice:subscribe_activity': (channelId: string, ack: (ok: boolean) => void) => void;
+  'voice:unsubscribe_activity': (channelId: string) => void;
 }
 
 export type WiscordSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -198,4 +334,19 @@ export const queryClient = new QueryClient({
       },
     },
   },
+});
+
+// `useMediaBlobUrl` (queries/media.ts) caches `blob:` URLs for backend storage
+// assets. The Blob bytes stay rooted by the URL string until we explicitly
+// `URL.revokeObjectURL` them — without this subscriber they'd leak as the
+// session grew. When TanStack Query evicts a `['media-blob', id]` entry past
+// its `gcTime`, revoke the URL so the underlying Blob can be reclaimed.
+queryClient.getQueryCache().subscribe((event) => {
+  if (event.type !== 'removed') return;
+  const [namespace] = event.query.queryKey as readonly unknown[];
+  if (namespace !== 'media-blob') return;
+  const data = event.query.state.data;
+  if (typeof data === 'string' && data.startsWith('blob:')) {
+    URL.revokeObjectURL(data);
+  }
 });

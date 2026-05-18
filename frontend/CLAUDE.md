@@ -75,6 +75,7 @@ We are building a product for students, not a developer console. Every screen sh
 - **One accent per surface.** The blurple is the focal CTA. Don't paint every action blurple — a secondary action takes `variant="secondary"` or `variant="ghost"`, so the primary stays primary.
 - **Animate transitions, not just states.** When a step adds more controls (e.g. onboarding workspace step), the container should expand smoothly — not snap to a new width. Width / size transitions are an allowed exception to the `transform/opacity/filter` rule on auth and onboarding surfaces (not hot paths).
 - **Icons must mean something literal — and the icon belongs to the surface, not the subject matter.** Reserve "magic" icons — `Sparkles`, `Wand`, `Wand2`, `WandSparkles`, `Stars`, `Brain`, `Bot`, `Atom`, anything with motion lines or twinkles — exclusively for surfaces where AI is *the active mechanism*: the `ai-ask` composer where the user types the prompt, the streaming-response area where Claude's tokens appear, the citation chip attached to a specific generated answer. A surface that *talks about* AI is not the AI surface. Announcements, marketing banners, tips, tooltips, feature spotlights, empty-state copy, and onboarding cards that mention or promote an AI feature must pick a literal icon for the **surface itself** — `Megaphone` / `Bell` for an announcement, `Lightbulb` for a tip, `MessageCircleQuestion` for an "ask the room" suggestion — not a sparkle just because the subject matter is AI. The test: if the user is not *currently using* the AI on this exact pixel, no magic icon. Using a magic icon on a promo card about the AI makes the product read like an AI demo instead of a study app. For non-AI actions pick the most literal lucide icon available: `Plus` for create, `Users` for join/people, `Hash` for channels, `Pin` for pin, `Search` for search, `Settings` for settings, `Megaphone` for announcements, `Lightbulb` for tips, `MessageCircleQuestion` for "ask" prompts. If unsure, no icon is better than a misleading one.
+- **Third-party brand surfaces use the real brand logo — never a lucide stand-in.** Anywhere the UI represents a specific third-party service the user has to recognize on sight — Spotify, YouTube Music, Apple Music, Google, Notion, GitHub, Discord, Slack, Stripe, etc. — render the actual brand mark, not a generic lucide icon (`Music`, `Youtube`, `Github`, etc.). The user needs to glance at an integration row, a connected-app pill, or an OAuth button and *know which service it is*; a green note vs. a red play triangle is the signal, not the word next to it. Workflow: download the official PNG/SVG from the vendor's brand-kit page (Wikimedia Commons is acceptable for icon marks), drop it under `public/logo/<service>.webp` via `scripts/img-to-webp.sh <path> --replace`, and reference it as `/logo/<service>.webp` with explicit `width`/`height` and an `alt="<Service> logo"`. Lucide icons remain the right choice for *actions* and *abstract concepts* (Plus, Settings, Music in the context of a generic in-app music player) — not for naming a specific company.
 - **Only offer "back" when the prior step is actually undoable.** A `ChevronLeft + Back` affordance is only honest when the previous step has *not* yet committed to the backend — i.e. it lives entirely in client state until a final submit. Once a step has written to the backend (created a profile, redeemed an invite, sent an email), going "back" would lie to the user because we can't undo the write. In those cases, omit the back button. Don't paper over irreversible state with reversible-looking UI. Same rule applies to server-creation wizards, settings deep-links, anything multi-step.
 - **Never expose raw IDs to the user.** UUIDs, hashes, `slice(-6)` truncations, and any other database key are *not* a name. They look like an error log leaked into the UI and they make every untitled resource look identical. If a resource doesn't have a real human-authored title yet, generate one with `funnyTitle(seed)` from `@/lib/funny-title` — it produces a deterministic two-word Gen Z handle (`Vibey Platypus`, `Lowkey Empire`, `Sus Pretzel`) so the same id always renders the same name across tabs and reloads. Use `displayTitle(realTitle, seed)` at every render site that has both — it returns the real title when present and falls back to the funny one otherwise. The kebab-case form (`funnyTitleSlug`) is for download filenames and URL-adjacent contexts. The only acceptable place for a raw id is in a `title=""` tooltip on the value, an aria attribute pointing at the row, or a debug-only surface clearly marked as such.
 
@@ -177,6 +178,30 @@ The one acceptable exception today is `AppTitleBar` — the global window-titleb
 - **URL state** (active server, channel, modal open) → React Router params + search
 - **Local-only ephemeral** → `useState`
 - **No Redux.** No Context for app state (Context only for genuinely tree-scoped concerns like theme, locale, auth user)
+
+#### Zustand selectors that return new objects must use `useShallow`
+
+If a Zustand selector returns a *new* array or object reference on every call (e.g. `.slice()`, `.filter()`, `.map()`, an object literal), wrap it with `useShallow` from `zustand/react/shallow`. Without that, React's `useSyncExternalStore` reads the fresh reference as a changed snapshot every render and you get:
+
+```
+Maximum update depth exceeded.
+The result of getSnapshot should be cached to avoid an infinite loop.
+```
+
+```ts
+// BAD — new array per render → infinite loop
+const sidecars = useIslandStore((s) => s.contexts.slice(1, 2));
+
+// GOOD — shallow equality on the result
+import { useShallow } from 'zustand/react/shallow';
+const sidecars = useIslandStore(useShallow((s) => s.contexts.slice(1, 2)));
+
+// ALSO FINE — selecting a stable primitive / single object reference
+const isOpen = useIslandStore((s) => s.isOpen);
+const primary = useIslandStore((s) => s.contexts[0] ?? null);
+```
+
+Rule of thumb: if your selector body has a `[`, a `{`, or one of `.map / .filter / .slice / Object.entries`, you need `useShallow`. Single value lookups (`s.foo`, `s.foo ?? null`, `s.foo[index]`) are fine without it because `Object.is` compares the same underlying reference.
 
 ### React Query best practices
 

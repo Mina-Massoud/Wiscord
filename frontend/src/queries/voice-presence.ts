@@ -1,13 +1,19 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 
-import { api, getSocket, type VoiceStateChange } from '@/queries/client';
+import { api, getSocket, type ActivityKind, type VoiceStateChange } from '@/queries/client';
 import { qk } from '@/queries/keys';
 
 export interface VoiceChannelParticipant {
   identity: string;
   name: string;
   joinedAt: number;
+  /**
+   * Per-user activity selection. `null` = on the voice grid (or nothing
+   * active). Drives the in-progress overlay on the voice grid for *other*
+   * users — your own row never renders a self-card.
+   */
+  activityKind: ActivityKind | null;
 }
 
 interface VoiceParticipantsResponse {

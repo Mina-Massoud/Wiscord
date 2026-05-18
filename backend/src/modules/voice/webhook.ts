@@ -3,8 +3,8 @@ import { WebhookReceiver, type WebhookEvent } from 'livekit-server-sdk';
 import { env } from '../../lib/env.js';
 import { logger } from '../../lib/logger.js';
 import { badRequest, serverError } from '../../lib/errors.js';
-import { voicePresence, type VoiceParticipant } from './presence-store.js';
-import { forceStopParty, getHostUserId } from '../watchparty/service.js';
+import { voicePresence } from './presence-store.js';
+import { forceStopActivity, getHostUserId } from '../voice-activity/service.js';
 
 const ROOM_PREFIX = 'channel-';
 
@@ -55,8 +55,13 @@ export async function handleLivekitWebhook(
       const p = event.participant;
       if (!p) break;
       const existing = voicePresence.list(channelId);
-      const next: VoiceParticipant[] = [
-        ...existing.filter((x) => x.identity !== p.identity),
+      // `replace()` carries activityKind forward for still-present users
+      // (and defaults new arrivals to null) — we just hand over the
+      // LiveKit-shaped triple without an explicit kind field.
+      const next = [
+        ...existing
+          .filter((x) => x.identity !== p.identity)
+          .map((x) => ({ identity: x.identity, name: x.name, joinedAt: x.joinedAt })),
         {
           identity: p.identity,
           name: p.name?.trim() || p.identity,
@@ -70,34 +75,34 @@ export async function handleLivekitWebhook(
       const p = event.participant;
       if (!p) break;
       voicePresence.remove(channelId, p.identity);
-      // If the leaver was hosting a watch party in this channel, end it.
-      // Non-host leavers are a no-op for the party — viewers stay watching.
+      // If the leaver was hosting an activity in this channel, end it.
+      // Non-host leavers are a no-op — viewers stay in the activity.
       try {
         const hostId = await getHostUserId(channelId);
         if (hostId && hostId === p.identity) {
-          const result = await forceStopParty({
+          const result = await forceStopActivity({
             channelId,
             reason: 'host_left_voice',
           });
           if (result.stopped) {
             logger.info(
               { channelId, hostUserId: result.hostUserId },
-              'voice: host left → watch party auto-stopped',
+              'voice: host left → activity auto-stopped',
             );
           }
         }
       } catch (err) {
-        logger.warn({ err, channelId }, 'voice: failed to auto-stop watch party on host leave');
+        logger.warn({ err, channelId }, 'voice: failed to auto-stop activity on host leave');
       }
       break;
     }
     case 'room_finished': {
       voicePresence.replace(channelId, []);
-      // Whole room is gone — any party for this channel ends with it.
+      // Whole room is gone — any activity for this channel ends with it.
       try {
-        await forceStopParty({ channelId, reason: 'room_finished' });
+        await forceStopActivity({ channelId, reason: 'room_finished' });
       } catch (err) {
-        logger.warn({ err, channelId }, 'voice: failed to auto-stop watch party on room_finished');
+        logger.warn({ err, channelId }, 'voice: failed to auto-stop activity on room_finished');
       }
       break;
     }

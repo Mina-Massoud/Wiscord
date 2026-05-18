@@ -10,9 +10,11 @@ interface ActivityLauncherDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /**
-   * Fired when the user selects an activity. The dialog closes itself first,
-   * then invokes the callback so the parent can enter the activity state
-   * (mount a player, open a source picker, etc).
+   * Fired when the user selects an available activity. The dialog closes
+   * itself first, then invokes the callback so the parent can enter the
+   * activity state (mount the embed / start a source picker / etc).
+   * `coming-soon` activities never reach this callback — their tile is
+   * non-interactive.
    */
   onSelect: (activity: ActivityDefinition) => void;
 }
@@ -21,6 +23,10 @@ interface ActivityLauncherDialogProps {
  * The launcher dialog. Activities are picked here and entered *in place* —
  * no navigation. The parent surface (`VoiceLabPage`) owns the resulting
  * state transition; this component is a pure picker.
+ *
+ * Layout follows the ElevenLabs / Manus integration-picker pattern — wider
+ * surface, denser tile rhythm. 2-col under md (mobile / narrow viewport
+ * fallback), 3-col at md+ where the 5-tile grid breathes properly.
  */
 export function ActivityLauncherDialog({
   open,
@@ -42,20 +48,19 @@ export function ActivityLauncherDialog({
     onSelect(activity);
   };
 
-  // With one registry entry we render it featured (spans both columns) so
-  // the dialog doesn't look like an unfinished grid.
-  const renderFeatured = filtered.length === 1;
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-glass-surface-2 border-glass-border max-h-[80vh] gap-0 overflow-hidden sm:max-w-[560px]">
-        <DialogHeader className="px-6 pt-6 pb-4">
+      <DialogContent className="bg-glass-surface-2 border-glass-border max-h-[85vh] gap-0 overflow-hidden p-0 sm:max-w-[760px]">
+        <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle className="text-ink text-subhead font-semibold">
             Start an activity
           </DialogTitle>
+          <p className="text-ink-muted text-caption mt-1">
+            Everyone in this voice channel joins automatically.
+          </p>
         </DialogHeader>
 
-        <div className="px-6 pb-4">
+        <div className="px-6 pt-4 pb-4">
           <div className="relative">
             <Search
               className="text-ink-muted pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
@@ -81,14 +86,9 @@ export function ActivityLauncherDialog({
               No matches. Try a different search.
             </p>
           ) : (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               {filtered.map((activity) => (
-                <ActivityCard
-                  key={activity.id}
-                  activity={activity}
-                  onSelect={handleSelect}
-                  featured={renderFeatured}
-                />
+                <ActivityCard key={activity.kind} activity={activity} onSelect={handleSelect} />
               ))}
             </div>
           )}

@@ -5,7 +5,7 @@ import { addDays, dayLabel, isSameDay, startOfWeek, weekdayShortLabels } from '@
 import type { CalendarCategory, CalendarEvent } from '@/types/calendar';
 
 import { AllDayStrip } from './AllDayStrip';
-import { TimeGrid } from './TimeGrid';
+import { TimeGrid, timeGridColumns } from './TimeGrid';
 
 import type { BeginDragArgs } from '../useCalendarDrag';
 
@@ -14,7 +14,7 @@ interface WeekViewProps {
   events: CalendarEvent[];
   categories: CalendarCategory[];
   onSelectEvent?: (event: CalendarEvent) => void;
-  onSelectSlot?: (slotStart: Date) => void;
+  onSelectSlot?: (slotStart: Date, anchorRect: DOMRect) => void;
   onDragStart?: (args: BeginDragArgs, e: React.PointerEvent) => void;
   draggingId?: string | null;
 }
@@ -36,7 +36,7 @@ export function WeekView({
   const today = new Date();
 
   return (
-    <div className="flex flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       <div
         className="border-glass-border bg-glass-chrome grid border-b"
         style={{ gridTemplateColumns: `4rem repeat(7, minmax(0, 1fr))` }}
@@ -75,7 +75,10 @@ export function WeekView({
         onSelectEvent={onSelectEvent}
       />
 
-      <div className="flex-1 overflow-auto">
+      <div
+        className="border-glass-border bg-glass-canvas grid flex-1 overflow-auto rounded-md border"
+        style={{ gridTemplateColumns: timeGridColumns(days.length) }}
+      >
         <TimeGrid
           days={days}
           events={events}

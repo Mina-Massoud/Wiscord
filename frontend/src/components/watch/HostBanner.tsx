@@ -18,10 +18,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { describeSource } from '@/lib/watch-source';
-import type { WatchPartySnapshot } from '@/queries/client';
+import type { WatchActivitySnapshot } from '@/queries/client';
 
 interface HostBannerProps {
-  party: WatchPartySnapshot;
+  party: WatchActivitySnapshot;
   isHost: boolean;
   /** Display name for the host — sourced from voice presence by the parent. */
   hostDisplayName: string;

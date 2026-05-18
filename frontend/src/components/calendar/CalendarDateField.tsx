@@ -54,7 +54,7 @@ export function CalendarDateField({
           type="button"
           variant="outline"
           aria-label={ariaLabel}
-          className="bg-surface-composer text-ink hover:bg-glass-hover w-full justify-start gap-2 font-normal"
+          className="bg-background border-input text-ink hover:bg-glass-hover w-full justify-start gap-2 font-normal"
         >
           <CalendarIcon className="text-ink-muted size-4" aria-hidden />
           <span className="text-control tabular-nums">{formatTrigger(selectedDate)}</span>
@@ -62,7 +62,7 @@ export function CalendarDateField({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="bg-glass-surface-2 border-glass-border w-72 space-y-3 p-3"
+        className="bg-surface-2 border-glass-border w-72 space-y-3 p-3 shadow-xl"
       >
         <div className="flex items-center justify-between">
           <Button

@@ -1,4 +1,4 @@
-import { useMutation, type UseMutationResult } from '@tanstack/react-query';
+import { useMutation, useQuery, type UseMutationResult } from '@tanstack/react-query';
 
 import { API_URL, ApiError, type ApiResponse } from '@/queries/client';
 
@@ -87,6 +87,23 @@ export async function uploadMediaFile(input: {
   return parsed.data;
 }
 
+const STORAGE_PREFIX = `${API_URL}/storage/`;
+
+/**
+ * Pull the storage id out of a `mediaUrl(id)` string, or return `null` if
+ * the URL doesn't point at our backend (data: identicons, /logo/*, external
+ * images, etc.). Used by `<MediaImg>` to decide whether the source needs
+ * the credentialed-fetch + blob-cache treatment.
+ */
+export function extractStorageId(url: string): string | null {
+  if (!url.startsWith(STORAGE_PREFIX)) return null;
+  const tail = url.slice(STORAGE_PREFIX.length);
+  // Strip any trailing query string / hash so different cache-busters still
+  // resolve to the same id.
+  const cleaned = tail.split(/[?#]/)[0];
+  return cleaned.length > 0 ? cleaned : null;
+}
+
 /**
  * Fetch the bytes of a stored asset, return a same-origin `blob:` URL that
  * any `<img>` / `<video>` / `<audio>` can use without cross-origin cookie
@@ -108,6 +125,46 @@ export async function fetchMediaBlobUrl(id: string, signal?: AbortSignal): Promi
   }
   const blob = await response.blob();
   return URL.createObjectURL(blob);
+}
+
+/**
+ * Resolve a backend storage URL to a same-origin `blob:` URL, cached in
+ * memory for the SPA session via TanStack Query.
+ *
+ * Why this exists: browsers are flaky about caching credentialed cross-
+ * origin `<img>` responses even with proper `Cache-Control` + `ETag`. By
+ * fetching the bytes once via `fetch(..., { credentials: 'include' })`,
+ * wrapping the result in a `blob:` URL, and pinning that string in the
+ * query cache, every subsequent render of the same id is a same-origin
+ * lookup with zero network — survives panel re-mounts and route changes.
+ *
+ * For non-storage sources (data: URLs, public assets like `/logo/foo.webp`,
+ * external images), this is a pass-through.
+ *
+ * Lifetime: the underlying Blob is rooted by the URL string. The cleanup
+ * subscriber wired up in `queries/client.ts` calls `URL.revokeObjectURL`
+ * when the entry is gc'd by TanStack Query (`gcTime` below).
+ */
+export function useMediaBlobUrl(src: string | null | undefined): string | null {
+  const id = typeof src === 'string' ? extractStorageId(src) : null;
+
+  const query = useQuery({
+    queryKey: mediaBlobKey(id ?? ''),
+    queryFn: ({ signal }) => fetchMediaBlobUrl(id!, signal),
+    enabled: id !== null,
+    staleTime: Infinity,
+    gcTime: 30 * 60_000,
+    retry: 0,
+  });
+
+  if (id === null) return src ?? null;
+  return query.data ?? null;
+}
+
+/** Query key factory for the blob cache — kept here so the cleanup subscriber
+ * in `queries/client.ts` can match on the same shape without circular imports. */
+export function mediaBlobKey(id: string): readonly ['media-blob', string] {
+  return ['media-blob', id] as const;
 }
 
 export interface UploadMediaInput {

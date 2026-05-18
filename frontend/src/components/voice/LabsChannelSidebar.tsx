@@ -8,7 +8,6 @@ import {
   useVoiceChannelParticipants,
   type VoiceChannelParticipant,
 } from '@/queries/voice-presence';
-import { useWatchParty } from '@/queries/watch';
 import { Sidebar } from '@/components/ui/sidebar-shell';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { getIdenticonDataUrl } from '@/lib/avatar';
@@ -55,8 +54,6 @@ export function LabsChannelSidebar({
   const state = useConnectionState();
   const liveParticipants = useParticipants();
   const me = useMyProfile().data;
-  const party = useWatchParty(channelId).data;
-  const activityHostId = party?.hostUserId ?? null;
 
   // Build a lookup so we can overlay LiveKit's live participant onto each
   // server-listed row when the local user is connected to the same room.
@@ -93,7 +90,7 @@ export function LabsChannelSidebar({
             disabled={active}
             aria-pressed={active}
             className={cn(
-              'duration-fast flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors',
+              'duration-fast compact:gap-2 compact:py-1 spacious:gap-3.5 spacious:py-3 flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors',
               active
                 ? 'bg-surface-active text-ink cursor-default'
                 : 'text-ink-muted hover:bg-glass-hover hover:text-ink focus-visible:ring-blurple cursor-pointer focus-visible:ring-2 focus-visible:outline-none',
@@ -107,7 +104,7 @@ export function LabsChannelSidebar({
           </button>
 
           {rows.length > 0 || showOptimisticMe ? (
-            <ul className="mt-1 flex flex-col gap-0.5 pl-7">
+            <ul className="compact:mt-0.5 compact:gap-0 spacious:mt-1.5 spacious:gap-1 mt-1 flex flex-col gap-0.5 pl-7">
               {showOptimisticMe && me ? (
                 <OptimisticMeRow
                   identity={me.id}
@@ -116,7 +113,10 @@ export function LabsChannelSidebar({
               ) : null}
               {rows.map((row) => {
                 const live = liveByIdentity.get(row.identity);
-                const isActivityHost = activityHostId === row.identity;
+                // Per-user activity presence drives the rocket — the
+                // server doc is only set for host-led kinds, but Notes /
+                // Whiteboard openers should still get the indicator.
+                const isInActivity = row.activityKind !== null;
                 const isMe = row.identity === me?.id;
                 const dimmed = isMe && isConnecting;
                 return live ? (
@@ -124,7 +124,7 @@ export function LabsChannelSidebar({
                     key={row.identity}
                     row={row}
                     participant={live}
-                    isActivityHost={isActivityHost}
+                    isActivityHost={isInActivity}
                     dimmed={dimmed}
                   />
                 ) : (
@@ -132,7 +132,7 @@ export function LabsChannelSidebar({
                     key={row.identity}
                     row={row}
                     isMe={isMe}
-                    isActivityHost={isActivityHost}
+                    isActivityHost={isInActivity}
                     dimmed={dimmed}
                   />
                 );
@@ -216,10 +216,10 @@ function OptimisticMeRow({ identity, displayName }: OptimisticMeRowProps) {
 }
 
 /**
- * Small blurple rocket overlay on the participant row whose identity matches
- * the current watch-party host. The one blurple beat on this surface — it
- * signals "this person is running an activity" to users outside the channel
- * before they join.
+ * Small blurple rocket overlay on a participant row whose `activityKind`
+ * is non-null. The one blurple beat on this surface — it signals "this
+ * person is in some activity" to other users so they know there's
+ * something to join from the voice grid.
  */
 function ActivityHostIndicator() {
   return (
@@ -232,7 +232,7 @@ function ActivityHostIndicator() {
           <Rocket className="size-3" aria-hidden />
         </span>
       </TooltipTrigger>
-      <TooltipContent>Hosting Watch Together</TooltipContent>
+      <TooltipContent>Hosting an activity</TooltipContent>
     </Tooltip>
   );
 }
@@ -253,7 +253,7 @@ function SidebarRowShell({
   return (
     <li
       className={cn(
-        'hover:bg-glass-hover duration-base flex items-center gap-3 rounded-md px-2 py-1.5 transition-[opacity,background-color]',
+        'hover:bg-glass-hover duration-base compact:gap-2 compact:py-0.5 spacious:gap-3 spacious:py-2.5 flex items-center gap-3 rounded-md px-2 py-1.5 transition-[opacity,background-color]',
         dimmed ? 'opacity-50' : 'opacity-100',
       )}
     >

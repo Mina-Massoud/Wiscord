@@ -3,7 +3,7 @@ import { RoomServiceClient } from 'livekit-server-sdk';
 import { env } from '../../lib/env.js';
 import { logger } from '../../lib/logger.js';
 import { voicePresence, type VoiceParticipant } from './presence-store.js';
-import { forceStopParty, getHostUserId } from '../watchparty/service.js';
+import { forceStopActivity, getHostUserId } from '../voice-activity/service.js';
 
 const POLL_INTERVAL_MS = 2_000;
 const ROOM_PREFIX = 'channel-';
@@ -71,7 +71,9 @@ class LivekitPresencePoller {
         liveChannelIds.add(channelId);
 
         const participants = await this.client.listParticipants(room.name);
-        const mapped: VoiceParticipant[] = participants.map((p) => ({
+        // The shape `replace()` accepts — activityKind is not LiveKit-derived;
+        // the presence store carries any existing kind forward across ticks.
+        const mapped: Array<Omit<VoiceParticipant, 'activityKind'>> = participants.map((p) => ({
           identity: p.identity,
           name: p.name?.trim() || p.identity,
           joinedAt: Number(p.joinedAt) * 1000 || Date.now(),
@@ -79,15 +81,15 @@ class LivekitPresencePoller {
 
         voicePresence.replace(channelId, mapped);
 
-        // Reconciliation: if a party is active in this channel but the host
-        // isn't in the LiveKit participant list, the webhook missed the
+        // Reconciliation: if an activity is running in this channel but the
+        // host isn't in the LiveKit participant list, the webhook missed the
         // departure — force-stop here. Idempotent if already stopped.
-        await this.checkPartyHostStillPresent(channelId, mapped);
+        await this.checkActivityHostStillPresent(channelId, mapped);
       }
 
       // Channels that disappeared from LiveKit (room finished / last
       // participant left) need to clear locally so the sidebar stops
-      // showing stale rows. Also auto-stop any party that was running.
+      // showing stale rows. Also auto-stop any activity that was running.
       for (const channelId of voicePresence.activeChannelIds()) {
         if (!liveChannelIds.has(channelId)) {
           voicePresence.replace(channelId, []);
@@ -101,40 +103,40 @@ class LivekitPresencePoller {
     }
   }
 
-  private async checkPartyHostStillPresent(
+  private async checkActivityHostStillPresent(
     channelId: string,
-    participants: VoiceParticipant[],
+    participants: ReadonlyArray<Pick<VoiceParticipant, 'identity'>>,
   ): Promise<void> {
     try {
       const hostId = await getHostUserId(channelId);
       if (!hostId) return;
       const stillThere = participants.some((p) => p.identity === hostId);
       if (stillThere) return;
-      const result = await forceStopParty({
+      const result = await forceStopActivity({
         channelId,
         reason: 'host_missing_from_room',
       });
       if (result.stopped) {
         logger.info(
           { channelId, hostUserId: result.hostUserId },
-          'voice: poller force-stopped watch party (host vanished)',
+          'voice: poller force-stopped activity (host vanished)',
         );
       }
     } catch (err) {
       logger.warn(
         { err, channelId },
-        'voice: poller failed to check party host presence',
+        'voice: poller failed to check activity host presence',
       );
     }
   }
 
   private async forceStopOnVanish(channelId: string): Promise<void> {
     try {
-      await forceStopParty({ channelId, reason: 'room_vanished' });
+      await forceStopActivity({ channelId, reason: 'room_vanished' });
     } catch (err) {
       logger.warn(
         { err, channelId },
-        'voice: poller failed to force-stop party on room vanish',
+        'voice: poller failed to force-stop activity on room vanish',
       );
     }
   }

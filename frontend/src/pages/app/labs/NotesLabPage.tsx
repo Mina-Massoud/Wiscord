@@ -10,7 +10,7 @@ import type { NotesSummary } from '@/types/notes';
 import { AppShellLayout } from '@/components/app-shell/AppShellLayout';
 import { AppTitleBar } from '@/components/app-shell/AppTitleBar';
 import { ServerRail } from '@/components/app-shell/ServerRail';
-import { UserPanel } from '@/components/app-shell/UserPanel';
+import { GlobalUserPanel } from '@/components/app-shell/GlobalUserPanel';
 import { ActiveNowPanel } from '@/components/app-shell/friends/ActiveNowPanel';
 import { PaneHeader } from '@/components/ui/pane-header';
 
@@ -127,7 +127,7 @@ export default function NotesLabPage(): React.JSX.Element {
           onCreate={createDoc}
         />
       }
-      userPanel={<UserPanel />}
+      userPanel={<GlobalUserPanel />}
       topBar={
         <PaneHeader
           variant="topbar"

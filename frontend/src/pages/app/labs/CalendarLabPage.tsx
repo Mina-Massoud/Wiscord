@@ -7,7 +7,7 @@ import { funnyTitle } from '@/lib/funny-title';
 import { AppShellLayout } from '@/components/app-shell/AppShellLayout';
 import { AppTitleBar } from '@/components/app-shell/AppTitleBar';
 import { ServerRail } from '@/components/app-shell/ServerRail';
-import { UserPanel } from '@/components/app-shell/UserPanel';
+import { GlobalUserPanel } from '@/components/app-shell/GlobalUserPanel';
 import { ActiveNowPanel } from '@/components/app-shell/friends/ActiveNowPanel';
 
 /**
@@ -39,7 +39,7 @@ export default function CalendarLabPage(): React.JSX.Element {
     <AppShellLayout
       titleBar={<AppTitleBar title={`Calendar · ${title}`} />}
       serverRail={<ServerRail />}
-      userPanel={<UserPanel />}
+      userPanel={<GlobalUserPanel />}
       main={
         <div className="flex min-h-0 flex-1">
           <CalendarShell channelId={channelId} ownerId={channelId} />

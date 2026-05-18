@@ -44,8 +44,14 @@ export interface WhiteboardSyncGateway {
 }
 
 const PATH_PREFIX = '/sync/whiteboard/';
+// Permissive hex-only UUID shape — matches the realtime gateway and the
+// voice token mint, both of which accept any UUID-shaped string. The
+// previous strict version+variant pattern (`[1-5]...[89ab]`) was rejecting
+// dev/test UUIDs like `11111111-1111-1111-1111-111111111111` that voice
+// channels use today, which left tldraw spinning forever in its connecting
+// state when whiteboard was opened against those channels.
 const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 let started: WhiteboardSyncGateway | null = null;
 

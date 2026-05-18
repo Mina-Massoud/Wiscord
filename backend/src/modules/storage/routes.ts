@@ -66,6 +66,26 @@ storageRouter.post(
 storageRouter.get('/:id', requireAuth, async (req, res, next) => {
   try {
     const { id } = mediaIdParam.parse(req.params);
+
+    // Bytes for a given /storage/:id are immutable — uploading a new avatar
+    // (or any new media) mints a fresh ObjectId; the old id never gets
+    // re-bound to different bytes. So the id itself is a strong ETag.
+    const etag = `"${id}"`;
+
+    // Cheap revalidation. requireAuth has already gated the request, so we
+    // can answer 304 without doing the slow Telegram round-trip.
+    if (req.header('if-none-match') === etag) {
+      res.setHeader('ETag', etag);
+      res.setHeader('Cache-Control', 'private, max-age=86400, immutable');
+      // Helmet defaults CORP to same-origin, which makes cross-origin
+      // browsers treat the asset as effectively uncacheable. Override per
+      // response so the dev frontend (5173 → 3001) and any future split
+      // deploy can actually cache.
+      res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.status(304).end();
+      return;
+    }
+
     const { doc, stream } = await getMediaForViewer({ id, viewerId: req.userId! });
 
     res.setHeader('Content-Type', doc.mimeType);
@@ -74,8 +94,14 @@ storageRouter.get('/:id', requireAuth, async (req, res, next) => {
       'Content-Disposition',
       `inline; filename*=UTF-8''${encodeURIComponent(doc.originalName ?? 'file')}`,
     );
+    res.setHeader('ETag', etag);
     // Private cache — every asset is per-user-gated, never a CDN edge.
-    res.setHeader('Cache-Control', 'private, max-age=300');
+    // `immutable` + 1 day max-age is honest because /storage/:id is content-
+    // addressed: the same id will always serve the same bytes, forever.
+    res.setHeader('Cache-Control', 'private, max-age=86400, immutable');
+    // See note above — override helmet's same-origin CORP for media so
+    // browsers will actually cache cross-origin embeds.
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
 
     try {
       for await (const chunk of stream) {
