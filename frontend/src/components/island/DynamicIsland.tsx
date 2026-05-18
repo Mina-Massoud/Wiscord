@@ -10,13 +10,7 @@ import { cn } from '@/lib/cn';
 import type { CalendarEvent } from '@/types/calendar';
 import type { PomodoroSnapshot } from '@/queries/client';
 
-import {
-  ISLAND_BACKDROP_FADE,
-  ISLAND_CONTENT_VARIANTS,
-  ISLAND_SHAPE_STYLE,
-  ISLAND_SHELL_SPRING,
-} from './animations';
-import type { IslandShape } from './islandShapes';
+import { ISLAND_BACKDROP_FADE, ISLAND_SHAPE_STYLE, ISLAND_SHELL_SPRING } from './animations';
 import { ISLAND_SHAPES } from './islandShapes';
 import { IslandEventView } from './IslandEventView';
 import { IslandExpandedView } from './IslandExpandedView';
@@ -25,6 +19,9 @@ import { IslandPomodoroIdle, IslandPomodoroView } from './IslandPomodoroView';
 import { useIslandPreferences } from './useIslandPreferences';
 import { useIslandStore } from './useIslandStore';
 import { getPomodoroRemainingMs, usePomodoroStore } from './usePomodoroStore';
+import { Slot } from './DynamicIslandSlot';
+import { NextEventPill } from './DynamicIslandNextEventPill';
+import { SharedPomodoroCard } from './DynamicIslandSharedPomodoroCard';
 
 /**
  * Dynamic Island — a single morphing shape mounted at the document
@@ -378,71 +375,6 @@ export function DynamicIsland(): React.JSX.Element | null {
   );
 }
 
-/**
- * Fixed-dimension content slot. Each option is mounted inside its own
- * Slot, which pins its size to `ISLAND_SHAPES[mode]` regardless of
- * what the parent shell is currently morphing through. Anchored
- * top-right so the content sits exactly where the *target* pill will
- * end up — combined with `overflow: hidden` on the shell, this kills
- * the "small-pill content rendered at expanded-card dimensions" bug
- * you'd otherwise see during the morph.
- *
- * Owns the content fade variants so the views themselves stay plain
- * markup. Padding lives here too (per-shape).
- */
-interface SlotProps {
-  shape: IslandShape;
-  children: React.ReactNode;
-}
-
-function Slot({ shape, children }: SlotProps): React.JSX.Element {
-  // Slot fills the shell (h-full w-full) instead of pinning to a fixed
-  // target size. With `mode="wait"` only ONE Slot renders at a time,
-  // so it can safely stretch to the current shell dimensions. The
-  // shell itself animates width/height via `animate` (NOT `layout`),
-  // so children get their natural sizing — no transform-scale, no
-  // squish frame, no void corner during a big-to-small morph.
-  //
-  // Padding lives here per-shape so the content insets shrink with
-  // the shell during a collapse instead of jumping at exit-complete.
-  return (
-    <motion.div
-      variants={ISLAND_CONTENT_VARIANTS}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      className="h-full w-full"
-      style={{
-        paddingInline: shape.paddingX,
-        paddingBlock: shape.paddingY,
-      }}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-/**
- * Compact next-event pill (240 × 26) used when the user has picked
- * `next-event` as their idle widget AND there's an event today that
- * isn't imminent (>15 min). When it crosses the 15-min threshold, the
- * shape upgrades to `event-soon` (340 × 72) via the layout morph.
- */
-function NextEventPill({ event }: { event: CalendarEvent }): React.JSX.Element {
-  const fmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' });
-  return (
-    <div className="flex h-full w-full items-center">
-      <span aria-hidden className="bg-blurple size-1.5 shrink-0 rounded-full" />
-      <span className="text-ink text-badge ml-2 min-w-0 flex-1 truncate font-semibold">
-        {event.title}
-      </span>
-      <span className="text-ink-muted text-badge ml-2 shrink-0 tabular-nums">
-        {fmt.format(new Date(event.startAt))}
-      </span>
-    </div>
-  );
-}
-
 export type IslandMode =
   | 'date'
   | 'next-event'
@@ -502,143 +434,10 @@ export function deriveMode({
 /** Compute remaining ms for a shared pomodoro snapshot. Mirrors the
  *  helper in `usePomodoroStore` but reads from the server snapshot
  *  shape — pure, no React. */
-function getSharedRemainingMs(pomodoro: PomodoroSnapshot, nowMs: number): number {
+export function getSharedRemainingMs(pomodoro: PomodoroSnapshot, nowMs: number): number {
   if (pomodoro.pausedRemainingMs !== null) return pomodoro.pausedRemainingMs;
   if (pomodoro.endsAt === null) return 0;
   return Math.max(0, new Date(pomodoro.endsAt).getTime() - nowMs);
-}
-
-function formatSharedMmSs(ms: number): string {
-  const totalSec = Math.max(0, Math.ceil(ms / 1000));
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
-/**
- * Shared-session card rendered inside the island when the user has
- * opted into a voice-channel pomodoro. Apple-DI horizontal grammar
- * (Forest / Opal / Duolingo / Apple Fitness all use this exact
- * left-right split for their expanded Live Activities):
- *
- *   [emblem]   FOCUS · room session             [× close]
- *              15:40
- *              round 1/4 · synced with the room
- *
- * The emblem on the left is a 64px circle with a small SVG progress
- * ring around it that ticks counter-clockwise as the timer elapses.
- * Phase-tinted; pulses when paused. Acts as a glanceable status
- * indicator without leaning on the giant centered hero.
- *
- * Full host controls + reset-request flow live in the voice channel
- * activity area (`PomodoroActivityEmbed`). The island just mirrors
- * the room's countdown so the user can glance without leaving
- * whatever page they're on.
- */
-function SharedPomodoroCard({
-  pomodoro,
-  nowMs,
-  onClose,
-}: {
-  pomodoro: PomodoroSnapshot;
-  nowMs: number;
-  onClose: () => void;
-}): React.JSX.Element {
-  const remainingMs = getSharedRemainingMs(pomodoro, nowMs);
-  const time = formatSharedMmSs(remainingMs);
-  const isFocus = pomodoro.phase === 'focus';
-  const paused = pomodoro.endsAt === null && pomodoro.pausedRemainingMs !== null;
-  const phaseTotalMs = isFocus ? 25 * 60 * 1000 : 5 * 60 * 1000;
-  const progress = Math.min(1, Math.max(0, 1 - remainingMs / phaseTotalMs));
-  const strokeColor = isFocus ? '#5865F2' : '#57F287';
-  const glowRgb = isFocus ? '88, 101, 242' : '87, 242, 135';
-  const emblemSize = 72;
-  const ringRadius = 32;
-  const ringCircumference = 2 * Math.PI * ringRadius;
-
-  return (
-    <div className="flex h-full w-full items-center gap-4">
-      {/* LEFT — emblem with progress ring */}
-      <div className="relative shrink-0" style={{ width: emblemSize, height: emblemSize }}>
-        {/* SVG ring (track + filled stroke) */}
-        <svg
-          aria-hidden
-          className="absolute inset-0 -rotate-90"
-          width={emblemSize}
-          height={emblemSize}
-          viewBox={`0 0 ${emblemSize} ${emblemSize}`}
-        >
-          <circle
-            cx={emblemSize / 2}
-            cy={emblemSize / 2}
-            r={ringRadius}
-            fill="none"
-            stroke="rgba(255,255,255,0.08)"
-            strokeWidth={3}
-          />
-          <circle
-            cx={emblemSize / 2}
-            cy={emblemSize / 2}
-            r={ringRadius}
-            fill="none"
-            stroke={strokeColor}
-            strokeWidth={3}
-            strokeLinecap="round"
-            strokeDasharray={ringCircumference}
-            strokeDashoffset={ringCircumference * (1 - progress)}
-            style={{
-              transition: 'stroke-dashoffset 1s linear',
-              filter: `drop-shadow(0 0 6px rgba(${glowRgb}, 0.55))`,
-            }}
-          />
-        </svg>
-        {/* Inner phase dot */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span
-            aria-hidden
-            className={cn(
-              'size-3 rounded-full',
-              isFocus ? 'bg-blurple' : 'bg-green-400',
-              paused && 'animate-pulse',
-            )}
-            style={{
-              boxShadow: `0 0 12px 3px rgba(${glowRgb}, 0.55)`,
-            }}
-          />
-        </div>
-      </div>
-
-      {/* MIDDLE — phase chip + giant time + meta */}
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <span className="text-ink text-badge font-semibold tracking-[0.16em] uppercase">
-            {isFocus ? 'Focus' : 'Break'} · room session
-          </span>
-        </div>
-        <p className="text-ink text-hero font-bold tabular-nums">{time}</p>
-        <p className="text-ink-muted text-badge tracking-wider uppercase">
-          Round {pomodoro.round}/{pomodoro.totalRounds}
-          {paused ? (
-            <span className="ml-2 font-semibold text-amber-300">· paused</span>
-          ) : (
-            <span className="ml-2">· synced with the room</span>
-          )}
-        </p>
-      </div>
-
-      {/* RIGHT — close */}
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Close"
-        className="text-ink-muted hover:text-ink shrink-0 rounded-full p-2 transition-colors hover:bg-white/5"
-      >
-        <span aria-hidden className="text-tab block leading-none">
-          ×
-        </span>
-      </button>
-    </div>
-  );
 }
 
 function isoDay(d: Date): string {

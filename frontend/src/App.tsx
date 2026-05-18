@@ -1,24 +1,19 @@
 import { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
-import { Loader2 } from 'lucide-react';
-
-import { useAuth } from '@/hooks/useAuth';
 import RequireAuth from '@/routes/RequireAuth';
 import RequireOnboarding from '@/routes/RequireOnboarding';
 import RedirectIfAuthed from '@/routes/RedirectIfAuthed';
 import { ThemeGeneratorRoot } from '@/components/dev/ThemeGenerator/ThemeGeneratorRoot';
-import { DynamicIsland } from '@/components/island/DynamicIsland';
 import { GlobalVoiceProvider } from '@/components/voice/GlobalVoiceProvider';
 import { SettingsShell } from '@/components/settings/SettingsShell';
-import { IntegrationsReturnHandler } from '@/components/settings/IntegrationsReturnHandler';
-import { CheckoutReturnHandler } from '@/components/billing/CheckoutReturnHandler';
-import { AiCapsule } from '@/components/ai/AiCapsule';
-import { HiddenMusicPlayer } from '@/components/music/HiddenMusicPlayer';
-import { MusicCapsule } from '@/components/music/MusicCapsule';
 import { useApplyAppearance } from '@/lib/appearance-store';
 import { useApplyThemePreset } from '@/lib/theme-preset-store';
-import { useListenTogetherRealtime } from '@/queries/listen-together';
-import { useListenTogetherSync } from '@/hooks/useListenTogetherSync';
+import { RouteFallback } from './AppRouteFallback';
+import { RootRedirect } from './AppRootRedirect';
+import { AuthedIsland } from './AppAuthedIsland';
+import { AuthedCheckoutReturnHandler } from './AppAuthedCheckoutReturnHandler';
+import { AuthedIntegrationsReturnHandler } from './AppAuthedIntegrationsReturnHandler';
+import { AuthedMusic } from './AppAuthedMusic';
 
 // ---------------------------------------------------------------------------
 // Route-level code splitting — each page chunk loaded on demand
@@ -43,72 +38,23 @@ const CalendarIndexPage = lazy(() => import('@/pages/app/labs/CalendarIndexPage'
 // ---------------------------------------------------------------------------
 // Shared fallback while a lazy chunk is in flight
 // ---------------------------------------------------------------------------
-function RouteFallback(): React.JSX.Element {
-  return (
-    <div className="bg-canvas flex min-h-screen items-center justify-center">
-      <Loader2 className="text-ink-muted size-6 animate-spin" aria-label="Loading" />
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Decides where '/' should land based on live auth state
 // ---------------------------------------------------------------------------
-function RootRedirect(): React.JSX.Element {
-  const { session, isOnboarded, isLoading } = useAuth();
-
-  if (isLoading) return <RouteFallback />;
-  if (!session) return <Navigate to="/sign-in" replace />;
-  if (!isOnboarded) return <Navigate to="/onboarding" replace />;
-
-  return <Navigate to="/app" replace />;
-}
 
 // Gate the dynamic island behind auth + onboarding — pre-app surfaces
 // (sign-in, magic-link callback, onboarding) shouldn't show in-app chrome.
-function AuthedIsland(): React.JSX.Element | null {
-  const { session, isOnboarded } = useAuth();
-  if (!session || !isOnboarded) return null;
-  return <DynamicIsland />;
-}
 
 // Same scope as AuthedIsland — only an authed user can return from Stripe
 // Checkout, so we only mount the handler past the auth/onboarding gate.
-function AuthedCheckoutReturnHandler(): React.JSX.Element | null {
-  const { session, isOnboarded } = useAuth();
-  if (!session || !isOnboarded) return null;
-  return <CheckoutReturnHandler />;
-}
 
 // OAuth returns from /integrations/<provider>/callback land on
 // /app?settings=integrations&connected=…|error=… — this opens the Settings
 // dialog and toasts. Mounted past auth so anonymous tabs ignore the URL.
-function AuthedIntegrationsReturnHandler(): React.JSX.Element | null {
-  const { session, isOnboarded } = useAuth();
-  if (!session || !isOnboarded) return null;
-  return <IntegrationsReturnHandler />;
-}
 
 // Music subsystem — hidden YouTube iframe audio engine + visible capsule.
 // Same gating as the island: mounted only past auth/onboarding.
-function AuthedMusic(): React.JSX.Element | null {
-  const { session, isOnboarded } = useAuth();
-  // Subscribe to listen-together socket events at the root so invites land
-  // even when the recipient is on a page that doesn't otherwise read the
-  // music store. The hook is a no-op when there's no live socket.
-  useListenTogetherRealtime();
-  // Bridge listen-together session state to/from the music player store.
-  // No-op when there's no active session.
-  useListenTogetherSync();
-  if (!session || !isOnboarded) return null;
-  return (
-    <>
-      <HiddenMusicPlayer />
-      <MusicCapsule />
-      <AiCapsule />
-    </>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Route tree

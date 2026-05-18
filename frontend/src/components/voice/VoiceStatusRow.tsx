@@ -1,25 +1,14 @@
-import { useState, type ReactNode } from 'react';
 import { useConnectionState, useRoomContext } from '@livekit/components-react';
 import { ConnectionState } from 'livekit-client';
-import {
-  Loader2,
-  LogIn,
-  PartyPopper,
-  PhoneOff,
-  ScreenShare,
-  Shapes,
-  Wifi,
-  Timer,
-} from 'lucide-react';
-
-import { ActivityLauncherDialog } from '@/components/activity/ActivityLauncherDialog';
-import { findActivity, type ActivityDefinition } from '@/components/activity/ActivityRegistry';
+import { Loader2, LogIn, PhoneOff, Wifi } from 'lucide-react';
+import { type ActivityDefinition } from '@/components/activity/ActivityRegistry';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/cn';
 import { useCopy } from '@/lib/copy/useCopy';
 
 import { VoiceMicStatusButton } from './VoiceMicStatusButton';
+import { VoiceChunkyRow } from './VoiceStatusRowVoiceChunkyRow';
 
 interface VoiceStatusRowProps {
   /**
@@ -149,101 +138,5 @@ export function VoiceStatusRow({
 
       {isConnected ? <VoiceChunkyRow onActivitySelect={onActivitySelect} /> : null}
     </div>
-  );
-}
-
-interface VoiceChunkyRowProps {
-  onActivitySelect?: (activity: ActivityDefinition) => void;
-}
-
-/**
- * The four Discord-style chunky buttons that sit under the status row.
- * Each is a full-width square with a single literal icon — no labels in
- * the chrome, label lives in the tooltip.
- */
-function VoiceChunkyRow({ onActivitySelect }: VoiceChunkyRowProps): React.JSX.Element {
-  const [launcherOpen, setLauncherOpen] = useState(false);
-
-  const handlePickByKind = (kind: 'pomodoro' | 'screen-share'): void => {
-    if (!onActivitySelect) return;
-    const def = findActivity(kind);
-    if (def) onActivitySelect(def);
-  };
-
-  const handleLauncherSelect = (activity: ActivityDefinition): void => {
-    onActivitySelect?.(activity);
-  };
-
-  return (
-    <div className="grid grid-cols-4 gap-1.5 px-3 pt-3 pb-3">
-      <ChunkyButton
-        label="Lock in (Pomodoro)"
-        icon={<Timer className="size-5" aria-hidden />}
-        onClick={() => handlePickByKind('pomodoro')}
-        disabled={!onActivitySelect}
-      />
-      <ChunkyButton
-        label="Share Screen"
-        icon={<ScreenShare className="size-5" aria-hidden />}
-        onClick={() => handlePickByKind('screen-share')}
-        disabled={!onActivitySelect}
-      />
-      <ChunkyButton
-        label="Activities"
-        icon={<Shapes className="size-5" aria-hidden />}
-        onClick={() => setLauncherOpen(true)}
-        disabled={!onActivitySelect}
-      />
-      <ChunkyButton
-        label="Soundboard"
-        icon={<PartyPopper className="size-5" aria-hidden />}
-        onClick={() => undefined}
-        disabled
-      />
-
-      {onActivitySelect ? (
-        <ActivityLauncherDialog
-          open={launcherOpen}
-          onOpenChange={setLauncherOpen}
-          onSelect={handleLauncherSelect}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-interface ChunkyButtonProps {
-  label: string;
-  icon: ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-}
-
-function ChunkyButton({
-  label,
-  icon,
-  onClick,
-  disabled = false,
-}: ChunkyButtonProps): React.JSX.Element {
-  return (
-    <Tooltip delayDuration={150}>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={onClick}
-          aria-label={label}
-          disabled={disabled}
-          className={cn(
-            'bg-surface-1 border-glass-border hover:bg-surface-hover focus-visible:ring-blurple flex h-9 w-full items-center justify-center rounded-md border transition-colors focus-visible:ring-2 focus-visible:outline-none',
-            disabled ? 'text-ink-subtle cursor-not-allowed opacity-60' : 'text-ink',
-          )}
-        >
-          {icon}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="top" sideOffset={6}>
-        {label}
-      </TooltipContent>
-    </Tooltip>
   );
 }

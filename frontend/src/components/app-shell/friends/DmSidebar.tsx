@@ -3,6 +3,7 @@ import { Inbox, Compass, Users, Plus } from 'lucide-react';
 import { fakeRecentRooms } from '@/data/fake-shell';
 import { SidebarNavRow } from './SidebarNavRow';
 import { RoomRow } from './RoomRow';
+import { SidebarSectionHeader } from './DmSidebarSidebarSectionHeader';
 
 /**
  * Friends-mode left column (channel-list aside).
@@ -69,17 +70,5 @@ export function DmSidebar(): React.JSX.Element {
         </div>
       </div>
     </>
-  );
-}
-
-interface SidebarSectionHeaderProps {
-  label: string;
-}
-
-function SidebarSectionHeader({ label }: SidebarSectionHeaderProps): React.JSX.Element {
-  return (
-    <div className="mt-4 px-4 pb-1">
-      <span className="text-ink-subtle text-badge font-bold tracking-wider uppercase">{label}</span>
-    </div>
   );
 }

@@ -119,7 +119,12 @@ const noteParser = new MarkdownParser(noteSchema, defaultMarkdownParser.tokenize
   },
   heading: {
     block: 'heading',
-    getAttrs: (tok) => ({ level: Number(tok.tag.slice(1)) }),
+    // Clamp to h1-h3. AI models love `#### Subsection` for granular
+    // breakdowns, but h4+ has no styling in `notes-prose.css` so it
+    // renders as default browser bold — visually identical to a bold
+    // paragraph and invisible as a section break. Coercing to h3 keeps
+    // every heading in the styled ramp so hierarchy actually reads.
+    getAttrs: (tok) => ({ level: Math.min(Number(tok.tag.slice(1)) || 1, 3) }),
   },
   code_block: { block: 'codeBlock', noCloseToken: true },
   fence: {
@@ -130,6 +135,18 @@ const noteParser = new MarkdownParser(noteSchema, defaultMarkdownParser.tokenize
   hr: { ignore: true },
   hardbreak: { node: 'hardBreak' },
   image: { ignore: true },
+  // Inline mark tokens — our schema has no marks, but the parser hard-
+  // errors ("Token type `strong_open` not supported") the moment the
+  // model emits `**bold**` / `*italic*` / `[link](url)` / inline `code`.
+  // Marking them `ignore: true` keeps the inline TEXT content (passes
+  // through plain) while dropping the formatting tag, so the createNote
+  // tool never crashes on a model that ignored the "no inline marks"
+  // hint in its tool description.
+  em: { ignore: true },
+  strong: { ignore: true },
+  link: { ignore: true },
+  s: { ignore: true },
+  code_inline: { ignore: true },
 });
 
 /**

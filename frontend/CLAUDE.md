@@ -52,6 +52,33 @@ Project context lives in [`../docs/`](../docs). Read [`../docs/overview.md`](../
 - When a component crosses the line, split it — into subcomponents, hooks, or `*.parts.tsx` files
 - Filename should reflect a single responsibility; banned generic names: `utils.ts`, `helpers.ts`, `common.ts`
 
+### One React component per file
+
+- **Hard rule: one top-level React component per `.tsx` file** (ESLint `react/no-multi-comp` with `ignoreStateless: false`)
+- Applies to function components AND arrow components (`const Foo = (...) => …`, `const Foo = memo(...)`, `const Foo = forwardRef(...)`)
+- Includes effect-only components that return `null` and use only hooks — they're still components
+- Exception: `src/components/ui/*` (shadcn primitives often ship as compound components — `<Card>` + `<CardHeader>` + `<CardContent>` in the same file is intentional and upstream-owned)
+- The filename must match the component's identifier (PascalCase), so a primary component named `AiCapsule` lives in `AiCapsule.tsx`. Sibling/sub-components go in their own files alongside it (`AiCapsuleSlot.tsx`, `AiCapsuleBackdrop.tsx`)
+- Non-component helpers (constants, type aliases, plain functions) **stay in the same file as their sole consumer**. If the helper is used by multiple components in the directory, promote it to its own file (e.g. `aiCapsuleShapes.ts`) — don't re-export it from a component file
+- Top-level name collisions (e.g. `interface Foo` next to `function Foo`) are banned. TS allows it (separate type and value namespaces) but it breaks tooling that indexes by name. Rename one side (`FooData`, `FooDef`, `FooProps`) before splitting
+
+#### Bulk-extraction codemod
+
+When you inherit a file (or a whole tree) that violates the rule, don't hand-split it:
+
+```bash
+# inventory only
+node scripts/codemod-one-component-per-file.mjs
+
+# write the new files + prune unused imports in the origin
+node scripts/codemod-one-component-per-file.mjs --apply
+
+# narrow to a single file
+node scripts/codemod-one-component-per-file.mjs --apply --only 'src/components/foo/Foo.tsx'
+```
+
+The codemod (`frontend/scripts/codemod-one-component-per-file.mjs`, ts-morph) picks the **primary** component (the one whose name matches the filename and is exported) and lifts every other top-level component into a sibling file named `<ParentStem><ComponentName>.tsx`. Non-component helpers whose only transitive consumer is one extracted component move with that component; helpers shared with the primary or with multiple extracts stay in the origin and get an `export` keyword added. After running, sweep the new files with `npx eslint --fix` + `npx tsc --noEmit` and shorten the prefixed filenames manually on hot files where the convention is shorter (e.g. `AiExpandedSlotMessageBubble.tsx` → `AiMessageBubble.tsx`).
+
 ### Design first — use the `frontend-design` skill
 
 Before building or restyling any user-facing surface, invoke the **`frontend-design`** skill and let it shape the visual direction. The point is to keep the product looking coherent across screens — same rhythm, same hierarchy, same warmth — instead of drifting one component at a time.

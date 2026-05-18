@@ -5,7 +5,6 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
 import {
   ISLAND_BACKDROP_FADE,
-  ISLAND_CONTENT_VARIANTS,
   ISLAND_SHAPE_STYLE,
   ISLAND_SHELL_SPRING,
 } from '@/components/island/animations';
@@ -13,12 +12,13 @@ import { useIslandStore } from '@/components/island/useIslandStore';
 import { useMusicShellWidth } from '@/components/music/useMusicShellWidth';
 import { cn } from '@/lib/cn';
 
-import { AI_SHAPES, type AiShape, type AiView } from './aiCapsuleShapes';
+import { AI_SHAPES, type AiView } from './aiCapsuleShapes';
 import { AiExpandedSlot } from './AiExpandedSlot';
 import { AiIdleSlot } from './AiIdleSlot';
 import { AiInlineCalendarView } from './AiInlineCalendarView';
 import { AiInlineNoteView } from './AiInlineNoteView';
 import { useAiCapsuleStore } from './useAiCapsuleStore';
+import { Slot } from './AiCapsuleSlot';
 
 /**
  * The AI capsule. Sibling of `MusicCapsule` — same shell mechanics,
@@ -183,28 +183,5 @@ export function AiCapsule(): React.JSX.Element | null {
       </motion.div>
     </>,
     document.body,
-  );
-}
-
-interface SlotProps {
-  shape: AiShape;
-  children: React.ReactNode;
-}
-
-function Slot({ shape, children }: SlotProps): React.JSX.Element {
-  return (
-    <motion.div
-      variants={ISLAND_CONTENT_VARIANTS}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      className="h-full w-full"
-      style={{
-        paddingInline: shape.paddingX,
-        paddingBlock: shape.paddingY,
-      }}
-    >
-      {children}
-    </motion.div>
   );
 }

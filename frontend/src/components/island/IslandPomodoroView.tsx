@@ -4,6 +4,8 @@ import { cn } from '@/lib/cn';
 
 import { type PomodoroPhase, getPomodoroTotalSeconds } from './usePomodoroStore';
 import { pickBreakTip, pickEgoQuote, pickFocusTip } from './pomodoroVibes';
+import { StatTile } from './IslandPomodoroViewStatTile';
+export { IslandPomodoroIdle } from './IslandPomodoroViewIslandPomodoroIdle';
 
 interface IslandPomodoroViewProps {
   phase: PomodoroPhase;
@@ -162,70 +164,12 @@ export function IslandPomodoroView({
   );
 }
 
-interface StatTileProps {
-  label: string;
-  value: number;
-  suffix: string;
-  icon?: React.ReactNode;
-}
-
-function StatTile({ label, value, suffix, icon }: StatTileProps): React.JSX.Element {
-  return (
-    <div className="flex flex-col items-center justify-center gap-0.5 rounded-md bg-white/[0.04] px-3 py-2">
-      <div className="flex items-center gap-1">
-        {icon}
-        <span className="text-ink-muted text-badge font-semibold tracking-wider uppercase">
-          {label}
-        </span>
-      </div>
-      <p className="text-ink text-tab leading-none font-bold tabular-nums">
-        {value}
-        <span className="text-ink-muted ml-1 text-[10px] font-medium">{suffix}</span>
-      </p>
-    </div>
-  );
-}
-
-interface IslandPomodoroIdleProps {
-  phase: PomodoroPhase;
-  remainingMs: number;
-  paused: boolean;
-}
-
-/**
- * Compact pomodoro tick (132 × 26). Apple split — timer icon hard-
- * left, mm:ss hard-right. Phase tints the icon so the pill carries
- * the state cue without extra copy.
- */
-export function IslandPomodoroIdle({
-  phase,
-  remainingMs,
-  paused,
-}: IslandPomodoroIdleProps): React.JSX.Element {
-  const isFocus = phase === 'focus';
-  return (
-    <div className="flex h-full w-full items-center">
-      <Timer
-        className={cn('size-3.5 shrink-0', isFocus ? 'text-blurple' : 'text-green-400')}
-        aria-hidden
-      />
-      <div className="flex-1" />
-      <div className="flex items-center gap-1.5 leading-none">
-        {paused ? (
-          <span className="text-ink-muted text-badge font-medium uppercase">paused</span>
-        ) : null}
-        <span className="text-ink text-tab font-bold tabular-nums">{formatMmSs(remainingMs)}</span>
-      </div>
-    </div>
-  );
-}
-
 function totalLabel(phase: PomodoroPhase): string {
   const totalSec = getPomodoroTotalSeconds(phase);
   return `${Math.round(totalSec / 60)} min ${phase}`;
 }
 
-function formatMmSs(ms: number): string {
+export function formatMmSs(ms: number): string {
   const totalSec = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(totalSec / 60);
   const s = totalSec % 60;

@@ -35,6 +35,7 @@ import { AgendaView } from './views/AgendaView';
 import { DayView } from './views/DayView';
 import { MonthView } from './views/MonthView';
 import { WeekView } from './views/WeekView';
+import { ErrorState } from './CalendarShellErrorState';
 
 interface CalendarShellProps {
   /** `null` for the personal calendar; channel UUID for a shared one. */
@@ -312,18 +313,6 @@ async function rescheduleEvent(args: {
   });
   void queryClient.invalidateQueries({ queryKey: qk.calendar.eventsRoot(args.channelId) });
   toast.success('Event rescheduled');
-}
-
-function ErrorState({ onRetry }: { onRetry: () => void }): React.JSX.Element {
-  return (
-    <div className="border-glass-border bg-glass-callout flex flex-col items-center gap-3 rounded-lg border p-8 text-center">
-      <p className="text-subhead text-ink">Couldn't load your calendar</p>
-      <p className="text-caption text-ink-muted">Network hiccup, probably. Want to try again?</p>
-      <Button size="sm" variant="secondary" onClick={onRetry}>
-        Retry
-      </Button>
-    </div>
-  );
 }
 
 function stepCursor(cursor: Date, view: CalendarView, dir: -1 | 1): Date {

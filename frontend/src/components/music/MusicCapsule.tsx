@@ -4,7 +4,6 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 
 import {
   ISLAND_BACKDROP_FADE,
-  ISLAND_CONTENT_VARIANTS,
   ISLAND_SHAPE_STYLE,
   ISLAND_SHELL_SPRING,
 } from '@/components/island/animations';
@@ -14,7 +13,7 @@ import { useListenTogetherStore } from '@/lib/listen-together-store';
 import { useMusicPlayerStore } from '@/lib/music-player-store';
 import { useIntegrations } from '@/queries/integrations';
 
-import { MUSIC_SHAPES, type MusicShape, type MusicView } from './musicCapsuleShapes';
+import { MUSIC_SHAPES, type MusicView } from './musicCapsuleShapes';
 import { HostSessionIndicator } from './HostSessionIndicator';
 import { ShareMusicPopover } from './ShareMusicPopover';
 import { BarSlot } from './slots/BarSlot';
@@ -25,6 +24,7 @@ import { InviteIncomingConnectedSlot } from './slots/InviteIncomingConnectedSlot
 import { InviteIncomingDisconnectedSlot } from './slots/InviteIncomingDisconnectedSlot';
 import { InviteOutgoingPendingSlot } from './slots/InviteOutgoingPendingSlot';
 import { ListenTogetherNowPlayingSlot } from './slots/ListenTogetherNowPlayingSlot';
+import { Slot } from './MusicCapsuleSlot';
 
 /**
  * The music capsule. Owns the shell morph and the view resolver; each
@@ -243,26 +243,3 @@ export function resolveView(args: ResolveViewArgs): MusicView {
 }
 
 // ─── Slot ────────────────────────────────────────────────────────────────
-
-interface SlotProps {
-  shape: MusicShape;
-  children: React.ReactNode;
-}
-
-function Slot({ shape, children }: SlotProps): React.JSX.Element {
-  return (
-    <motion.div
-      variants={ISLAND_CONTENT_VARIANTS}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      className="h-full w-full"
-      style={{
-        paddingInline: shape.paddingX,
-        paddingBlock: shape.paddingY,
-      }}
-    >
-      {children}
-    </motion.div>
-  );
-}

@@ -1,15 +1,7 @@
-import { Loader2 } from 'lucide-react';
 import { Navigate, Outlet } from 'react-router';
 
 import { useAuth } from '@/hooks/useAuth';
-
-function AuthCheckLoader(): React.JSX.Element {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-canvas">
-      <Loader2 className="size-6 animate-spin text-ink-muted" aria-label="Loading" />
-    </div>
-  );
-}
+import { AuthCheckLoader } from './RedirectIfAuthedAuthCheckLoader';
 
 /**
  * Route guard for public auth screens (e.g. /sign-in).

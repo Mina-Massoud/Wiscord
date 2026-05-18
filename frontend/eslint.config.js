@@ -46,6 +46,7 @@ const config = [
       ...reactPlugin.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
+      'react/no-multi-comp': ['error', { ignoreStateless: false }],
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'error',
       'no-console': ['error', { allow: ['warn', 'error', 'info'] }],

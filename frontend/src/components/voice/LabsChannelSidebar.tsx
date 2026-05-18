@@ -1,17 +1,15 @@
 import { useMemo } from 'react';
-import { useConnectionState, useIsSpeaking, useParticipants } from '@livekit/components-react';
+import { useConnectionState, useParticipants } from '@livekit/components-react';
 import { ConnectionState, type Participant } from 'livekit-client';
-import { Volume2, MicOff, Rocket } from 'lucide-react';
+import { Volume2 } from 'lucide-react';
 
 import { useMyProfile } from '@/queries/profile';
-import {
-  useVoiceChannelParticipants,
-  type VoiceChannelParticipant,
-} from '@/queries/voice-presence';
+import { useVoiceChannelParticipants } from '@/queries/voice-presence';
 import { Sidebar } from '@/components/ui/sidebar-shell';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { getIdenticonDataUrl } from '@/lib/avatar';
 import { cn } from '@/lib/cn';
+import { StaticSidebarRow } from './LabsChannelSidebarStaticSidebarRow';
+import { LiveSidebarRow } from './LabsChannelSidebarLiveSidebarRow';
+import { OptimisticMeRow } from './LabsChannelSidebarOptimisticMeRow';
 
 interface LabsChannelSidebarProps {
   channelId: string;
@@ -142,133 +140,5 @@ export function LabsChannelSidebar({
         </Sidebar.Section>
       </Sidebar.Body>
     </Sidebar.Root>
-  );
-}
-
-interface StaticSidebarRowProps {
-  row: VoiceChannelParticipant;
-  isMe: boolean;
-  isActivityHost: boolean;
-  dimmed?: boolean;
-}
-
-function StaticSidebarRow({ row, isMe, isActivityHost, dimmed = false }: StaticSidebarRowProps) {
-  const displayName = row.name?.trim() || row.identity || 'Unknown';
-  return (
-    <SidebarRowShell seed={row.identity || displayName} dimmed={dimmed}>
-      <span className="text-ink-muted text-tab min-w-0 flex-1 truncate">
-        {displayName}
-        {isMe ? <span className="ml-1 opacity-60">· you</span> : null}
-      </span>
-      {isActivityHost ? <ActivityHostIndicator /> : null}
-    </SidebarRowShell>
-  );
-}
-
-interface LiveSidebarRowProps {
-  row: VoiceChannelParticipant;
-  participant: Participant;
-  isActivityHost: boolean;
-  dimmed?: boolean;
-}
-
-function LiveSidebarRow({ row, participant, isActivityHost, dimmed = false }: LiveSidebarRowProps) {
-  const isSpeaking = useIsSpeaking(participant);
-  const isMuted = participant.isMicrophoneEnabled === false;
-  const displayName =
-    (participant.name ?? '').trim() || row.name?.trim() || participant.identity || 'Unknown';
-  const seed = participant.identity || row.identity || displayName;
-
-  return (
-    <SidebarRowShell seed={seed} isSpeaking={isSpeaking} dimmed={dimmed}>
-      <span className="text-ink-muted text-tab min-w-0 flex-1 truncate">
-        {displayName}
-        {participant.isLocal ? <span className="ml-1 opacity-60">· you</span> : null}
-      </span>
-      {isMuted ? (
-        <MicOff className="text-destructive size-3.5 shrink-0" aria-label="Muted" />
-      ) : null}
-      {isActivityHost ? <ActivityHostIndicator /> : null}
-    </SidebarRowShell>
-  );
-}
-
-interface OptimisticMeRowProps {
-  identity: string;
-  displayName: string;
-}
-
-/**
- * Ghost row rendered between the moment the user clicks Join and the
- * moment they show up in the server-side presence sweep (or LiveKit
- * reports Connected). Same shell, same avatar, lower opacity — gives the
- * feeling that the click landed without waiting on the round-trip.
- */
-function OptimisticMeRow({ identity, displayName }: OptimisticMeRowProps) {
-  return (
-    <SidebarRowShell seed={identity || displayName} dimmed>
-      <span className="text-ink-muted text-control min-w-0 flex-1 truncate">
-        {displayName}
-        <span className="ml-1 opacity-60">· you</span>
-      </span>
-    </SidebarRowShell>
-  );
-}
-
-/**
- * Small blurple rocket overlay on a participant row whose `activityKind`
- * is non-null. The one blurple beat on this surface — it signals "this
- * person is in some activity" to other users so they know there's
- * something to join from the voice grid.
- */
-function ActivityHostIndicator() {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span
-          className="text-blurple inline-flex shrink-0 items-center"
-          aria-label="Hosting an activity"
-        >
-          <Rocket className="size-3" aria-hidden />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent>Hosting an activity</TooltipContent>
-    </Tooltip>
-  );
-}
-
-interface SidebarRowShellProps {
-  seed: string;
-  isSpeaking?: boolean;
-  dimmed?: boolean;
-  children: React.ReactNode;
-}
-
-function SidebarRowShell({
-  seed,
-  isSpeaking = false,
-  dimmed = false,
-  children,
-}: SidebarRowShellProps) {
-  return (
-    <li
-      className={cn(
-        'hover:bg-glass-hover duration-base compact:gap-2 compact:py-0.5 spacious:gap-3 spacious:py-2.5 flex items-center gap-3 rounded-md px-2 py-1.5 transition-[opacity,background-color]',
-        dimmed ? 'opacity-50' : 'opacity-100',
-      )}
-    >
-      <img
-        src={getIdenticonDataUrl(seed, 64)}
-        alt=""
-        width={24}
-        height={24}
-        className={cn(
-          'duration-base size-6 shrink-0 rounded-full transition-shadow',
-          isSpeaking && 'ring-success ring-2 ring-offset-0',
-        )}
-        aria-hidden
-      />
-      {children}
-    </li>
   );
 }

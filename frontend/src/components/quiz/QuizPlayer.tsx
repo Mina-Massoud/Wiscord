@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Loader2, Trophy } from 'lucide-react';
-
-import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/lib/toast';
 import { useFinalizeAttempt, useStartAttempt, useSubmitAnswer } from '@/queries/quiz';
 import type { QuizAttempt, RedactedQuiz } from '@/types/quiz';
 
 import { QuizPlayerCard, type PlayerAnswerPayload } from './QuizPlayerCard';
+import { Progress } from './QuizPlayerProgress';
+import { PlayerSkeleton } from './QuizPlayerPlayerSkeleton';
+import { PlayerError } from './QuizPlayerPlayerError';
+import { PlayerComplete } from './QuizPlayerPlayerComplete';
 
 interface QuizPlayerProps {
   quiz: RedactedQuiz;
@@ -125,107 +125,6 @@ export function QuizPlayer({ quiz }: QuizPlayerProps): React.JSX.Element {
       />
 
       <Progress total={totalQuestions} answered={attempt.answers.length} current={questionIndex} />
-    </div>
-  );
-}
-
-function Progress({
-  total,
-  answered,
-  current,
-}: {
-  total: number;
-  answered: number;
-  current: number;
-}): React.JSX.Element {
-  return (
-    <div
-      className="flex w-full max-w-2xl items-center gap-1.5"
-      aria-label={`Progress: ${answered} of ${total} answered`}
-    >
-      {Array.from({ length: total }, (_, i) => (
-        <span
-          key={i}
-          aria-hidden
-          className={
-            i === current
-              ? 'bg-blurple rounded-pill h-1.5 flex-1'
-              : i < answered
-                ? 'bg-blurple/60 rounded-pill h-1.5 flex-1'
-                : 'bg-surface-active rounded-pill h-1.5 flex-1'
-          }
-        />
-      ))}
-    </div>
-  );
-}
-
-function PlayerSkeleton(): React.JSX.Element {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col items-center gap-6 px-6 py-10">
-      <Skeleton className="h-4 w-40" />
-      <div className="border-glass-border bg-glass-surface-1 flex w-full max-w-2xl flex-col gap-4 rounded-lg border p-6">
-        <Skeleton className="h-3 w-24" />
-        <Skeleton className="h-6 w-3/4" />
-        {[0, 1, 2].map((i) => (
-          <Skeleton key={i} className="h-12 w-full" />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function PlayerError({ onRetry }: { onRetry: () => void }): React.JSX.Element {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 py-10 text-center">
-      <p className="text-ink text-subhead font-semibold">Couldn&apos;t start the quiz.</p>
-      <Button onClick={onRetry}>
-        <Loader2 className="mr-2 size-4" aria-hidden />
-        Try again
-      </Button>
-    </div>
-  );
-}
-
-function PlayerComplete({
-  attempt,
-  totalQuestions,
-}: {
-  attempt: QuizAttempt;
-  totalQuestions: number;
-}): React.JSX.Element {
-  const correct = attempt.answers.filter((a) => a.autoCorrect === true).length;
-  const ungraded = attempt.answers.filter((a) => a.autoCorrect === null).length;
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-5 px-6 py-10 text-center">
-      <span
-        className="bg-success/15 flex size-16 items-center justify-center rounded-full"
-        aria-hidden
-      >
-        <Trophy className="text-success size-8" />
-      </span>
-      <div className="flex flex-col gap-1">
-        <h2 className="text-ink text-subhead font-semibold">Submitted</h2>
-        <p className="text-ink-muted text-caption">
-          You answered {attempt.answers.length} of {totalQuestions}.
-        </p>
-      </div>
-      <div className="bg-glass-surface-1 border-glass-border flex flex-col items-center gap-1 rounded-lg border px-8 py-5">
-        <span className="text-ink text-display text-3xl font-bold">
-          {correct} <span className="text-ink-muted text-subhead">/ {totalQuestions}</span>
-        </span>
-        <span className="text-ink-muted text-caption">
-          Auto-graded so far
-          {ungraded > 0 && ` · ${ungraded} short answer${ungraded === 1 ? '' : 's'} pending`}
-        </span>
-      </div>
-      {ungraded > 0 && (
-        <p className="text-ink-muted text-caption flex items-center gap-1.5">
-          <CheckCircle2 className="size-4" aria-hidden />
-          Your host will grade short answers — your final score updates after.
-        </p>
-      )}
     </div>
   );
 }

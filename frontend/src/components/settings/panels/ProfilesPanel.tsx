@@ -9,8 +9,9 @@ import { mediaUrl, useUploadMedia } from '@/queries/media';
 import { ApiError } from '@/queries/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MediaImg } from '@/components/ui/media-img';
 import { SettingsPanelTitle } from '../SettingsShell';
+import { ProfilePreview } from './ProfilesPanelProfilePreview';
+import { UnsavedBar } from './ProfilesPanelUnsavedBar';
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 const AVATAR_MIME = /^image\/(png|jpe?g|webp|gif)$/i;
@@ -172,57 +173,6 @@ export function ProfilesPanel(): React.JSX.Element {
           onSave={save}
         />
       ) : null}
-    </div>
-  );
-}
-
-interface ProfilePreviewProps {
-  name: string;
-  username: string;
-  avatarSrc: string;
-}
-
-function ProfilePreview({ name, username, avatarSrc }: ProfilePreviewProps): React.JSX.Element {
-  return (
-    <aside className="flex flex-col">
-      <h3 className="text-ink-muted text-caption font-semibold tracking-wider uppercase">
-        Preview
-      </h3>
-      <div className="bg-glass-surface-1 border-glass-border mt-2 overflow-hidden rounded-lg border">
-        <div className="bg-blurple/40 h-16" aria-hidden />
-        <div className="flex flex-col items-start px-4 pt-3 pb-4">
-          <MediaImg
-            src={avatarSrc}
-            alt=""
-            width={64}
-            height={64}
-            className="ring-glass-surface-1 -mt-10 size-16 rounded-full ring-4"
-          />
-          <span className="text-ink text-subhead mt-2 font-semibold">{name}</span>
-          <span className="text-ink-muted text-caption">@{username}</span>
-        </div>
-      </div>
-    </aside>
-  );
-}
-
-interface UnsavedBarProps {
-  submitting: boolean;
-  onReset: () => void;
-  onSave: () => void;
-}
-
-function UnsavedBar({ submitting, onReset, onSave }: UnsavedBarProps): React.JSX.Element {
-  return (
-    <div className="bg-glass-surface-2 border-glass-border absolute right-10 bottom-6 left-10 flex items-center gap-3 rounded-lg border px-4 py-3 shadow-lg">
-      <p className="text-ink text-control flex-1">Careful — you have unsaved changes!</p>
-      <Button variant="ghost" onClick={onReset} disabled={submitting}>
-        Reset
-      </Button>
-      <Button onClick={onSave} disabled={submitting}>
-        {submitting ? <Loader2 className="size-4 animate-spin" /> : null}
-        Save Changes
-      </Button>
     </div>
   );
 }

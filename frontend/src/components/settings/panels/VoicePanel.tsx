@@ -1,22 +1,16 @@
 import { Mic } from 'lucide-react';
-
-import { cn } from '@/lib/cn';
-import { primeDevicePermissions, useAudioDevices, type AudioDevice } from '@/lib/audio-devices';
+import { primeDevicePermissions, useAudioDevices } from '@/lib/audio-devices';
 import { useAudioPrefs } from '@/lib/audio-prefs-store';
 import { useVoiceUiState } from '@/lib/voice-state';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
 import { MicLevelMeter } from '@/components/voice/MicLevelMeter';
 import { SettingsDivider, SettingsPanelTitle, SettingsSection } from '../SettingsShell';
+import { DevicePicker } from './VoicePanelDevicePicker';
+import { VolumeSlider } from './VoicePanelVolumeSlider';
+import { SensitivitySlider } from './VoicePanelSensitivitySlider';
+import { ModeOption } from './VoicePanelModeOption';
+import { ToggleRow } from './VoicePanelToggleRow';
 
-const NONE_VALUE = '__default__';
 const HAS_SET_SINK_ID =
   typeof window !== 'undefined' &&
   typeof (HTMLMediaElement?.prototype as { setSinkId?: unknown })?.setSinkId === 'function';
@@ -164,166 +158,3 @@ export function VoicePanel(): React.JSX.Element {
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────
-
-interface DevicePickerProps {
-  label: string;
-  options: AudioDevice[];
-  value: string | null;
-  onChange: (id: string | null) => void;
-  disabled: boolean;
-  disabledHint: string | null;
-}
-
-function DevicePicker({
-  label,
-  options,
-  value,
-  onChange,
-  disabled,
-  disabledHint,
-}: DevicePickerProps): React.JSX.Element {
-  const empty = options.length === 0;
-
-  return (
-    <div>
-      <h4 className="text-ink-muted text-caption font-semibold tracking-wider uppercase">
-        {label}
-      </h4>
-      <Select
-        value={value ?? NONE_VALUE}
-        onValueChange={(v) => onChange(v === NONE_VALUE ? null : v)}
-        disabled={disabled || empty}
-      >
-        <SelectTrigger className="mt-2 w-full">
-          <SelectValue placeholder={empty ? 'No devices found' : 'Default device'} />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value={NONE_VALUE}>Default device</SelectItem>
-          {options.map((device) => (
-            <SelectItem key={device.deviceId} value={device.deviceId}>
-              {device.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      {disabledHint ? <p className="text-ink-subtle text-caption mt-2">{disabledHint}</p> : null}
-    </div>
-  );
-}
-
-interface VolumeSliderProps {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-}
-
-function VolumeSlider({ label, value, onChange }: VolumeSliderProps): React.JSX.Element {
-  return (
-    <div>
-      <div className="flex items-baseline justify-between">
-        <h4 className="text-ink-muted text-caption font-semibold tracking-wider uppercase">
-          {label}
-        </h4>
-        <span className="text-ink-subtle text-caption tabular-nums">{value}%</span>
-      </div>
-      <input
-        type="range"
-        min={0}
-        max={200}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        aria-label={label}
-        className="bg-glass-surface-2 accent-blurple mt-3 h-1.5 w-full cursor-pointer appearance-none rounded-full"
-      />
-    </div>
-  );
-}
-
-interface SensitivitySliderProps {
-  value: number;
-  onChange: (v: number) => void;
-}
-
-function SensitivitySlider({ value, onChange }: SensitivitySliderProps): React.JSX.Element {
-  return (
-    <div className="mt-5">
-      <div className="flex items-baseline justify-between">
-        <h4 className="text-ink-muted text-caption font-semibold tracking-wider uppercase">
-          Input Sensitivity
-        </h4>
-        <span className="text-ink-subtle text-caption tabular-nums">{value}</span>
-      </div>
-      <input
-        type="range"
-        min={0}
-        max={100}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        aria-label="Input sensitivity"
-        className="bg-glass-surface-2 accent-blurple mt-3 h-1.5 w-full cursor-pointer appearance-none rounded-full"
-      />
-      <p className="text-ink-subtle text-caption mt-2">
-        Lower opens the mic more easily; higher needs you to be louder.
-      </p>
-    </div>
-  );
-}
-
-interface ModeOptionProps {
-  active: boolean;
-  onClick: () => void;
-  title: string;
-  body: string;
-}
-
-function ModeOption({ active, onClick, title, body }: ModeOptionProps): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'flex items-start gap-3 rounded-md border px-4 py-3 text-left transition-colors',
-        active
-          ? 'border-blurple bg-blurple/10'
-          : 'border-glass-border bg-glass-surface-2 hover:border-glass-border-strong',
-      )}
-    >
-      <span
-        className={cn(
-          'mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-2',
-          active ? 'border-blurple' : 'border-ink-muted',
-        )}
-      >
-        {active ? <span className="bg-blurple size-2 rounded-full" /> : null}
-      </span>
-      <div className="flex flex-col leading-tight">
-        <span className="text-ink text-control font-semibold">{title}</span>
-        <span className="text-ink-muted text-caption mt-0.5">{body}</span>
-      </div>
-    </button>
-  );
-}
-
-interface ToggleRowProps {
-  label: string;
-  description: string;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-}
-
-function ToggleRow({
-  label,
-  description,
-  checked,
-  onCheckedChange,
-}: ToggleRowProps): React.JSX.Element {
-  return (
-    <div className="border-glass-border flex items-start gap-4 border-b py-3 last:border-b-0">
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="text-ink text-control font-semibold">{label}</span>
-        <span className="text-ink-muted text-caption mt-0.5">{description}</span>
-      </div>
-      <Switch checked={checked} onCheckedChange={onCheckedChange} />
-    </div>
-  );
-}

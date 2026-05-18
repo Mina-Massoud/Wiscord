@@ -1,8 +1,21 @@
 import { type Editor } from '@tiptap/core';
 import { BubbleMenu } from '@tiptap/react/menus';
-import { Bold, Code, Italic, Link as LinkIcon, Strikethrough } from 'lucide-react';
+import {
+  Bold,
+  Code,
+  Heading1,
+  Heading2,
+  Heading3,
+  Italic,
+  Link as LinkIcon,
+  List,
+  ListOrdered,
+  Quote,
+  Strikethrough,
+  Type,
+} from 'lucide-react';
 
-import { cn } from '@/lib/cn';
+import { BubbleButton } from './NotesBubbleMenuBubbleButton';
 
 interface NotesBubbleMenuProps {
   editor: Editor | null;
@@ -13,10 +26,15 @@ interface NotesBubbleMenuProps {
  * has actually selected something — the editor surface stays clean and the
  * affordance only shows when relevant.
  *
- * Marks supported in v1 mirror the StarterKit defaults we keep enabled:
- * bold, italic, strike, inline code, and a one-shot prompt-style link
- * insertion. Headings and lists are reached via markdown shortcuts
- * (`# heading`, `- list`, `> quote`) and the `tiptap-markdown` input rules.
+ * Three groups separated by hairline dividers:
+ *  1. Block kind — paragraph / h1-h3 / bullet list / ordered list / blockquote.
+ *     Heading levels are clamped to h1-h3 to match what `notes-prose.css`
+ *     styles (h4+ has no styling) AND what the markdown-to-ydoc parser
+ *     coerces AI-generated headings to. One block-kind set across both
+ *     entry surfaces (human typing, AI generation) keeps the rendering
+ *     consistent.
+ *  2. Inline marks — bold, italic, strike, inline code.
+ *  3. Link — prompt-based one-shot insertion / removal.
  */
 export function NotesBubbleMenu({ editor }: NotesBubbleMenuProps): React.JSX.Element | null {
   if (!editor) return null;
@@ -26,6 +44,64 @@ export function NotesBubbleMenu({ editor }: NotesBubbleMenuProps): React.JSX.Ele
       editor={editor}
       className="bg-glass-surface-2 border-glass-border shadow-elevated backdrop-blur-glass-sm flex items-center gap-1 rounded-md border p-1"
     >
+      <BubbleButton
+        active={
+          editor.isActive('paragraph') &&
+          !editor.isActive('heading') &&
+          !editor.isActive('bulletList') &&
+          !editor.isActive('orderedList') &&
+          !editor.isActive('blockquote')
+        }
+        onClick={() => editor.chain().focus().setParagraph().run()}
+        label="Paragraph"
+      >
+        <Type className="size-3.5" aria-hidden />
+      </BubbleButton>
+      <BubbleButton
+        active={editor.isActive('heading', { level: 1 })}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        label="Heading 1"
+      >
+        <Heading1 className="size-3.5" aria-hidden />
+      </BubbleButton>
+      <BubbleButton
+        active={editor.isActive('heading', { level: 2 })}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        label="Heading 2"
+      >
+        <Heading2 className="size-3.5" aria-hidden />
+      </BubbleButton>
+      <BubbleButton
+        active={editor.isActive('heading', { level: 3 })}
+        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        label="Heading 3"
+      >
+        <Heading3 className="size-3.5" aria-hidden />
+      </BubbleButton>
+      <BubbleButton
+        active={editor.isActive('bulletList')}
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        label="Bullet list"
+      >
+        <List className="size-3.5" aria-hidden />
+      </BubbleButton>
+      <BubbleButton
+        active={editor.isActive('orderedList')}
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        label="Numbered list"
+      >
+        <ListOrdered className="size-3.5" aria-hidden />
+      </BubbleButton>
+      <BubbleButton
+        active={editor.isActive('blockquote')}
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        label="Blockquote"
+      >
+        <Quote className="size-3.5" aria-hidden />
+      </BubbleButton>
+
+      <div className="bg-glass-border mx-0.5 h-4 w-px" aria-hidden />
+
       <BubbleButton
         active={editor.isActive('bold')}
         onClick={() => editor.chain().focus().toggleBold().run()}
@@ -54,7 +130,9 @@ export function NotesBubbleMenu({ editor }: NotesBubbleMenuProps): React.JSX.Ele
       >
         <Code className="size-3.5" aria-hidden />
       </BubbleButton>
+
       <div className="bg-glass-border mx-0.5 h-4 w-px" aria-hidden />
+
       <BubbleButton
         active={editor.isActive('link')}
         onClick={() => {
@@ -72,29 +150,5 @@ export function NotesBubbleMenu({ editor }: NotesBubbleMenuProps): React.JSX.Ele
         <LinkIcon className="size-3.5" aria-hidden />
       </BubbleButton>
     </BubbleMenu>
-  );
-}
-
-interface BubbleButtonProps {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  children: React.ReactNode;
-}
-
-function BubbleButton({ active, onClick, label, children }: BubbleButtonProps): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={label}
-      aria-pressed={active}
-      className={cn(
-        'flex h-7 w-7 items-center justify-center rounded transition-colors',
-        active ? 'bg-glass-active text-ink' : 'text-ink-muted hover:bg-glass-hover hover:text-ink',
-      )}
-    >
-      {children}
-    </button>
   );
 }

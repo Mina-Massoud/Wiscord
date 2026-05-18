@@ -1,15 +1,9 @@
-import { useEffect, useRef } from 'react';
 import { LiveKitRoom, RoomAudioRenderer } from '@livekit/components-react';
 import { useShallow } from 'zustand/react/shallow';
-
-import { useActivityHostStopSync } from '@/hooks/useActivityHostStopSync';
-import { useNoiseSuppressionSync } from '@/hooks/useNoiseSuppressionSync';
-import { useVoiceSessionLifecycle } from '@/hooks/useVoiceSessionLifecycle';
 import { playVoiceJoinChime, playVoiceLeaveChime } from '@/lib/voice-chime';
 import { toast } from '@/lib/toast';
-import { useCopy } from '@/lib/copy/useCopy';
 import { useVoiceSessionStore } from '@/lib/voice-session-store';
-import { useSetActivityPresence } from '@/queries/voice-activity';
+import { GlobalVoiceSideEffects } from './GlobalVoiceProviderGlobalVoiceSideEffects';
 
 /**
  * Mounts `<LiveKitRoom>` once at the app root so a joined voice channel
@@ -58,18 +52,6 @@ export function GlobalVoiceProvider({
   );
 }
 
-/**
- * Mounts the room-scoped side effects that need to live exactly once
- * inside `<LiveKitRoom>` for the entire app lifetime.
- */
-function GlobalVoiceSideEffects(): null {
-  useVoiceSessionLifecycle();
-  useNoiseSuppressionSync();
-  useActivityHostStopSync();
-  useDisconnectionFeedback();
-  return null;
-}
-
 // ---------------------------------------------------------------------------
 // Stable callbacks — fire on the live Room and must not change identity
 // every render, otherwise `<LiveKitRoom>` rebinds its event listeners.
@@ -94,41 +76,4 @@ function handleDisconnected(): void {
 
 function handleError(err: Error): void {
   toast.error(err.message || "Couldn't connect to voice");
-}
-
-/**
- * Translates the store's channelId-cleared transition into a user-facing
- * toast + a "you left the activity" presence write. Subscribes once via
- * Zustand's imperative `subscribe` API so we only react to the disconnect
- * transition itself, never on initial mount.
- */
-function useDisconnectionFeedback(): void {
-  const presence = useSetActivityPresence();
-  const t = useCopy();
-
-  const presenceRef = useRef(presence);
-  presenceRef.current = presence;
-  const tRef = useRef(t);
-  tRef.current = t;
-
-  useEffect(() => {
-    let prevChannelId = useVoiceSessionStore.getState().channelId;
-    const unsubscribe = useVoiceSessionStore.subscribe((state) => {
-      const nextChannelId = state.channelId;
-      if (Object.is(prevChannelId, nextChannelId)) return;
-      const cleared = Boolean(prevChannelId) && nextChannelId === null;
-      const fromChannel = prevChannelId;
-      prevChannelId = nextChannelId;
-      if (!cleared || !fromChannel) return;
-
-      // Fire-and-forget — the webhook reconciles too. Always send
-      // null on disconnect; the server treats it as idempotent.
-      presenceRef.current.mutate(
-        { channelId: fromChannel, kind: null },
-        { onError: () => undefined },
-      );
-      toast.info(tRef.current('voice.toast.left'));
-    });
-    return unsubscribe;
-  }, []);
 }

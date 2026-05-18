@@ -1,20 +1,10 @@
 import { useState } from 'react';
-import { Clock, Eraser, Loader2, Save, Trash2 } from 'lucide-react';
+import { Clock, Loader2, Save } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/lib/toast';
-import { formatRelative } from '@/lib/date';
 import {
   useActivityHistory,
   useClearActivityScratch,
@@ -24,6 +14,8 @@ import {
   type ActivitySnapshotSummary,
   type HistoryKind,
 } from '@/queries/activity-history';
+import { SnapshotRow } from './ActivityHistoryFloatButtonSnapshotRow';
+import { ClearScratchDialog } from './ActivityHistoryFloatButtonClearScratchDialog';
 
 interface ActivityHistoryFloatButtonProps {
   kind: HistoryKind;
@@ -187,141 +179,5 @@ export function ActivityHistoryFloatButton({
         </PopoverContent>
       </Popover>
     </div>
-  );
-}
-
-interface SnapshotRowProps {
-  snapshot: ActivitySnapshotSummary;
-  onLoad: () => void;
-  onDelete: () => void;
-  loading: boolean;
-  deleting: boolean;
-}
-
-function SnapshotRow({
-  snapshot,
-  onLoad,
-  onDelete,
-  loading,
-  deleting,
-}: SnapshotRowProps): React.JSX.Element {
-  return (
-    <div className="hover:bg-surface-hover group flex items-center gap-2 rounded-md px-2 py-1.5">
-      <button
-        type="button"
-        onClick={onLoad}
-        disabled={loading || deleting}
-        className="text-ink flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left disabled:opacity-50"
-      >
-        <span className="text-ink text-tab w-full truncate">{snapshot.title}</span>
-        <span className="text-ink-subtle text-badge">{formatRelative(snapshot.createdAt)}</span>
-      </button>
-      {loading ? (
-        <Loader2 className="text-ink-muted size-4 shrink-0 animate-spin" aria-hidden />
-      ) : (
-        <DeleteSnapshotDialog title={snapshot.title} deleting={deleting} onConfirm={onDelete} />
-      )}
-    </div>
-  );
-}
-
-interface DeleteSnapshotDialogProps {
-  title: string;
-  deleting: boolean;
-  onConfirm: () => void;
-}
-
-function DeleteSnapshotDialog({
-  title,
-  deleting,
-  onConfirm,
-}: DeleteSnapshotDialogProps): React.JSX.Element {
-  const [open, setOpen] = useState(false);
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          disabled={deleting}
-          className="text-ink-muted hover:text-destructive size-7 shrink-0 opacity-0 transition-opacity group-hover:opacity-100"
-          aria-label={`Delete ${title}`}
-        >
-          {deleting ? (
-            <Loader2 className="size-3.5 animate-spin" aria-hidden />
-          ) : (
-            <Trash2 className="size-3.5" aria-hidden />
-          )}
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Delete &ldquo;{title}&rdquo;?</DialogTitle>
-          <DialogDescription>
-            The snapshot is removed from history. The current canvas isn&apos;t affected.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={() => {
-              setOpen(false);
-              onConfirm();
-            }}
-          >
-            Delete
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-interface ClearScratchDialogProps {
-  onConfirm: () => void;
-}
-
-function ClearScratchDialog({ onConfirm }: ClearScratchDialogProps): React.JSX.Element {
-  const [open, setOpen] = useState(false);
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          className="text-destructive hover:bg-destructive/10 hover:text-destructive h-8 w-full justify-start gap-2"
-        >
-          <Eraser className="size-3.5" aria-hidden />
-          <span className="text-control">Clear canvas</span>
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Clear the current canvas?</DialogTitle>
-          <DialogDescription>
-            Everyone in the activity will see a blank canvas. Your saved snapshots are not affected.
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={() => {
-              setOpen(false);
-              onConfirm();
-            }}
-          >
-            Clear
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

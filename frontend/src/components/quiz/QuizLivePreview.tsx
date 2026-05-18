@@ -1,6 +1,7 @@
 import { ListChecks } from 'lucide-react';
 
 import type { QuizQuestion } from '@/types/quiz';
+import { EmptyPreview } from './QuizLivePreviewEmptyPreview';
 
 interface QuizLivePreviewProps {
   question: QuizQuestion | null;
@@ -81,14 +82,6 @@ export function QuizLivePreview({
           </>
         )}
       </div>
-    </div>
-  );
-}
-
-function EmptyPreview(): React.JSX.Element {
-  return (
-    <div className="text-ink-muted text-caption flex flex-1 flex-col items-center justify-center text-center">
-      Pick a question on the left to preview it.
     </div>
   );
 }

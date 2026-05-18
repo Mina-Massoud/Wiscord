@@ -1,8 +1,7 @@
-import { Loader2, Radio } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { quizGenZ } from '@/lib/copy/quiz-genz';
-import { cn } from '@/lib/cn';
 import { useQuizAnalytics } from '@/queries/quiz-analytics';
 
 import { QuizAnalyticsSkeleton } from './QuizAnalyticsSkeleton';
@@ -10,6 +9,7 @@ import { QuizCloseButton } from './QuizCloseButton';
 import { QuizLeaderboard } from './QuizLeaderboard';
 import { QuizQuestionBreakdown } from './QuizQuestionBreakdown';
 import { QuizStatRow } from './QuizStatRow';
+import { StatusBadge } from './QuizAnalyticsDashboardStatusBadge';
 
 interface QuizAnalyticsDashboardProps {
   quizId: string;
@@ -71,24 +71,5 @@ export function QuizAnalyticsDashboard({
 
       <QuizLeaderboard rows={data.leaderboard} />
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }): React.JSX.Element {
-  const isLive = status === 'live';
-  const isClosed = status === 'closed';
-  const label = isLive ? quizGenZ.liveBadge : isClosed ? quizGenZ.closedBadge : status;
-  return (
-    <span
-      className={cn(
-        'text-badge rounded-pill inline-flex w-fit items-center gap-1.5 px-2 py-0.5 font-semibold tracking-wider uppercase',
-        isLive && 'bg-destructive/15 text-destructive',
-        isClosed && 'bg-ink-muted/15 text-ink-muted',
-        !isLive && !isClosed && 'bg-blurple/15 text-blurple',
-      )}
-    >
-      {isLive && <Radio className="size-3 animate-pulse" aria-hidden />}
-      {label}
-    </span>
   );
 }

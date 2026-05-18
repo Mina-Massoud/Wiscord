@@ -1,16 +1,19 @@
-import { useMemo, useState } from 'react';
-import { Cloud, CloudOff, Loader2, Play } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Play } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 import { isQuizLaunchable, makeQuestion } from './lib/draft-quiz';
 import { useDraftQuiz } from './lib/useDraftQuiz';
+import { useQuizBuilderStore } from './lib/useQuizBuilderStore';
 import { QuizLaunchDialog } from './QuizLaunchDialog';
 import { QuizQuestionEditor } from './QuizQuestionEditor';
 import { QuizQuestionList } from './QuizQuestionList';
 import { QuizSettingsPanel } from './QuizSettingsPanel';
 import type { Quiz, QuizMode, QuizQuestion } from '@/types/quiz';
+import { EmptyEditor } from './QuizBuilderEmptyEditor';
+import { SaveStatusPill } from './QuizBuilderSaveStatusPill';
 
 interface QuizBuilderProps {
   quiz: Quiz;
@@ -20,10 +23,10 @@ interface QuizBuilderProps {
 /**
  * Top-level builder layout. The right-rail preview is mounted by the page
  * (so it can sit in the AppShell's `rightRail` slot). This component owns
- * everything inside `main`: question list (left) + editor (right).
- *
- * The currently-selected question is local-only ephemeral — no need to put
- * it in the URL.
+ * everything inside `main`: question list (left) + editor (right). The
+ * selection + live draft is mirrored into `useQuizBuilderStore` so the
+ * right-rail preview can track the same question and reflect every
+ * keystroke.
  */
 export function QuizBuilder({ quiz, onLaunched }: QuizBuilderProps): React.JSX.Element {
   const { draft, saveStatus, setTitle, setQuestions, setSettings } = useDraftQuiz({ quiz });
@@ -34,6 +37,28 @@ export function QuizBuilder({ quiz, onLaunched }: QuizBuilderProps): React.JSX.E
     () => draft.questions.find((q) => q.id === selectedId) ?? null,
     [draft.questions, selectedId],
   );
+
+  // If the selection is missing (initial mount with no questions, or the
+  // selected question was just deleted), snap to the first question.
+  const effectiveSelectedId =
+    selectedQuestion?.id ?? draft.questions[0]?.id ?? null;
+
+  const publish = useQuizBuilderStore((s) => s.publish);
+  const resetStore = useQuizBuilderStore((s) => s.reset);
+
+  useEffect(() => {
+    publish({
+      quizId: quiz.id,
+      selectedQuestionId: effectiveSelectedId,
+      questions: draft.questions,
+    });
+  }, [publish, quiz.id, effectiveSelectedId, draft.questions]);
+
+  useEffect(() => {
+    return () => {
+      resetStore();
+    };
+  }, [resetStore]);
 
   const updateQuestion = (next: QuizQuestion): void => {
     setQuestions(draft.questions.map((q) => (q.id === next.id ? next : q)));
@@ -122,63 +147,4 @@ export function QuizBuilder({ quiz, onLaunched }: QuizBuilderProps): React.JSX.E
       />
     </div>
   );
-}
-
-function EmptyEditor({ onAdd }: { onAdd: () => void }): React.JSX.Element {
-  return (
-    <div className="bg-glass-surface-1 border-glass-border flex flex-col items-center justify-center gap-3 rounded-lg border px-6 py-12 text-center">
-      <h2 className="text-ink text-subhead font-semibold">Build the first question</h2>
-      <p className="text-ink-muted text-caption">
-        Pick a type, write the prompt, and the preview on the right updates as you type.
-      </p>
-      <Button onClick={onAdd}>
-        <Play className="mr-2 size-4" aria-hidden />
-        Add a question
-      </Button>
-    </div>
-  );
-}
-
-function SaveStatusPill({
-  status,
-}: {
-  status: 'idle' | 'saving' | 'saved' | 'error';
-}): React.JSX.Element | null {
-  if (status === 'idle') return null;
-  if (status === 'saving') {
-    return (
-      <span className="text-ink-muted text-caption flex items-center gap-1.5">
-        <Loader2 className="size-3 animate-spin" aria-hidden />
-        Saving…
-      </span>
-    );
-  }
-  if (status === 'saved') {
-    return (
-      <span className="text-ink-muted text-caption flex items-center gap-1.5">
-        <Cloud className="size-3" aria-hidden />
-        Saved
-      </span>
-    );
-  }
-  return (
-    <span className="text-destructive text-caption flex items-center gap-1.5">
-      <CloudOff className="size-3" aria-hidden />
-      Save failed
-    </span>
-  );
-}
-
-// Helpers exposed for the page so it can render the right-rail preview using
-// the same selected question. Re-importing the editor would couple too much.
-export function useSelectedQuestion(
-  draft: Quiz,
-  selectedId: string | null,
-): { question: QuizQuestion | null; index: number; total: number } {
-  const idx = selectedId ? draft.questions.findIndex((q) => q.id === selectedId) : -1;
-  return {
-    question: idx >= 0 ? (draft.questions[idx] ?? null) : null,
-    index: idx + 1,
-    total: draft.questions.length,
-  };
 }

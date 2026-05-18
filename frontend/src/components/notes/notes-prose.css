@@ -36,37 +36,52 @@
   outline: none;
 }
 
-/* Headings — anchored to the existing UI font scale, not the prose plugin's
-   ramp, so the editor stays consistent with the rest of the shell. */
+/* Headings — Notion-style ramp. Top margins are generous so sections
+   read as distinct breaks instead of bumping into the prior paragraph;
+   bottom margins are tight so the heading visually owns its content
+   block. First heading in the doc has its top margin collapsed via the
+   `:first-child` rule so the editor doesn't open with a wedge of empty
+   space above the title. */
 .notes-prose h1 {
-  font-size: 32px;
+  font-size: 36px;
   font-weight: 700;
-  letter-spacing: -0.015em;
-  line-height: 1.2;
-  margin-top: 1.5em;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-top: 1.8em;
   margin-bottom: 0.4em;
   color: #ffffff;
 }
 .notes-prose h2 {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 600;
-  letter-spacing: -0.005em;
+  letter-spacing: -0.01em;
   line-height: 1.25;
-  margin-top: 1.4em;
-  margin-bottom: 0.4em;
+  margin-top: 1.8em;
+  margin-bottom: 0.5em;
   color: #ffffff;
 }
 .notes-prose h3 {
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 600;
-  line-height: 1.3;
-  margin-top: 1.2em;
-  margin-bottom: 0.35em;
+  line-height: 1.35;
+  margin-top: 1.5em;
+  margin-bottom: 0.4em;
   color: #ffffff;
 }
+.notes-prose h1:first-child,
+.notes-prose h2:first-child,
+.notes-prose h3:first-child {
+  margin-top: 0;
+}
 
+/* Paragraph spacing — Notion uses ~0.9em between blocks so adjacent
+   paragraphs read as distinct items, not a wall. The line-height stays
+   at 1.65 (set on the container) for in-paragraph rhythm. */
 .notes-prose p {
-  margin: 0.5em 0;
+  margin: 0.9em 0;
+}
+.notes-prose p:first-child {
+  margin-top: 0;
 }
 
 .notes-prose strong {
@@ -125,18 +140,26 @@
 .notes-prose blockquote {
   border-left: 2px solid var(--blurple, #5865f2);
   padding-left: 14px;
-  margin: 0.9em 0;
+  margin: 1.2em 0;
   color: var(--ink-muted, #949ba4);
   font-style: italic;
 }
 
 .notes-prose ul,
 .notes-prose ol {
-  margin: 0.5em 0;
-  padding-left: 1.4em;
+  margin: 1em 0;
+  padding-left: 1.5em;
 }
 .notes-prose li {
-  margin: 0.18em 0;
+  margin: 0.35em 0;
+}
+/* Paragraph margins inside list items collapse — the `li` margin owns
+   the spacing between items. Without this, a list item that wraps its
+   content in a `<p>` (the canonical ProseMirror shape from
+   markdown-to-ydoc) doubles up the gap and the list reads as if every
+   item is its own paragraph block. */
+.notes-prose li > p {
+  margin: 0;
 }
 .notes-prose ul {
   list-style: disc;
@@ -144,8 +167,13 @@
 .notes-prose ol {
   list-style: decimal;
 }
-.notes-prose ul ul {
+.notes-prose ul ul,
+.notes-prose ol ul {
   list-style: circle;
+}
+.notes-prose ul ul ul,
+.notes-prose ol ol ol {
+  list-style: square;
 }
 
 /* StarterKit Placeholder inline hint — shown when the doc has exactly one

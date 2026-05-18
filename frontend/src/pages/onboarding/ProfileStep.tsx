@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from '@/lib/toast';
-import { Loader2, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle } from 'lucide-react';
 
 import Identicon from '@/components/auth/Identicon';
 import { Button } from '@/components/ui/button';
@@ -16,10 +16,11 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { useUpdateProfile, useUsernameAvailable } from '@/queries/profile';
 import type { ProfileError } from '@/types/auth';
+import { ProfileSkeleton } from './ProfileStepProfileSkeleton';
+import { ProfileLoadError } from './ProfileStepProfileLoadError';
 
 const profileSchema = z.object({
   username: z
@@ -31,53 +32,6 @@ const profileSchema = z.object({
 });
 
 type ProfileValues = z.infer<typeof profileSchema>;
-
-function ProfileSkeleton(): React.JSX.Element {
-  return (
-    <div className="flex flex-col items-center gap-6">
-      <Skeleton className="h-24 w-24 rounded-md" />
-      <div className="w-full space-y-4">
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-20" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-        <div className="space-y-2">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-10 w-full" />
-        </div>
-        <Skeleton className="h-10 w-full" />
-      </div>
-    </div>
-  );
-}
-
-function ProfileLoadError({
-  message,
-  onSignOut,
-}: {
-  message: string;
-  onSignOut: () => Promise<void>;
-}): React.JSX.Element {
-  return (
-    <div className="flex flex-col items-center gap-4 text-center">
-      <span
-        className="bg-destructive/15 text-destructive flex h-12 w-12 items-center justify-center rounded-full"
-        aria-hidden="true"
-      >
-        <AlertTriangle className="h-6 w-6" />
-      </span>
-      <div className="space-y-1">
-        <h2 className="text-foreground text-lg font-semibold">
-          We couldn&apos;t load your profile
-        </h2>
-        <p className="text-muted-foreground text-sm">{message}</p>
-      </div>
-      <Button onClick={() => void onSignOut()} className="w-full">
-        Sign in again
-      </Button>
-    </div>
-  );
-}
 
 export default function ProfileStep(): React.JSX.Element {
   const navigate = useNavigate();
