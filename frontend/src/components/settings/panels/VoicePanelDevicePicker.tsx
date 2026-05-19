@@ -43,11 +43,13 @@ export function DevicePicker({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={NONE_VALUE}>Default device</SelectItem>
-          {options.map((device) => (
-            <SelectItem key={device.deviceId} value={device.deviceId}>
-              {device.label}
-            </SelectItem>
-          ))}
+          {options
+            .filter((device) => device.deviceId !== '')
+            .map((device) => (
+              <SelectItem key={device.deviceId} value={device.deviceId}>
+                {device.label}
+              </SelectItem>
+            ))}
         </SelectContent>
       </Select>
       {disabledHint ? <p className="text-ink-subtle text-caption mt-2">{disabledHint}</p> : null}

@@ -16,7 +16,7 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "size": "size-limit",
-    "prepare": "node -e \"const fs=require(\"fs\");if(fs.existsSync(\"../.git\"))require(\"child_process\").execSync(\"husky\",{stdio:\"inherit\"})\""
+    "prepare": "node -e \"if(require('fs').existsSync('../.git'))require('child_process').execSync('husky',{stdio:'inherit'})\""
   },
   "dependencies": {
     "@formkit/auto-animate": "^0.8.0",

@@ -21,7 +21,7 @@ const securitySchema = new Schema(
 
 const billingSchema = new Schema(
   {
-    stripeCustomerId: { type: String, default: null },
+    stripeCustomerId: { type: String },
     /**
      * Stripe subscription id (`sub_...`) cached locally so the
      * auto-renew toggle and any future "update this sub" endpoint
