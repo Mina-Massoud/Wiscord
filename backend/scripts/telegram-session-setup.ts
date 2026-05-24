@@ -1,5 +1,8 @@
 /* eslint-disable no-console */
 import 'dotenv/config';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions/index.js';
 import inputLib from 'input';
@@ -7,27 +10,25 @@ import inputLib from 'input';
 interface InputPrompt {
   text(prompt: string): Promise<string>;
 }
-// `input` is a tiny stdin prompt lib with no shipped types — narrow at the import boundary.
 const ask: InputPrompt = inputLib as InputPrompt;
 
-/**
- * One-time interactive script: logs the storage account into Telegram and
- * prints a session string the server can use forever (until you sign out
- * or revoke the session from the Telegram app).
- *
- * Run: `npm run storage:login`
- * Prerequisite: TELEGRAM_API_ID + TELEGRAM_API_HASH in backend/.env
- *   (get them from https://my.telegram.org/apps after signing in with the
- *    Telegram account you want to use as the storage account).
- *
- * What it asks for:
- *   1. Phone number (E.164, e.g. +14155551234) — the account's number
- *   2. The Telegram-app login code Telegram sends you
- *   3. Your 2FA password if you have one enabled (blank otherwise)
- *
- * On success it prints a long string. Paste it into .env as
- * TELEGRAM_SESSION_STRING. Then `npm run dev` and the storage module works.
- */
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const ENV_PATH = resolve(__dirname, '..', '.env');
+
+function patchEnvFile(key: string, value: string): void {
+  let content = readFileSync(ENV_PATH, 'utf-8');
+  const regex = new RegExp(`^${key}\\s*=.*$`, 'm');
+  const line = `${key}=${value}`;
+
+  if (regex.test(content)) {
+    content = content.replace(regex, line);
+  } else {
+    content = content.trimEnd() + '\n' + line + '\n';
+  }
+
+  writeFileSync(ENV_PATH, content, 'utf-8');
+}
+
 async function main(): Promise<void> {
   const apiIdRaw = process.env.TELEGRAM_API_ID;
   const apiHash = process.env.TELEGRAM_API_HASH;
@@ -61,11 +62,10 @@ async function main(): Promise<void> {
     onError: (err: Error) => console.error('  …error:', err.message),
   });
 
-  console.log('\n✓ Signed in. Copy the line below into backend/.env:\n');
-  console.log(`TELEGRAM_SESSION_STRING=${client.session.save()}`);
-  console.log(
-    '\nKeep this secret — anyone with it can act as your storage account.',
-  );
+  const newSession = client.session.save() as unknown as string;
+
+  patchEnvFile('TELEGRAM_SESSION_STRING', newSession);
+  console.log('\n✓ Signed in. TELEGRAM_SESSION_STRING written to backend/.env');
 
   await client.disconnect();
   process.exit(0);
