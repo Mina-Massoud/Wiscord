@@ -8,6 +8,7 @@ import type {
   ListenTogetherPlaybackEvent,
   ListenTogetherSessionEndedEvent,
 } from '@/types/listen-together';
+import type { MessageDto, ReactionEvent, TypingEvent } from '@/types/message';
 
 const apiUrl = import.meta.env['VITE_API_URL'] as string | undefined;
 
@@ -289,6 +290,14 @@ export interface ServerToClientEvents {
   'listen_together:invite_resolved': (event: ListenTogetherInviteResolvedEvent) => void;
   'listen_together:session_ended': (event: ListenTogetherSessionEndedEvent) => void;
   'listen_together:playback': (event: ListenTogetherPlaybackEvent) => void;
+
+  // Chat
+  'message:created': (message: MessageDto) => void;
+  'message:updated': (message: MessageDto) => void;
+  'message:deleted': (data: { messageId: string }) => void;
+  'message:reaction_added': (data: ReactionEvent) => void;
+  'message:reaction_removed': (data: ReactionEvent) => void;
+  'typing:update': (data: TypingEvent) => void;
 }
 
 export interface ClientToServerEvents {
@@ -298,6 +307,12 @@ export interface ClientToServerEvents {
   'calendar:unsubscribe_channel': (channelId: string) => void;
   'voice:subscribe_activity': (channelId: string, ack: (ok: boolean) => void) => void;
   'voice:unsubscribe_activity': (channelId: string) => void;
+
+  // Chat
+  'channel:join': (channelId: string) => void;
+  'channel:leave': (channelId: string) => void;
+  'typing:start': (channelId: string, username: string) => void;
+  'typing:stop': (channelId: string, username: string) => void;
 }
 
 export type WiscordSocket = Socket<ServerToClientEvents, ClientToServerEvents>;

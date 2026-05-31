@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { useParams } from 'react-router';
+import { useParams, useSearchParams } from 'react-router';
 import { Loader2, Mic, PhoneOff } from 'lucide-react';
 import { useVoiceToken } from '@/queries/voice';
 import {
@@ -14,6 +14,8 @@ import {
   useMyActivityKind,
   useVoiceSessionStore,
 } from '@/lib/voice-session-store';
+import { useConnectionState } from '@livekit/components-react';
+import { ConnectionState } from 'livekit-client';
 import { useActivityPick } from '@/hooks/useActivityPick';
 import { Button } from '@/components/ui/button';
 
@@ -27,6 +29,7 @@ import { VoiceUserPanelGroup } from '@/components/voice/VoiceUserPanelGroup';
 import type { ActivityKind } from '@/queries/client';
 import { VoiceMainPane } from './VoiceLabPageVoiceMainPane';
 import { FullPageMessage } from './VoiceLabPageFullPageMessage';
+import { ChatPane } from '@/components/chat/ChatPane';
 const HOST_LED_KINDS: ReadonlySet<ActivityKind> = new Set(['youtube', 'screen-share', 'quiz']);
 
 /**
@@ -60,6 +63,12 @@ export default function VoiceLabPage(): React.JSX.Element {
 
   const activity = activityQuery.data ?? null;
   const isHost = activity ? me?.id === activity.hostUserId : false;
+  
+  const state = useConnectionState();
+  const isIdle = !isThisChannelConnected || state === ConnectionState.Disconnected;
+  
+  const [searchParams] = useSearchParams();
+  const chatOnly = searchParams.get('chat') === 'true';
 
   const handleLeaveActivity = useCallback((): void => {
     if (!channelId) return;
@@ -134,15 +143,24 @@ export default function VoiceLabPage(): React.JSX.Element {
         }
         userPanel={<VoiceUserPanelGroup onActivitySelect={pickActivity} />}
         main={
-          <VoiceMainPane
-            channelId={channelId}
-            isThisChannelConnected={isThisChannelConnected}
-            myActivityKind={myActivityKind}
-            onJoin={handleJoin}
-            onActivityPick={pickActivity}
-            onJoinExisting={joinExistingActivity}
-            onLeaveActivity={handleLeaveActivity}
-          />
+          <div className={`flex w-full h-full ${isIdle ? 'flex-col' : 'flex-row'}`}>
+            {!(isIdle && chatOnly) && (
+              <div className={`border-glass-border ${isIdle ? 'flex-shrink-0 border-b' : 'flex-1 min-w-0 border-r'}`}>
+                <VoiceMainPane
+                  channelId={channelId}
+                  isThisChannelConnected={isThisChannelConnected}
+                  myActivityKind={myActivityKind}
+                  onJoin={handleJoin}
+                  onActivityPick={pickActivity}
+                  onJoinExisting={joinExistingActivity}
+                  onLeaveActivity={handleLeaveActivity}
+                />
+              </div>
+            )}
+            <div className={`flex flex-col relative z-10 ${isIdle ? 'flex-1 min-h-0' : 'w-[350px] flex-shrink-0'}`}>
+              <ChatPane channelId={channelId} />
+            </div>
+          </div>
         }
         rightRail={<ActiveNowPanel />}
       />

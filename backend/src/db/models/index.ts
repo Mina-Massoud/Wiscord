@@ -85,3 +85,5 @@ export type {
   ProcessedWebhookEventDoc,
   ProcessedWebhookEventRow,
 } from './ProcessedWebhookEvent.js';
+export { Message } from './Message.js';
+export type { MessageDoc, MessageRow } from './Message.js';

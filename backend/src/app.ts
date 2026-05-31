@@ -27,6 +27,7 @@ import { adminRouter } from './modules/admin/routes.js';
 import { stripeWebhookBodyParser, stripeWebhookHandler } from './modules/billing/webhook.js';
 import { integrationsRouter } from './modules/integrations/routes.js';
 import { listenTogetherRouter } from './modules/listen-together/routes.js';
+import { messagesRouter } from './modules/messages/routes.js';
 
 /**
  * Builds the Express app. Boot logic (port binding, Socket.IO attach) lives
@@ -87,6 +88,7 @@ export function createApp(): Express {
   app.use('/integrations', integrationsRouter);
   app.use('/listen-together', listenTogetherRouter);
   app.use('/admin', adminRouter);
+  app.use('/', messagesRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
