@@ -10,7 +10,7 @@ import type { WhiteboardIdentity, WhiteboardSummary } from '@/types/whiteboard';
 
 import { AppShellLayout } from '@/components/app-shell/AppShellLayout';
 import { AppTitleBar } from '@/components/app-shell/AppTitleBar';
-import { ServerRail } from '@/components/app-shell/ServerRail';
+import { ServerRail } from '@/components/server/ServerRail';
 import { GlobalUserPanel } from '@/components/app-shell/GlobalUserPanel';
 import { ActiveNowPanel } from '@/components/app-shell/friends/ActiveNowPanel';
 import { PaneHeader } from '@/components/ui/pane-header';

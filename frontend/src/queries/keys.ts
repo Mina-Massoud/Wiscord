@@ -147,4 +147,10 @@ export const qk = {
     root: ['music'] as const,
     search: (q: string) => ['music', 'search', q] as const,
   },
+
+  events: {
+    root: ['events'] as const,
+    byServer: (serverId: string) => ['events', 'server', serverId] as const,
+    byId: (eventId: string) => ['events', 'detail', eventId] as const,
+  },
 } as const;

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-
+import { Loader2 } from 'lucide-react';
 import { api, ApiError, queryClient } from '@/queries/client';
 import { qk } from '@/queries/keys';
 import type { Profile } from '@/types/auth';
@@ -19,17 +19,12 @@ export interface AuthProviderProps {
  * After this initial probe React Query owns the session state; the
  * `useSignOut` mutation writes `null` directly into the cache, and the next
  * sign-in writes the new profile.
- *
- * There is no `onAuthStateChange` listener any more — auth lifecycle is now
- * a single HTTP round-trip per page load. Cross-tab sign-out is handled by
- * the cookie itself (a different tab can't see a session it doesn't have).
  */
 export function AuthProvider({ children }: AuthProviderProps): React.JSX.Element {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-
     void (async () => {
       try {
         const me = await api<Profile>('/auth/me');
@@ -49,13 +44,21 @@ export function AuthProvider({ children }: AuthProviderProps): React.JSX.Element
         if (!cancelled) setReady(true);
       }
     })();
-
     return () => {
       cancelled = true;
     };
   }, []);
 
-  if (!ready) return <></>;
+  // Show a centered spinner while the /auth/me probe is in flight instead
+  // of a blank screen. This is the only loading state users see on every
+  // cold page load — keeping it minimal and fast-feeling matters.
+  if (!ready) {
+    return (
+      <div className="bg-canvas flex min-h-screen items-center justify-center">
+        <Loader2 className="text-blurple size-8 animate-spin" aria-hidden />
+      </div>
+    );
+  }
 
   return <>{children}</>;
 }

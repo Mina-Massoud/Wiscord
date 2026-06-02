@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import { consumePendingServerJoin } from '@/lib/pending-server-join';
 import { useUpdateProfile, useUsernameAvailable } from '@/queries/profile';
 import type { ProfileError } from '@/types/auth';
 import { OnboardingProgress } from './OnboardingProgress';
@@ -79,7 +80,8 @@ export default function ProfileStep(): React.JSX.Element {
         // workspace step so reload-mid-flow doesn't strand the user.
         onboarded_at: new Date().toISOString(),
       });
-      void navigate('/app');
+      const pendingServerId = consumePendingServerJoin();
+      void navigate(pendingServerId ? `/app/servers/${pendingServerId}` : '/app');
     } catch (err: unknown) {
       const profileErr = err as ProfileError;
       if (profileErr?.code === 'username_taken') {

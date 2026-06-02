@@ -38,14 +38,14 @@ export function useSession(): UseQueryResult<Profile | null> {
 export function useSendMagicLink(): UseMutationResult<
   { sent: true },
   AuthError,
-  { email: string }
+  { email: string; redirectTo?: string }
 > {
-  return useMutation<{ sent: true }, AuthError, { email: string }>({
-    mutationFn: async ({ email }) => {
+  return useMutation<{ sent: true }, AuthError, { email: string; redirectTo?: string }>({
+    mutationFn: async ({ email, redirectTo }) => {
       try {
         const res = await api<{ sent: true }>('/auth/magic-link', {
           method: 'POST',
-          body: { email, redirectTo: '/' },
+          body: { email, redirectTo: redirectTo ?? '/' },
         });
         return res;
       } catch (err) {

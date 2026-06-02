@@ -1,7 +1,7 @@
 /**
- * Hard-coded fake data for the static post-login app shell.
- * Single source of truth — no imports of React, queries, or I/O.
- * Replace with real backend wiring once the channels/messages endpoints land.
+ * Hard-coded fake data for demo surfaces (recent rooms, channels, messages).
+ * Server list + create flow use GET/POST /servers — see `queries/servers.ts`.
+ * No imports of React, queries, or I/O.
  *
  * Cast and server set are tuned to Wiscord's v1 study objective
  * (synchronized Pomodoro, room-scoped AI, focus sessions) — see

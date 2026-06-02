@@ -27,6 +27,13 @@ import {
   type ListenTogetherPlaybackEvent,
   type ListenTogetherSessionEndedEvent,
 } from '../listen-together/sessionStore.js';
+import {
+  serverEventBus,
+  type ServerEventCreatedEvent,
+  type ServerEventUpdatedEvent,
+  type ServerEventDeletedEvent,
+  type ServerEventRsvpChangedEvent,
+} from '../events/service.js';
 
 interface SessionSocketData {
   userId?: string;
@@ -81,6 +88,14 @@ export interface ServerToClientEvents {
   'listen_together:session_ended': (event: ListenTogetherSessionEndedEvent) => void;
   /** Host playback command — play/pause/seek/track_changed. Viewers only. */
   'listen_together:playback': (event: ListenTogetherPlaybackEvent) => void;
+  /** A new server event was created — update the events list. */
+  'server_event:created': (event: ServerEventCreatedEvent) => void;
+  /** A server event was edited — patch it in the list and detail caches. */
+  'server_event:updated': (event: ServerEventUpdatedEvent) => void;
+  /** A server event was deleted — remove it from the list cache. */
+  'server_event:deleted': (event: ServerEventDeletedEvent) => void;
+  /** RSVP counts changed on an event — update counts in list + detail caches. */
+  'server_event:rsvp_changed': (event: ServerEventRsvpChangedEvent) => void;
 }
 
 interface ClientToServerEvents {
@@ -107,6 +122,9 @@ interface ClientToServerEvents {
    */
   'voice:subscribe_activity': (channelId: string, ack: (ok: boolean) => void) => void;
   'voice:unsubscribe_activity': (channelId: string) => void;
+  /** Subscribe to realtime event updates for a server's events page. */
+  'server_events:subscribe': (serverId: string, ack: (ok: boolean) => void) => void;
+  'server_events:unsubscribe': (serverId: string) => void;
 }
 
 type WiscordIoServer = IoServer<
@@ -237,6 +255,20 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
       void socket.leave(`channel:${channelId}:activity`);
     });
 
+    socket.on('server_events:subscribe', async (serverId, ack) => {
+      if (typeof serverId !== 'string' || !/^[a-f0-9]{24}$/i.test(serverId)) {
+        ack(false);
+        return;
+      }
+      await socket.join(`server:${serverId}:events`);
+      ack(true);
+    });
+
+    socket.on('server_events:unsubscribe', (serverId) => {
+      if (typeof serverId !== 'string') return;
+      void socket.leave(`server:${serverId}:events`);
+    });
+
     socket.on('disconnect', (reason) => {
       logger.info({ userId, sid: socket.id, reason }, 'realtime: client disconnected');
       // Only tear down listen-together state when *all* of the user's
@@ -313,6 +345,21 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
       io?.to(`user:${event.toUserId}`).emit('listen_together:playback', event);
     },
   );
+
+  // Bridge the server events bus. All members of the server who have
+  // subscribed via `server_events:subscribe` sit in `server:<id>:events`.
+  serverEventBus.on('created', (event: ServerEventCreatedEvent) => {
+    io?.to(`server:${event.serverId}:events`).emit('server_event:created', event);
+  });
+  serverEventBus.on('updated', (event: ServerEventUpdatedEvent) => {
+    io?.to(`server:${event.serverId}:events`).emit('server_event:updated', event);
+  });
+  serverEventBus.on('deleted', (event: ServerEventDeletedEvent) => {
+    io?.to(`server:${event.serverId}:events`).emit('server_event:deleted', event);
+  });
+  serverEventBus.on('rsvp_changed', (event: ServerEventRsvpChangedEvent) => {
+    io?.to(`server:${event.serverId}:events`).emit('server_event:rsvp_changed', event);
+  });
 
   logger.info('realtime: socket.io gateway started');
   return io;

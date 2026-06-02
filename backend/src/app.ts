@@ -27,6 +27,9 @@ import { adminRouter } from './modules/admin/routes.js';
 import { stripeWebhookBodyParser, stripeWebhookHandler } from './modules/billing/webhook.js';
 import { integrationsRouter } from './modules/integrations/routes.js';
 import { listenTogetherRouter } from './modules/listen-together/routes.js';
+import { serversRouter } from './modules/servers/routes.js';
+import { invitesRouter } from './modules/invites/routes.js';
+import { eventsRouter } from './modules/events/routes.js';
 
 /**
  * Builds the Express app. Boot logic (port binding, Socket.IO attach) lives
@@ -72,6 +75,9 @@ export function createApp(): Express {
   app.use(health);
 
   app.use('/auth', authRouter);
+  app.use('/servers', serversRouter);
+  app.use('/invites', invitesRouter);
+  app.use(eventsRouter);
   app.use('/ai', aiRouter);
   app.use('/voice', voiceRouter);
   app.use('/quiz', quizRouter);

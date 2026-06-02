@@ -2,30 +2,21 @@ import { Link } from 'react-router';
 import { cn } from '@/lib/cn';
 import { MediaImg } from '@/components/ui/media-img';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { PillIndicator } from './atoms/PillIndicator';
-import { UnreadBadge } from './atoms/UnreadBadge';
+import { PillIndicator } from '@/components/app-shell/atoms/PillIndicator';
+import { UnreadBadge } from '@/components/app-shell/atoms/UnreadBadge';
 
 interface ServerRailIconProps {
   to: string;
   label: string;
-  /** When true, renders the active pill and squircle shape. */
   isActive: boolean;
   hasUnread?: boolean;
   unreadCount?: number;
-  /** Avatar image data URL (identicon) or null to render initials. */
   avatarSrc?: string | null;
-  /** Two-char fallback when no avatar. */
   initials?: string;
-  /** Override class on the rounded button — used by the Home button. */
   tileClassName?: string;
   children?: React.ReactNode;
 }
 
-/**
- * Single icon in the 72px-wide server rail.
- * Morphs from full circle (idle) → squircle (hover/active).
- * Active state also paints a tall white pill at the rail's left edge.
- */
 export function ServerRailIcon({
   to,
   label,
