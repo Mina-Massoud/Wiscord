@@ -48,10 +48,13 @@ export function ServerSettingsDropdown({
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="start" className="w-56">
-                <DropdownMenuItem onClick={onInvite} className="gap-2">
-                    <UserPlus className="size-4" aria-hidden />
-                    Invite people
-                </DropdownMenuItem>
+                {/* Invites are owner-managed — only the owner can generate links. */}
+                {isOwner && (
+                    <DropdownMenuItem onClick={onInvite} className="gap-2">
+                        <UserPlus className="size-4" aria-hidden />
+                        Invite people
+                    </DropdownMenuItem>
+                )}
 
                 {isOwner && (
                     <DropdownMenuItem onClick={onEditSettings} className="gap-2">
@@ -60,7 +63,7 @@ export function ServerSettingsDropdown({
                     </DropdownMenuItem>
                 )}
 
-                <DropdownMenuSeparator />
+                {isOwner && <DropdownMenuSeparator />}
 
                 {isOwner ? (
                     <DropdownMenuItem

@@ -101,7 +101,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
     // Free caps are tight by design: enough to get a feel for the
     // product, far below cost-per-user economics. See the prior
     // audit's cost analysis for the math.
-    quotas: { message: 100, url_note: 1 },
+    quotas: { message: 2, url_note: 1 },
     bullets: ['gemini-2.0-flash for chat', 'short URL notes'],
     models: { strong: null },
   },

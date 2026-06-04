@@ -5,7 +5,7 @@ import { ChatMessageMarkdown } from './ChatMessageMarkdown';
 import { ChatReactions } from './ChatReactions';
 import { useAuth } from '@/hooks/useAuth';
 import { useDeleteMessage, useEditMessage } from '@/queries/messages';
-import type { MessageDto } from '@/types/message';
+import type { MessageAuthor, MessageDto } from '@/types/message';
 import { MoreHorizontal, Pencil, Trash } from 'lucide-react';
 import {
   DropdownMenu,
@@ -38,21 +38,26 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
     setIsEditing(false);
   };
 
-  const rawAuthorId = message.authorId as unknown as any;
-  const backendAuthor = rawAuthorId && typeof rawAuthorId === 'object' ? rawAuthorId : null;
-  const isOptimistic = typeof message.authorId === 'string' && message.authorId === 'optimistic';
+  // The API now returns a unified shape (toMessageDto): `authorId` is always a
+  // string and the author rides on `message.author`. Optimistic messages we
+  // create locally carry no author, so fall back to the signed-in user.
+  const isOptimistic = message.authorId === 'optimistic';
 
-  const author = message.author || backendAuthor || (isOptimistic && user ? {
-    id: user.id,
-    username: user.username,
-    displayName: user.display_name,
-    avatarUrl: user.avatar_url,
-  } : null) || {
-    id: typeof rawAuthorId === 'string' ? rawAuthorId : rawAuthorId?.id || 'unknown',
-    username: 'Unknown',
-    displayName: null,
-    avatarUrl: null,
-  };
+  const author: MessageAuthor =
+    message.author ||
+    (isOptimistic && user
+      ? {
+          id: user.id,
+          username: user.username,
+          displayName: user.display_name,
+          avatarUrl: user.avatar_url,
+        }
+      : null) || {
+      id: message.authorId,
+      username: 'Unknown',
+      displayName: null,
+      avatarUrl: null,
+    };
 
   const displayName = author.displayName || author.username;
   const avatarInitials = displayName.substring(0, 2).toUpperCase();

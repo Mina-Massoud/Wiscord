@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-query';
 import { api } from './client';
 import { qk } from './keys';
+import { toast } from '@/lib/toast';
 import type { MessageDto } from '@/types/message';
 
 // ── Queries ─────────────────────────────────────────────────────────────────
@@ -96,6 +97,7 @@ export function useSendMessage() {
           context.previousMessages,
         );
       }
+      toast.error("Couldn't send your message. Try again?");
     },
     onSettled: (_data, _err, variables) => {
       queryClient.invalidateQueries({ queryKey: qk.messages.byChannel(variables.channelId) });
@@ -103,6 +105,11 @@ export function useSendMessage() {
   });
 }
 
+// Edit/delete/reaction success updates arrive via the channel socket
+// (useChannelSocket patches the cache), so the socket stays the single source
+// of truth and we don't double-write here. What was missing is failure
+// feedback: without it, a disconnected socket or a 5xx made these silently
+// no-op. Each mutation surfaces a friendly error toast on failure.
 export function useEditMessage() {
   return useMutation({
     mutationFn: async ({ messageId, content }: { messageId: string; content: string }) => {
@@ -111,14 +118,8 @@ export function useEditMessage() {
         body: { content },
       });
     },
-    onMutate: async () => {
-      // In a real app we'd find the channelId to cancel queries, but since we don't have it in the mutation args,
-      // we'll just let the backend event or invalidation handle it, or we could pass channelId.
-      // Let's pass channelId
-      return {};
-    },
-    onSettled: () => {
-      // We rely on socket events to update the UI
+    onError: () => {
+      toast.error("Couldn't save your edit. Try again?");
     },
   });
 }
@@ -129,6 +130,9 @@ export function useDeleteMessage() {
       return api<{ success: boolean }>(`/messages/${messageId}`, {
         method: 'DELETE',
       });
+    },
+    onError: () => {
+      toast.error("Couldn't delete that message. Try again?");
     },
   });
 }
@@ -141,15 +145,24 @@ export function useAddReaction() {
         body: { emoji },
       });
     },
+    onError: () => {
+      toast.error("Couldn't add your reaction. Try again?");
+    },
   });
 }
 
 export function useRemoveReaction() {
   return useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
-      return api<{ success: boolean }>(`/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`, {
-        method: 'DELETE',
-      });
+      return api<{ success: boolean }>(
+        `/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`,
+        {
+          method: 'DELETE',
+        },
+      );
+    },
+    onError: () => {
+      toast.error("Couldn't remove your reaction. Try again?");
     },
   });
 }

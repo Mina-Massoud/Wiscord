@@ -1,6 +1,9 @@
 import {
   Channel,
+  EventRsvp,
+  Invite,
   Server,
+  ServerEvent,
   ServerMember,
   type ChannelDoc,
   type ServerDoc,
@@ -74,7 +77,9 @@ export async function createServer(
   });
   const voiceChannel = await Channel.create({
     serverId: server._id,
-    name: 'Focus Room',
+    // Stored as a normalized slug so the seed obeys the same {serverId,name}
+    // uniqueness contract that createChannel/updateChannel enforce.
+    name: 'focus-room',
     type: 'voice',
     position: 1,
   });
@@ -194,8 +199,7 @@ export async function updateChannel(
   if (!channel) throw notFound('channel');
 
   if (body.name !== undefined) {
-    const slug = body.name.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-|-$/g, '');
-    if (slug.length < 2) throw badRequest('invalid_channel_name', 'Channel name needs at least 2 characters.');
+    const slug = normalizeChannelName(body.name);
     const conflict2 = await Channel.findOne({ serverId, name: slug, _id: { $ne: channelId } }).lean();
     if (conflict2) throw conflict('channel_name_taken', 'That channel name is already in use.');
     channel.name = slug;
@@ -238,10 +242,17 @@ export async function deleteServer(userId: string, serverId: string): Promise<vo
   if (!membership) throw notFound('server');
   if (membership.role !== 'owner') throw forbidden('Only the server owner can delete this server.');
 
+  // Collect event ids first so their RSVPs can be swept too.
+  const events = await ServerEvent.find({ serverId }).select('_id').lean();
+  const eventIds = events.map((e) => e._id);
+
   await Promise.all([
     server.deleteOne(),
     ServerMember.deleteMany({ serverId }),
     Channel.deleteMany({ serverId }),
+    Invite.deleteMany({ serverId }),
+    ServerEvent.deleteMany({ serverId }),
+    EventRsvp.deleteMany({ eventId: { $in: eventIds } }),
   ]);
 }
 

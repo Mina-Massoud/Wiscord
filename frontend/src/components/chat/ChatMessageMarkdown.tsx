@@ -1,7 +1,20 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import rehypeSanitize from 'rehype-sanitize';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+
+// Explicit sanitize schema so user-authored markdown can never smuggle a
+// `javascript:`/`data:` URL through a link or image. Pinning this (rather than
+// relying on the plugin default + ordering) keeps the contract testable and
+// stops a future refactor from silently reopening an XSS hole.
+const sanitizeSchema = {
+  ...defaultSchema,
+  protocols: {
+    ...defaultSchema.protocols,
+    href: ['http', 'https', 'mailto'],
+    src: ['http', 'https'],
+  },
+};
 
 interface ChatMessageMarkdownProps {
   content: string;
@@ -22,7 +35,7 @@ export function ChatMessageMarkdown({ content }: ChatMessageMarkdownProps) {
         return (
           <span
             key={index}
-            className="px-1 py-0.5 mx-0.5 rounded-md bg-blurple/20 text-blurple-foreground font-medium whitespace-nowrap"
+            className="bg-blurple/20 text-blurple-foreground mx-0.5 rounded-md px-1 py-0.5 font-medium whitespace-nowrap"
           >
             {part}
           </span>
@@ -33,10 +46,10 @@ export function ChatMessageMarkdown({ content }: ChatMessageMarkdownProps) {
   };
 
   return (
-    <div className="prose prose-sm dark:prose-invert max-w-none break-words leading-relaxed">
+    <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed break-words">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeSanitize]}
+        rehypePlugins={[[rehypeSanitize, sanitizeSchema]]}
         components={{
           p({ children }) {
             // Process text nodes to render mentions
@@ -54,7 +67,7 @@ export function ChatMessageMarkdown({ content }: ChatMessageMarkdownProps) {
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blurple hover:underline underline-offset-2"
+                className="text-blurple underline-offset-2 hover:underline"
               >
                 {children}
               </a>
@@ -66,7 +79,7 @@ export function ChatMessageMarkdown({ content }: ChatMessageMarkdownProps) {
             if (isInline) {
               return (
                 <code
-                  className="px-1.5 py-0.5 rounded-md bg-glass-surface-2 border border-glass-border font-mono text-xs"
+                  className="bg-glass-surface-2 border-glass-border rounded-md border px-1.5 py-0.5 font-mono text-xs"
                   {...props}
                 >
                   {children}
@@ -74,7 +87,7 @@ export function ChatMessageMarkdown({ content }: ChatMessageMarkdownProps) {
               );
             }
             return (
-              <pre className="p-3 my-2 rounded-lg bg-surface-2 border border-border overflow-x-auto text-xs">
+              <pre className="bg-surface-2 border-border my-2 overflow-x-auto rounded-lg border p-3 text-xs">
                 <code className={className} {...props}>
                   {children}
                 </code>
