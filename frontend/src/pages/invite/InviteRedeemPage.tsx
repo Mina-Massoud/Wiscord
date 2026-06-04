@@ -39,7 +39,7 @@ export default function InviteRedeemPage(): React.JSX.Element {
         logger.error('invite redeem failed', err);
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
   if (!code) {

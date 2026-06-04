@@ -15,7 +15,7 @@ import {
   type VoiceActivityChange,
 } from '../voice-activity/service.js';
 import { messageEvents } from '../messages/realtime-bridge.js';
-import type { MessageDoc } from '../../db/models/index.js';
+import type { MessageDto } from '../messages/schemas.js';
 import {
   friendEvents,
   type FriendRemovedEvent,
@@ -115,8 +115,8 @@ export interface ServerToClientEvents {
   'server_event:rsvp_changed': (event: ServerEventRsvpChangedEvent) => void;
 
   // Chat
-  'message:created': (message: MessageDoc) => void;
-  'message:updated': (message: MessageDoc) => void;
+  'message:created': (message: MessageDto) => void;
+  'message:updated': (message: MessageDto) => void;
   'message:deleted': (data: { messageId: string }) => void;
   'message:reaction_added': (data: { messageId: string; emoji: string; userId: string }) => void;
   'message:reaction_removed': (data: { messageId: string; emoji: string; userId: string }) => void;

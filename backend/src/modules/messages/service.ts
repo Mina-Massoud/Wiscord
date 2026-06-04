@@ -1,14 +1,9 @@
 import { Types } from 'mongoose';
 
-import {
-  Channel,
-  Message,
-  ServerMember,
-  User,
-  type MessageDoc,
-} from '../../db/models/index.js';
+import { Channel, Message, ServerMember, User } from '../../db/models/index.js';
 import { forbidden, notFound } from '../../lib/errors.js';
 import { messageEvents } from './realtime-bridge.js';
+import { toMessageDto, type MessageDto } from './schemas.js';
 
 /**
  * Authorization gate replacing Supabase RLS: the caller must be a member of the
@@ -37,7 +32,7 @@ export async function sendMessage(
   channelId: string,
   authorId: string,
   content: string,
-): Promise<MessageDoc> {
+): Promise<MessageDto> {
   await assertChannelMember(authorId, channelId);
 
   const mentions = await resolveMentions(content);
@@ -45,15 +40,16 @@ export async function sendMessage(
   await msg.save();
   await msg.populate('authorId', 'id username displayName avatarUrl');
 
-  messageEvents.emit('message:created', { channelId, message: msg });
-  return msg;
+  const dto = toMessageDto(msg);
+  messageEvents.emit('message:created', { channelId, message: dto });
+  return dto;
 }
 
 export async function getMessages(
   userId: string,
   channelId: string,
   options: { before?: string; limit: number },
-): Promise<{ messages: MessageDoc[]; hasMore: boolean }> {
+): Promise<{ messages: MessageDto[]; hasMore: boolean }> {
   await assertChannelMember(userId, channelId);
 
   const query: { channelId: string; deletedAt: null; createdAt?: { $lt: Date } } = {
@@ -75,14 +71,14 @@ export async function getMessages(
   const hasMore = messages.length > options.limit;
   if (hasMore) messages.pop();
 
-  return { messages, hasMore };
+  return { messages: messages.map(toMessageDto), hasMore };
 }
 
 export async function updateMessage(
   messageId: string,
   userId: string,
   content: string,
-): Promise<MessageDoc> {
+): Promise<MessageDto> {
   const msg = await Message.findById(messageId);
   if (!msg || msg.deletedAt) throw notFound('message');
 
@@ -96,8 +92,9 @@ export async function updateMessage(
   await msg.save();
   await msg.populate('authorId', 'id username displayName avatarUrl');
 
-  messageEvents.emit('message:updated', { channelId: msg.channelId, message: msg });
-  return msg;
+  const dto = toMessageDto(msg);
+  messageEvents.emit('message:updated', { channelId: msg.channelId, message: dto });
+  return dto;
 }
 
 export async function deleteMessage(messageId: string, userId: string): Promise<void> {

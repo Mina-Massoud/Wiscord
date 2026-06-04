@@ -3,6 +3,7 @@ import { Settings, Trash2, Copy, BellOff, Hash } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import * as DropdownMenuPrimitive from '@radix-ui/react-dropdown-menu';
 
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/cn';
 import type { ChannelDto } from '@/queries/channels';
 import { useDeleteChannel } from '@/queries/channels';
@@ -13,9 +14,9 @@ import { EditChannelDialog } from './EditChannelDialog';
 // ── Shared menu item style ────────────────────────────────────────────────────
 
 const itemCls =
-  'flex cursor-pointer select-none items-center gap-2.5 rounded-[4px] px-2.5 py-[7px] text-sm font-medium outline-none transition-colors';
-const normalItem = `${itemCls} text-[hsl(214,10%,78%)] data-[highlighted]:bg-blurple data-[highlighted]:text-white`;
-const dangerItem = `${itemCls} text-red-400 data-[highlighted]:bg-red-500 data-[highlighted]:text-white`;
+  'flex cursor-pointer select-none items-center gap-2.5 rounded-md px-2.5 py-1.5 text-tab font-medium outline-none transition-colors';
+const normalItem = `${itemCls} text-ink data-[highlighted]:bg-blurple data-[highlighted]:text-ink`;
+const dangerItem = `${itemCls} text-destructive data-[highlighted]:bg-destructive data-[highlighted]:text-ink`;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -115,18 +116,20 @@ export function ChannelRowContextMenu({
               hovered ? 'opacity-100' : 'opacity-0 pointer-events-none',
             )}
           >
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               aria-label={`Settings for ${channel.type === 'text' ? '#' : ''}${channel.name}`}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 setEditOpen(true);
               }}
-              className="flex size-6 items-center justify-center rounded-[4px] bg-[hsl(220,8%,18%)] text-[hsl(215,9%,60%)] hover:bg-[hsl(220,8%,28%)] hover:text-white transition-colors"
+              className="bg-surface-hover text-ink-muted hover:bg-surface-active hover:text-ink size-6"
             >
               <Settings className="size-3.5" aria-hidden />
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -146,7 +149,7 @@ export function ChannelRowContextMenu({
             sideOffset={0}
             onCloseAutoFocus={(e) => e.preventDefault()}
             style={{ position: 'fixed', top: menuPos.y, left: menuPos.x }}
-            className="z-[200] min-w-[220px] overflow-hidden rounded-[6px] border-none bg-[hsl(220,13%,12%)] p-1.5 shadow-2xl"
+            className="bg-surface-2 shadow-elevated z-50 min-w-56 overflow-hidden rounded-md border-none p-1.5"
           >
             {/* Owner actions */}
             {isOwner && (
@@ -159,7 +162,7 @@ export function ChannelRowContextMenu({
                   Edit Channel
                 </DropdownMenuPrimitive.Item>
 
-                <DropdownMenuPrimitive.Separator className="my-1 h-px bg-[hsl(220,10%,22%)]" />
+                <DropdownMenuPrimitive.Separator className="bg-border my-1 h-px" />
               </>
             )}
 
@@ -191,7 +194,7 @@ export function ChannelRowContextMenu({
             {/* Danger — owner only */}
             {isOwner && (
               <>
-                <DropdownMenuPrimitive.Separator className="my-1 h-px bg-[hsl(220,10%,22%)]" />
+                <DropdownMenuPrimitive.Separator className="bg-border my-1 h-px" />
                 <DropdownMenuPrimitive.Item
                   className={dangerItem}
                   onSelect={handleDelete}

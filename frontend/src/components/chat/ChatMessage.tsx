@@ -38,21 +38,13 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
     setIsEditing(false);
   };
 
-  // The API sometimes returns `authorId` populated as an object and sometimes as
-  // a raw id string (plus a separate `author`). Narrow without `any` until the
-  // backend DTO is unified (toMessageDto follow-up).
-  const rawAuthorId: unknown = message.authorId;
-  const backendAuthor =
-    rawAuthorId && typeof rawAuthorId === 'object' ? (rawAuthorId as MessageAuthor) : null;
-  const authorIdString =
-    typeof rawAuthorId === 'string'
-      ? rawAuthorId
-      : ((rawAuthorId as { id?: string } | null)?.id ?? 'unknown');
-  const isOptimistic = authorIdString === 'optimistic';
+  // The API now returns a unified shape (toMessageDto): `authorId` is always a
+  // string and the author rides on `message.author`. Optimistic messages we
+  // create locally carry no author, so fall back to the signed-in user.
+  const isOptimistic = message.authorId === 'optimistic';
 
   const author: MessageAuthor =
     message.author ||
-    backendAuthor ||
     (isOptimistic && user
       ? {
           id: user.id,
@@ -61,7 +53,7 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
           avatarUrl: user.avatar_url,
         }
       : null) || {
-      id: authorIdString,
+      id: message.authorId,
       username: 'Unknown',
       displayName: null,
       avatarUrl: null,

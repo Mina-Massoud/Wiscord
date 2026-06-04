@@ -154,9 +154,12 @@ export function useAddReaction() {
 export function useRemoveReaction() {
   return useMutation({
     mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
-      return api<{ success: boolean }>(`/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`, {
-        method: 'DELETE',
-      });
+      return api<{ success: boolean }>(
+        `/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`,
+        {
+          method: 'DELETE',
+        },
+      );
     },
     onError: () => {
       toast.error("Couldn't remove your reaction. Try again?");
