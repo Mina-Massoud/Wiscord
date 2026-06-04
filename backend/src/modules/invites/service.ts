@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 
 import { Invite, ServerMember, type InviteDoc } from '../../db/models/index.js';
-import { badRequest, notFound } from '../../lib/errors.js';
+import { badRequest, forbidden, notFound } from '../../lib/errors.js';
 import type { CreateInviteBody, InviteDto } from './schemas.js';
 
 const INVITE_ALPHABET = 'abcdefghijklmnopqrstuvwxyz23456789';
@@ -67,10 +67,17 @@ export async function createDefaultInviteForServer(
   return toInviteDto(doc);
 }
 
-async function assertServerMember(userId: string, serverId: string): Promise<void> {
+/**
+ * Invites are owner-managed: only the server owner may view, list, or create
+ * them. Membership alone is not enough (regular members can't generate links).
+ */
+async function assertServerOwner(userId: string, serverId: string): Promise<void> {
   const membership = await ServerMember.findOne({ serverId, userId }).lean();
   if (!membership) {
     throw notFound('server');
+  }
+  if (membership.role !== 'owner') {
+    throw forbidden('Only the server owner can manage invites.');
   }
 }
 
@@ -81,7 +88,7 @@ export async function getDefaultInviteForServer(
   userId: string,
   serverId: string,
 ): Promise<InviteDto> {
-  await assertServerMember(userId, serverId);
+  await assertServerOwner(userId, serverId);
 
   let invite = await Invite.findOne({ serverId, isDefault: true }).exec();
   if (!invite) {
@@ -98,7 +105,7 @@ export async function createInviteForServer(
   serverId: string,
   body: CreateInviteBody,
 ): Promise<InviteDto> {
-  await assertServerMember(userId, serverId);
+  await assertServerOwner(userId, serverId);
   const doc = await createInviteWithRetry(serverId, userId, {
     isDefault: false,
     maxUses: body.maxUses ?? null,
@@ -107,7 +114,7 @@ export async function createInviteForServer(
 }
 
 export async function listInvitesForServer(userId: string, serverId: string): Promise<InviteDto[]> {
-  await assertServerMember(userId, serverId);
+  await assertServerOwner(userId, serverId);
   const invites = await Invite.find({ serverId }).sort({ createdAt: -1 }).exec();
   return invites.map((doc) => toInviteDto(doc));
 }
