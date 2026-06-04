@@ -24,7 +24,8 @@ const OnboardingLayout = lazy(() => import('@/pages/onboarding/OnboardingLayout'
 const RoleStep = lazy(() => import('@/pages/onboarding/RoleStep'));
 const VibeStep = lazy(() => import('@/pages/onboarding/VibeStep'));
 const ProfileStep = lazy(() => import('@/pages/onboarding/ProfileStep'));
-const AppShellPlaceholder = lazy(() => import('@/pages/app/AppShellPlaceholder'));
+const ServerWorkspacePage = lazy(() => import('@/pages/app/ServerWorkspacePage'));
+const InviteRedeemPage = lazy(() => import('@/pages/invite/InviteRedeemPage'));
 const FriendsPage = lazy(() => import('@/pages/app/FriendsPage'));
 const VoiceLabPage = lazy(() => import('@/pages/app/labs/VoiceLabPage'));
 const QuizLabPage = lazy(() => import('@/pages/app/labs/QuizLabPage'));
@@ -85,6 +86,7 @@ export default function App(): React.JSX.Element {
 
           {/* Onboarding (auth required; onboarding not yet required) */}
           <Route element={<RequireAuth />}>
+            <Route path="/invite/:code" element={<InviteRedeemPage />} />
             <Route path="/onboarding" element={<OnboardingLayout />}>
               {/* Bare `/onboarding` is forwarded to the first incomplete
                   step by OnboardingLayout. The three steps below render
@@ -99,10 +101,14 @@ export default function App(): React.JSX.Element {
           <Route element={<RequireAuth />}>
             <Route element={<RequireOnboarding />}>
               <Route path="/app" element={<FriendsPage />} />
-              <Route path="/app/servers/:serverId" element={<AppShellPlaceholder />} />
+              <Route path="/app/servers/:serverId" element={<ServerWorkspacePage />} />
               <Route
                 path="/app/servers/:serverId/channels/:channelId"
-                element={<AppShellPlaceholder />}
+                element={<ServerWorkspacePage />}
+              />
+              <Route
+                path="/app/servers/:serverId/events"
+                element={<ServerWorkspacePage />}
               />
               {/* Dev-only feature sandboxes — stripped from prod builds */}
               {import.meta.env.DEV && (

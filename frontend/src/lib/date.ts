@@ -47,3 +47,15 @@ export function formatRelative(iso: string, anchor: Date = new Date()): string {
 
   return relativeFormatter.format(Math.round(diffMs / 1000), 'second');
 }
+
+const messageTimeFormatter =
+  typeof Intl !== 'undefined'
+    ? new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
+    : null;
+
+/** Short local time for chat bubbles (e.g. "3:42 PM"). */
+export function formatMessageTime(iso: string): string {
+  const target = new Date(iso);
+  if (Number.isNaN(target.getTime())) return '';
+  return messageTimeFormatter?.format(target) ?? target.toISOString();
+}

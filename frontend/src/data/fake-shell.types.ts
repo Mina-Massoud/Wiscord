@@ -42,6 +42,8 @@ export interface FakeServer {
   name: string;
   /** Seed for getIdenticonDataUrl — usually equals id. */
   iconSeed: string;
+  /** User-uploaded icon (data URL or media URL). Falls back to identicon when unset. */
+  iconUrl?: string;
   hasUnread?: boolean;
   /** When set, renders as a red badge over the icon. */
   unreadCount?: number;

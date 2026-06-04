@@ -1,0 +1,146 @@
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+  type UseQueryResult,
+} from '@tanstack/react-query';
+
+import { api, type ApiError } from '@/queries/client';
+import type { ChannelDto } from '@/queries/channels';
+import { qk } from '@/queries/keys';
+
+export interface ServerDto {
+  id: string;
+  name: string;
+  iconUrl: string | null;
+  ownerId: string;
+  createdAt: string;
+}
+
+interface ServersEnvelope {
+  servers: ServerDto[];
+}
+
+interface ServerEnvelope {
+  server: ServerDto;
+}
+
+export interface CreateServerResult {
+  server: ServerDto;
+  channels: ChannelDto[];
+}
+
+export interface CreateServerInput {
+  name: string;
+  iconUrl?: string | null;
+}
+
+export interface UpdateServerInput {
+  serverId: string;
+  name?: string;
+  iconUrl?: string | null;
+}
+
+/** Servers the signed-in user belongs to (replaces demo `fakeServers` in the rail). */
+export function useMyServers(): UseQueryResult<ServerDto[]> {
+  return useQuery<ServerDto[]>({
+    queryKey: qk.servers.mine(),
+    queryFn: async () => {
+      const result = await api<ServersEnvelope>('/servers');
+      return result.servers;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useServer(serverId: string | undefined): UseQueryResult<ServerDto | null> {
+  return useQuery<ServerDto | null>({
+    queryKey: qk.servers.byId(serverId ?? ''),
+    queryFn: async () => {
+      const result = await api<ServerEnvelope>(`/servers/${serverId}`);
+      return result.server;
+    },
+    enabled: Boolean(serverId),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useCreateServer(): UseMutationResult<CreateServerResult, ApiError, CreateServerInput> {
+  const queryClient = useQueryClient();
+  return useMutation<CreateServerResult, ApiError, CreateServerInput>({
+    mutationFn: async (input) => {
+      return api<CreateServerResult>('/servers', {
+        method: 'POST',
+        body: {
+          name: input.name,
+          iconUrl: input.iconUrl ?? null,
+        },
+      });
+    },
+    onSuccess: (result) => {
+      queryClient.setQueryData(qk.channels.byServer(result.server.id), result.channels);
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: qk.servers.root });
+    },
+  });
+}
+
+export function useUpdateServer(): UseMutationResult<ServerDto, ApiError, UpdateServerInput> {
+  const queryClient = useQueryClient();
+  return useMutation<ServerDto, ApiError, UpdateServerInput>({
+    mutationFn: async ({ serverId, ...patch }) => {
+      const result = await api<ServerEnvelope>(`/servers/${serverId}`, {
+        method: 'PATCH',
+        body: patch,
+      });
+      return result.server;
+    },
+    onSuccess: (server) => {
+      // Update the individual server cache
+      queryClient.setQueryData(qk.servers.byId(server.id), server);
+      // Update within the list cache without a full refetch
+      queryClient.setQueryData<ServerDto[]>(qk.servers.mine(), (old) =>
+        old ? old.map((s) => (s.id === server.id ? server : s)) : old,
+      );
+    },
+  });
+
+}
+
+export function useDeleteServer(): UseMutationResult<void, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation<void, ApiError, string>({
+    mutationFn: async (serverId) => {
+      await api(`/servers/${serverId}`, { method: 'DELETE' });
+    },
+    onSuccess: (_, serverId) => {
+      queryClient.setQueryData<ServerDto[]>(qk.servers.mine(), (prev) =>
+        (prev ?? []).filter((s) => s.id !== serverId),
+      );
+      queryClient.removeQueries({ queryKey: qk.servers.byId(serverId) });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: qk.servers.root });
+    },
+  });
+}
+
+export function useLeaveServer(): UseMutationResult<void, ApiError, string> {
+  const queryClient = useQueryClient();
+  return useMutation<void, ApiError, string>({
+    mutationFn: async (serverId) => {
+      await api(`/servers/${serverId}?action=leave`, { method: 'DELETE' });
+    },
+    onSuccess: (_, serverId) => {
+      queryClient.setQueryData<ServerDto[]>(qk.servers.mine(), (prev) =>
+        (prev ?? []).filter((s) => s.id !== serverId),
+      );
+      queryClient.removeQueries({ queryKey: qk.servers.byId(serverId) });
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: qk.servers.root });
+    },
+  });
+}

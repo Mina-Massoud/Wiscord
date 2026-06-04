@@ -1,6 +1,14 @@
 // Barrel: import { User, MagicLinkToken } from '@/db/models'
 export { User } from './User.js';
 export type { UserDoc, UserRow } from './User.js';
+export { Server } from './Server.js';
+export type { ServerDoc, ServerRow } from './Server.js';
+export { ServerMember, SERVER_MEMBER_ROLES } from './ServerMember.js';
+export type { ServerMemberDoc, ServerMemberRow, ServerMemberRole } from './ServerMember.js';
+export { Channel, CHANNEL_TYPES } from './Channel.js';
+export type { ChannelDoc, ChannelRow, ChannelType } from './Channel.js';
+export { Invite } from './Invite.js';
+export type { InviteDoc, InviteRow } from './Invite.js';
 export { MagicLinkToken } from './MagicLinkToken.js';
 export type { MagicLinkTokenDoc, MagicLinkTokenRow } from './MagicLinkToken.js';
 export { FriendRequest, FRIEND_REQUEST_STATUSES } from './FriendRequest.js';
@@ -85,3 +93,12 @@ export type {
   ProcessedWebhookEventDoc,
   ProcessedWebhookEventRow,
 } from './ProcessedWebhookEvent.js';
+export { ServerEvent, SERVER_EVENT_TYPES, SERVER_EVENT_STATUSES } from './ServerEvent.js';
+export type {
+  ServerEventDoc,
+  ServerEventRow,
+  ServerEventType,
+  ServerEventStatus,
+} from './ServerEvent.js';
+export { EventRsvp, RSVP_STATUSES } from './EventRsvp.js';
+export type { EventRsvpDoc, EventRsvpRow, RsvpStatus } from './EventRsvp.js';

@@ -1,4 +1,4 @@
-export function HomeGlyph(): React.JSX.Element {
+export function ServerRailHomeGlyph(): React.JSX.Element {
   return (
     <img
       src="/logo/logo-white-bot-face.webp"

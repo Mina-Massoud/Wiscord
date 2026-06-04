@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from 'react-router';
+import { Navigate, Outlet, useLocation } from 'react-router';
 
 import { useAuth } from '@/hooks/useAuth';
 import { AuthLoader } from './RequireAuthAuthLoader';
@@ -9,9 +9,13 @@ import { AuthLoader } from './RequireAuthAuthLoader';
  */
 export default function RequireAuth(): React.JSX.Element {
   const { session, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) return <AuthLoader />;
-  if (session === null) return <Navigate to="/sign-in" replace />;
+  if (session === null) {
+    const next = `${location.pathname}${location.search}`;
+    return <Navigate to={`/sign-in?next=${encodeURIComponent(next)}`} replace />;
+  }
 
   return <Outlet />;
 }

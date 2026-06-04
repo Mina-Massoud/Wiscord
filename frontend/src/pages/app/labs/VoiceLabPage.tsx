@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 
 import { AppShellLayout } from '@/components/app-shell/AppShellLayout';
 import { AppTitleBar } from '@/components/app-shell/AppTitleBar';
-import { ServerRail } from '@/components/app-shell/ServerRail';
+import { ServerRail } from '@/components/server/ServerRail';
 import { ActiveNowPanel } from '@/components/app-shell/friends/ActiveNowPanel';
 
 import { LabsChannelSidebar } from '@/components/voice/LabsChannelSidebar';

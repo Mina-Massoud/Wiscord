@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,8 +25,15 @@ const signInSchema = z.object({
 
 type SignInValues = z.infer<typeof signInSchema>;
 
+function safeRedirectPath(next: string | null): string {
+  if (!next || !next.startsWith('/') || next.startsWith('//')) return '/';
+  return next;
+}
+
 export default function SignInPage(): React.JSX.Element {
   const [sentTo, setSentTo] = useState<string | null>(null);
+  const [params] = useSearchParams();
+  const redirectTo = safeRedirectPath(params.get('next'));
 
   const mutation = useSendMagicLink();
 
@@ -36,7 +44,7 @@ export default function SignInPage(): React.JSX.Element {
 
   async function onSubmit(values: SignInValues): Promise<void> {
     try {
-      await mutation.mutateAsync({ email: values.email });
+      await mutation.mutateAsync({ email: values.email, redirectTo });
       setSentTo(values.email);
     } catch (err: unknown) {
       const message =
