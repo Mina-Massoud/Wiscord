@@ -5,7 +5,7 @@ import { ChatMessageMarkdown } from './ChatMessageMarkdown';
 import { ChatReactions } from './ChatReactions';
 import { useAuth } from '@/hooks/useAuth';
 import { useDeleteMessage, useEditMessage } from '@/queries/messages';
-import type { MessageDto } from '@/types/message';
+import type { MessageAuthor, MessageDto } from '@/types/message';
 import { MoreHorizontal, Pencil, Trash } from 'lucide-react';
 import {
   DropdownMenu,
@@ -38,21 +38,34 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
     setIsEditing(false);
   };
 
-  const rawAuthorId = message.authorId as unknown as any;
-  const backendAuthor = rawAuthorId && typeof rawAuthorId === 'object' ? rawAuthorId : null;
-  const isOptimistic = typeof message.authorId === 'string' && message.authorId === 'optimistic';
+  // The API sometimes returns `authorId` populated as an object and sometimes as
+  // a raw id string (plus a separate `author`). Narrow without `any` until the
+  // backend DTO is unified (toMessageDto follow-up).
+  const rawAuthorId: unknown = message.authorId;
+  const backendAuthor =
+    rawAuthorId && typeof rawAuthorId === 'object' ? (rawAuthorId as MessageAuthor) : null;
+  const authorIdString =
+    typeof rawAuthorId === 'string'
+      ? rawAuthorId
+      : ((rawAuthorId as { id?: string } | null)?.id ?? 'unknown');
+  const isOptimistic = authorIdString === 'optimistic';
 
-  const author = message.author || backendAuthor || (isOptimistic && user ? {
-    id: user.id,
-    username: user.username,
-    displayName: user.display_name,
-    avatarUrl: user.avatar_url,
-  } : null) || {
-    id: typeof rawAuthorId === 'string' ? rawAuthorId : rawAuthorId?.id || 'unknown',
-    username: 'Unknown',
-    displayName: null,
-    avatarUrl: null,
-  };
+  const author: MessageAuthor =
+    message.author ||
+    backendAuthor ||
+    (isOptimistic && user
+      ? {
+          id: user.id,
+          username: user.username,
+          displayName: user.display_name,
+          avatarUrl: user.avatar_url,
+        }
+      : null) || {
+      id: authorIdString,
+      username: 'Unknown',
+      displayName: null,
+      avatarUrl: null,
+    };
 
   const displayName = author.displayName || author.username;
   const avatarInitials = displayName.substring(0, 2).toUpperCase();

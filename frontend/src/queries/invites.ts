@@ -91,16 +91,13 @@ export function useRedeemInvite(): UseMutationResult<
       return { serverId: result.serverId };
     },
     onSuccess: async ({ serverId }) => {
-  console.log('[redeem] onSuccess fired', serverId);
-  const [server, channels] = await Promise.all([
-    api<{ server: unknown }>(`/servers/${serverId}`).then((r) => { console.log('[redeem] server fetched', r); return r.server; }),
-    api<{ channels: unknown[] }>(`/servers/${serverId}/channels`).then((r) => { console.log('[redeem] channels fetched', r); return r.channels; }),
-  ]);
-  console.log('[redeem] setting cache', { server, channels });
-  queryClient.setQueryData(qk.servers.byId(serverId), server);
-  queryClient.setQueryData(qk.channels.byServer(serverId), channels);
-  void queryClient.invalidateQueries({ queryKey: qk.servers.root });
-  console.log('[redeem] done');
-},
+      const [server, channels] = await Promise.all([
+        api<{ server: unknown }>(`/servers/${serverId}`).then((r) => r.server),
+        api<{ channels: unknown[] }>(`/servers/${serverId}/channels`).then((r) => r.channels),
+      ]);
+      queryClient.setQueryData(qk.servers.byId(serverId), server);
+      queryClient.setQueryData(qk.channels.byServer(serverId), channels);
+      void queryClient.invalidateQueries({ queryKey: qk.servers.root });
+    },
   });
 }

@@ -1,7 +1,20 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import rehypeSanitize from 'rehype-sanitize';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+
+// Explicit sanitize schema so user-authored markdown can never smuggle a
+// `javascript:`/`data:` URL through a link or image. Pinning this (rather than
+// relying on the plugin default + ordering) keeps the contract testable and
+// stops a future refactor from silently reopening an XSS hole.
+const sanitizeSchema = {
+  ...defaultSchema,
+  protocols: {
+    ...defaultSchema.protocols,
+    href: ['http', 'https', 'mailto'],
+    src: ['http', 'https'],
+  },
+};
 
 interface ChatMessageMarkdownProps {
   content: string;
@@ -36,7 +49,7 @@ export function ChatMessageMarkdown({ content }: ChatMessageMarkdownProps) {
     <div className="prose prose-sm dark:prose-invert max-w-none break-words leading-relaxed">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeSanitize]}
+        rehypePlugins={[[rehypeSanitize, sanitizeSchema]]}
         components={{
           p({ children }) {
             // Process text nodes to render mentions

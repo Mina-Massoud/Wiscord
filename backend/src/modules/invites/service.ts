@@ -130,16 +130,53 @@ export async function redeemInvite(userId: string, code: string): Promise<{ serv
     throw notFound('invite');
   }
 
-  assertInviteUsable(invite);
-
   const serverId = invite.serverId.toString();
+
+  // Already a member → idempotent no-op; never consumes a use.
   const existing = await ServerMember.findOne({ serverId: invite.serverId, userId }).lean();
   if (existing) {
     return { serverId };
   }
 
-  await ServerMember.create({ serverId: invite.serverId, userId, role: 'member' });
-  await Invite.updateOne({ _id: invite._id }, { $inc: { useCount: 1 } });
+  // Surface a precise error (expired vs. exhausted) for the common, non-racing case.
+  assertInviteUsable(invite);
+
+  // Atomically claim one use. The filter re-checks expiry + maxUses inside the same
+  // write, so two concurrent redemptions of a single-use invite can't both pass —
+  // this mirrors the magic-link single-use pattern in CLAUDE.md.
+  const now = new Date();
+  const claimed = await Invite.findOneAndUpdate(
+    {
+      _id: invite._id,
+      $and: [
+        { $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] },
+        { $or: [{ maxUses: null }, { $expr: { $lt: ['$useCount', '$maxUses'] } }] },
+      ],
+    },
+    { $inc: { useCount: 1 } },
+  ).exec();
+
+  if (!claimed) {
+    // Lost the race for the last remaining use.
+    throw badRequest('invite_exhausted', 'This invite has already been used.');
+  }
+
+  try {
+    await ServerMember.create({ serverId: invite.serverId, userId, role: 'member' });
+  } catch (err: unknown) {
+    // Give the use back — we claimed it but didn't actually add this member.
+    await Invite.updateOne({ _id: invite._id }, { $inc: { useCount: -1 } });
+    const isDup =
+      err !== null &&
+      typeof err === 'object' &&
+      'code' in err &&
+      (err as { code: number }).code === 11000;
+    if (isDup) {
+      // A concurrent redeem by the same user already joined them — treat as success.
+      return { serverId };
+    }
+    throw err;
+  }
 
   return { serverId };
 }

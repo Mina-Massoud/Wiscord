@@ -4,6 +4,7 @@ import { Navigate, useNavigate, useParams } from 'react-router';
 
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { logger } from '@/lib/logger';
 import { setPendingServerJoin } from '@/lib/pending-server-join';
 import { toast } from '@/lib/toast';
 import { ApiError } from '@/queries/client';
@@ -35,7 +36,7 @@ export default function InviteRedeemPage(): React.JSX.Element {
         void navigate(`/app/servers/${serverId}`, { replace: true });
       } catch (err) {
         // Error state is handled by redeem.isError in the JSX below.
-        console.error('[invite] redeem failed', err);
+        logger.error('invite redeem failed', err);
       }
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps

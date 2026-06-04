@@ -7,7 +7,7 @@ import { logger } from '../../lib/logger.js';
 import { SESSION_COOKIE } from '../../lib/cookies.js';
 import { verifySessionToken } from '../../lib/jwt.js';
 import { voicePresence, type VoiceStateChange } from '../voice/presence-store.js';
-import { Quiz } from '../../db/models/index.js';
+import { Channel, Quiz, ServerMember, User } from '../../db/models/index.js';
 import { quizAnalytics } from '../quiz/analytics-store.js';
 import type { QuizAnalyticsSnapshot } from '../quiz/analytics.js';
 import {
@@ -39,6 +39,21 @@ import {
 
 interface SessionSocketData {
   userId?: string;
+  username?: string;
+}
+
+const OBJECT_ID_RE = /^[a-f0-9]{24}$/i;
+
+/** True when the user is a member of the server. */
+async function isServerMember(userId: string, serverId: string): Promise<boolean> {
+  return (await ServerMember.findOne({ serverId, userId }).select('_id').lean()) !== null;
+}
+
+/** Resolves a channel id to its owning server id, or null if invalid/missing. */
+async function channelServerId(channelId: string): Promise<string | null> {
+  if (!OBJECT_ID_RE.test(channelId)) return null;
+  const channel = await Channel.findById(channelId).select('serverId').lean();
+  return channel ? channel.serverId.toString() : null;
 }
 
 /**
@@ -191,6 +206,10 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
       if (!token) return next(new Error('unauthenticated'));
       const claims = await verifySessionToken(token);
       socket.data.userId = claims.sub;
+      // Resolve the username once so typing broadcasts use the verified identity
+      // instead of a client-supplied (spoofable) value.
+      const user = await User.findById(claims.sub).select('username').lean();
+      socket.data.username = user?.username ?? 'Someone';
       next();
     } catch (err) {
       logger.warn({ err }, 'realtime: handshake auth failed');
@@ -272,7 +291,13 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
     });
 
     socket.on('server_events:subscribe', async (serverId, ack) => {
-      if (typeof serverId !== 'string' || !/^[a-f0-9]{24}$/i.test(serverId)) {
+      if (typeof serverId !== 'string' || !OBJECT_ID_RE.test(serverId)) {
+        ack(false);
+        return;
+      }
+      // Only members may subscribe — otherwise event details would leak to
+      // anyone who knows/guesses a server id.
+      if (!(await isServerMember(userId, serverId))) {
         ack(false);
         return;
       }
@@ -286,7 +311,11 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
     });
 
     socket.on('channel:join', async (channelId) => {
-      if (typeof channelId !== 'string' || !UUID_RE.test(channelId)) return;
+      if (typeof channelId !== 'string') return;
+      // Membership gate replacing RLS: only members of the channel's server
+      // may join the room and receive its live message stream.
+      const serverId = await channelServerId(channelId);
+      if (!serverId || !(await isServerMember(userId, serverId))) return;
       await socket.join(`channel:${channelId}:chat`);
     });
 
@@ -295,14 +324,30 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
       void socket.leave(`channel:${channelId}:chat`);
     });
 
-    socket.on('typing:start', (channelId, username) => {
-      if (typeof channelId !== 'string' || typeof username !== 'string') return;
-      socket.to(`channel:${channelId}:chat`).emit('typing:update', { channelId, userId, username, isTyping: true });
+    // Typing uses the verified server-side username, and only fans out for a
+    // channel the socket has actually joined (which already required membership).
+    socket.on('typing:start', (channelId) => {
+      if (typeof channelId !== 'string') return;
+      const room = `channel:${channelId}:chat`;
+      if (!socket.rooms.has(room)) return;
+      socket.to(room).emit('typing:update', {
+        channelId,
+        userId,
+        username: socket.data.username ?? 'Someone',
+        isTyping: true,
+      });
     });
 
-    socket.on('typing:stop', (channelId, username) => {
-      if (typeof channelId !== 'string' || typeof username !== 'string') return;
-      socket.to(`channel:${channelId}:chat`).emit('typing:update', { channelId, userId, username, isTyping: false });
+    socket.on('typing:stop', (channelId) => {
+      if (typeof channelId !== 'string') return;
+      const room = `channel:${channelId}:chat`;
+      if (!socket.rooms.has(room)) return;
+      socket.to(room).emit('typing:update', {
+        channelId,
+        userId,
+        username: socket.data.username ?? 'Someone',
+        isTyping: false,
+      });
     });
 
     socket.on('disconnect', (reason) => {

@@ -125,7 +125,6 @@ function OverviewPane({ channel, onSaved }: OverviewPaneProps) {
         <span className="text-sm text-[hsl(215,9%,65%)]">
           {channel.type === 'text' ? 'Text channel' : 'Voice channel'}
         </span>
-        <span className="ml-auto text-xs text-[hsl(215,9%,45%)] font-mono">#{channel.id.slice(-6)}</span>
       </div>
 
       {/* Name field */}

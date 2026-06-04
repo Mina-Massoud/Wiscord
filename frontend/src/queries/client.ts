@@ -292,9 +292,18 @@ export interface ServerToClientEvents {
   'listen_together:session_ended': (event: ListenTogetherSessionEndedEvent) => void;
   'listen_together:playback': (event: ListenTogetherPlaybackEvent) => void;
   'server_event:created': (event: { serverId: string; event: EventWithMeta }) => void;
-  'server_event:updated': (event: { serverId: string; eventId: string; event: EventWithMeta }) => void;
+  'server_event:updated': (event: {
+    serverId: string;
+    eventId: string;
+    event: EventWithMeta;
+  }) => void;
   'server_event:deleted': (event: { serverId: string; eventId: string }) => void;
-  'server_event:rsvp_changed': (event: { serverId: string; eventId: string; goingCount: number; interestedCount: number }) => void;
+  'server_event:rsvp_changed': (event: {
+    serverId: string;
+    eventId: string;
+    goingCount: number;
+    interestedCount: number;
+  }) => void;
 
   // Chat
   'message:created': (message: MessageDto) => void;
