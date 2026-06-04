@@ -9,6 +9,7 @@ import type {
   ListenTogetherSessionEndedEvent,
 } from '@/types/listen-together';
 import type { EventWithMeta } from '@/types/event';
+import type { MessageDto, ReactionEvent, TypingEvent } from '@/types/message';
 
 const apiUrl = import.meta.env['VITE_API_URL'] as string | undefined;
 
@@ -294,6 +295,14 @@ export interface ServerToClientEvents {
   'server_event:updated': (event: { serverId: string; eventId: string; event: EventWithMeta }) => void;
   'server_event:deleted': (event: { serverId: string; eventId: string }) => void;
   'server_event:rsvp_changed': (event: { serverId: string; eventId: string; goingCount: number; interestedCount: number }) => void;
+
+  // Chat
+  'message:created': (message: MessageDto) => void;
+  'message:updated': (message: MessageDto) => void;
+  'message:deleted': (data: { messageId: string }) => void;
+  'message:reaction_added': (data: ReactionEvent) => void;
+  'message:reaction_removed': (data: ReactionEvent) => void;
+  'typing:update': (data: TypingEvent) => void;
 }
 
 export interface ClientToServerEvents {
@@ -305,6 +314,12 @@ export interface ClientToServerEvents {
   'voice:unsubscribe_activity': (channelId: string) => void;
   'server_events:subscribe': (serverId: string, ack: (ok: boolean) => void) => void;
   'server_events:unsubscribe': (serverId: string) => void;
+
+  // Chat
+  'channel:join': (channelId: string) => void;
+  'channel:leave': (channelId: string) => void;
+  'typing:start': (channelId: string, username: string) => void;
+  'typing:stop': (channelId: string, username: string) => void;
 }
 
 export type WiscordSocket = Socket<ServerToClientEvents, ClientToServerEvents>;

@@ -313,7 +313,7 @@ export function AppShellLayout({
                 {hasRightRail ? (
                   <div
                     className={cn(
-                      'flex shrink-0 items-center pr-2 pl-1',
+                      'flex shrink-0 items-center pr-2 pl-1 hidden lg:flex',
                       !topBar && 'h-app-titlebar',
                     )}
                   >
@@ -348,7 +348,7 @@ export function AppShellLayout({
                     borderLeftWidth: showRightRail ? 1 : 0,
                   }}
                   transition={railTransition}
-                  className="bg-glass-chrome border-glass-border relative flex shrink-0 flex-col overflow-hidden"
+                  className="bg-glass-chrome border-glass-border relative hidden lg:flex shrink-0 flex-col overflow-hidden"
                   aria-hidden={!showRightRail}
                 >
                   {showRightRail ? (

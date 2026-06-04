@@ -71,7 +71,7 @@ export function VoiceMainPane({
     const buttonLabel = isLeftThisSession ? t('voice.left.button') : t('voice.idle.button');
 
     return (
-      <div className="bg-voice-landing relative flex min-h-0 flex-1 flex-col items-center justify-center gap-6 overflow-hidden p-8 text-center">
+      <div className="bg-voice-landing relative flex flex-col items-center justify-center gap-6 overflow-hidden p-8 text-center">
         <VoiceLandingPreview participants={participants} />
         <div className="flex max-w-md flex-col gap-2">
           <h2 className="text-display text-ink">{title}</h2>

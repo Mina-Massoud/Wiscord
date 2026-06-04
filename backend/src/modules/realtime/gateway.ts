@@ -14,6 +14,8 @@ import {
   voiceActivityEvents,
   type VoiceActivityChange,
 } from '../voice-activity/service.js';
+import { messageEvents } from '../messages/realtime-bridge.js';
+import type { MessageDoc } from '../../db/models/index.js';
 import {
   friendEvents,
   type FriendRemovedEvent,
@@ -96,6 +98,14 @@ export interface ServerToClientEvents {
   'server_event:deleted': (event: ServerEventDeletedEvent) => void;
   /** RSVP counts changed on an event — update counts in list + detail caches. */
   'server_event:rsvp_changed': (event: ServerEventRsvpChangedEvent) => void;
+
+  // Chat
+  'message:created': (message: MessageDoc) => void;
+  'message:updated': (message: MessageDoc) => void;
+  'message:deleted': (data: { messageId: string }) => void;
+  'message:reaction_added': (data: { messageId: string; emoji: string; userId: string }) => void;
+  'message:reaction_removed': (data: { messageId: string; emoji: string; userId: string }) => void;
+  'typing:update': (data: { channelId: string; userId: string; username: string; isTyping: boolean }) => void;
 }
 
 interface ClientToServerEvents {
@@ -125,6 +135,12 @@ interface ClientToServerEvents {
   /** Subscribe to realtime event updates for a server's events page. */
   'server_events:subscribe': (serverId: string, ack: (ok: boolean) => void) => void;
   'server_events:unsubscribe': (serverId: string) => void;
+
+  // Chat
+  'channel:join': (channelId: string) => void;
+  'channel:leave': (channelId: string) => void;
+  'typing:start': (channelId: string, username: string) => void;
+  'typing:stop': (channelId: string, username: string) => void;
 }
 
 type WiscordIoServer = IoServer<
@@ -269,6 +285,26 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
       void socket.leave(`server:${serverId}:events`);
     });
 
+    socket.on('channel:join', async (channelId) => {
+      if (typeof channelId !== 'string' || !UUID_RE.test(channelId)) return;
+      await socket.join(`channel:${channelId}:chat`);
+    });
+
+    socket.on('channel:leave', (channelId) => {
+      if (typeof channelId !== 'string') return;
+      void socket.leave(`channel:${channelId}:chat`);
+    });
+
+    socket.on('typing:start', (channelId, username) => {
+      if (typeof channelId !== 'string' || typeof username !== 'string') return;
+      socket.to(`channel:${channelId}:chat`).emit('typing:update', { channelId, userId, username, isTyping: true });
+    });
+
+    socket.on('typing:stop', (channelId, username) => {
+      if (typeof channelId !== 'string' || typeof username !== 'string') return;
+      socket.to(`channel:${channelId}:chat`).emit('typing:update', { channelId, userId, username, isTyping: false });
+    });
+
     socket.on('disconnect', (reason) => {
       logger.info({ userId, sid: socket.id, reason }, 'realtime: client disconnected');
       // Only tear down listen-together state when *all* of the user's
@@ -359,6 +395,23 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
   });
   serverEventBus.on('rsvp_changed', (event: ServerEventRsvpChangedEvent) => {
     io?.to(`server:${event.serverId}:events`).emit('server_event:rsvp_changed', event);
+  });
+
+  // Bridge chat message events
+  messageEvents.on('message:created', ({ channelId, message }) => {
+    io?.to(`channel:${channelId}:chat`).emit('message:created', message);
+  });
+  messageEvents.on('message:updated', ({ channelId, message }) => {
+    io?.to(`channel:${channelId}:chat`).emit('message:updated', message);
+  });
+  messageEvents.on('message:deleted', ({ channelId, messageId }) => {
+    io?.to(`channel:${channelId}:chat`).emit('message:deleted', { messageId });
+  });
+  messageEvents.on('message:reaction_added', ({ channelId, messageId, emoji, userId }) => {
+    io?.to(`channel:${channelId}:chat`).emit('message:reaction_added', { messageId, emoji, userId });
+  });
+  messageEvents.on('message:reaction_removed', ({ channelId, messageId, emoji, userId }) => {
+    io?.to(`channel:${channelId}:chat`).emit('message:reaction_removed', { messageId, emoji, userId });
   });
 
   logger.info('realtime: socket.io gateway started');

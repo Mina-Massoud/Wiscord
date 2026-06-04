@@ -30,6 +30,7 @@ import { listenTogetherRouter } from './modules/listen-together/routes.js';
 import { serversRouter } from './modules/servers/routes.js';
 import { invitesRouter } from './modules/invites/routes.js';
 import { eventsRouter } from './modules/events/routes.js';
+import { messagesRouter } from './modules/messages/routes.js';
 
 /**
  * Builds the Express app. Boot logic (port binding, Socket.IO attach) lives
@@ -93,6 +94,7 @@ export function createApp(): Express {
   app.use('/integrations', integrationsRouter);
   app.use('/listen-together', listenTogetherRouter);
   app.use('/admin', adminRouter);
+  app.use('/', messagesRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

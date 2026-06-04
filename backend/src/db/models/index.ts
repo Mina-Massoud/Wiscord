@@ -102,3 +102,5 @@ export type {
 } from './ServerEvent.js';
 export { EventRsvp, RSVP_STATUSES } from './EventRsvp.js';
 export type { EventRsvpDoc, EventRsvpRow, RsvpStatus } from './EventRsvp.js';
+export { Message } from './Message.js';
+export type { MessageDoc, MessageRow } from './Message.js';
