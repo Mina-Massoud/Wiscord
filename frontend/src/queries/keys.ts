@@ -22,6 +22,7 @@ export const qk = {
     all: () => ['servers', 'all'] as const,
     byId: (id: string) => ['servers', id] as const,
     mine: () => ['servers', 'mine'] as const,
+    unread: () => ['servers', 'unread'] as const,
   },
 
   members: {
@@ -102,6 +103,12 @@ export const qk = {
     incoming: () => ['friends', 'requests', 'incoming'] as const,
     outgoing: () => ['friends', 'requests', 'outgoing'] as const,
     search: (q: string) => ['friends', 'search', q] as const,
+  },
+
+  dms: {
+    root: ['dms'] as const,
+    list: () => ['dms', 'list'] as const,
+    byId: (id: string) => ['dms', 'detail', id] as const,
   },
 
   activityHistory: {

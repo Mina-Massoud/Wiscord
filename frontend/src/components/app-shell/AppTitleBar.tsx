@@ -1,4 +1,5 @@
-import { Users, Inbox, HelpCircle } from 'lucide-react';
+import { Users, HelpCircle } from 'lucide-react';
+import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 interface AppTitleBarProps {
   title: string;
@@ -21,14 +22,7 @@ export function AppTitleBar({ title }: AppTitleBarProps): React.JSX.Element {
       </div>
 
       <div className="absolute right-3 flex items-center gap-3">
-        <button
-          type="button"
-          aria-label="Open inbox"
-          className="hover:text-ink"
-          onClick={(e) => e.preventDefault()}
-        >
-          <Inbox className="size-4" />
-        </button>
+        <NotificationBell />
         <button
           type="button"
           aria-label="Help"

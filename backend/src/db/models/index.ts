@@ -7,6 +7,8 @@ export { ServerMember, SERVER_MEMBER_ROLES } from './ServerMember.js';
 export type { ServerMemberDoc, ServerMemberRow, ServerMemberRole } from './ServerMember.js';
 export { Channel, CHANNEL_TYPES } from './Channel.js';
 export type { ChannelDoc, ChannelRow, ChannelType } from './Channel.js';
+export { ChannelMember } from './ChannelMember.js';
+export type { ChannelMemberDoc, ChannelMemberRow } from './ChannelMember.js';
 export { Invite } from './Invite.js';
 export type { InviteDoc, InviteRow } from './Invite.js';
 export { MagicLinkToken } from './MagicLinkToken.js';
@@ -104,3 +106,8 @@ export { EventRsvp, RSVP_STATUSES } from './EventRsvp.js';
 export type { EventRsvpDoc, EventRsvpRow, RsvpStatus } from './EventRsvp.js';
 export { Message } from './Message.js';
 export type { MessageDoc, MessageRow } from './Message.js';
+export { DmRoom, canonicalPair as canonicalDmPair } from './DmRoom.js';
+export type { DmRoomDoc, DmRoomRow } from './DmRoom.js';
+export { Notification, NOTIFICATION_TYPES } from './Notification.js';
+export type { NotificationDoc, NotificationRow, NotificationType } from './Notification.js';
+

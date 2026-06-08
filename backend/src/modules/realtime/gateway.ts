@@ -7,7 +7,7 @@ import { logger } from '../../lib/logger.js';
 import { SESSION_COOKIE } from '../../lib/cookies.js';
 import { verifySessionToken } from '../../lib/jwt.js';
 import { voicePresence, type VoiceStateChange } from '../voice/presence-store.js';
-import { Channel, Quiz, ServerMember, User } from '../../db/models/index.js';
+import { Channel, Quiz, ServerMember, User, DmRoom } from '../../db/models/index.js';
 import { quizAnalytics } from '../quiz/analytics-store.js';
 import type { QuizAnalyticsSnapshot } from '../quiz/analytics.js';
 import {
@@ -16,6 +16,11 @@ import {
 } from '../voice-activity/service.js';
 import { messageEvents } from '../messages/realtime-bridge.js';
 import type { MessageDto } from '../messages/schemas.js';
+import { serverUnreadEvents } from '../servers/realtime-bridge.js';
+import { dmEvents } from '../dms/realtime-bridge.js';
+import type { DmRoomDto } from '../dms/schemas.js';
+import { notificationEvents } from '../notifications/realtime-bridge.js';
+import type { NotificationDto } from '../notifications/schemas.js';
 import {
   friendEvents,
   type FriendRemovedEvent,
@@ -67,6 +72,11 @@ export interface CalendarEventChanged {
   eventId: string;
 }
 
+export interface ServerUnreadChanged {
+  serverId: string;
+  channelId: string;
+}
+
 export interface ServerToClientEvents {
   'voice:state_changed': (change: VoiceStateChange) => void;
   'quiz:analytics_changed': (snapshot: QuizAnalyticsSnapshot) => void;
@@ -113,8 +123,12 @@ export interface ServerToClientEvents {
   'server_event:deleted': (event: ServerEventDeletedEvent) => void;
   /** RSVP counts changed on an event — update counts in list + detail caches. */
   'server_event:rsvp_changed': (event: ServerEventRsvpChangedEvent) => void;
+  'server_unread:changed': (event: ServerUnreadChanged) => void;
 
   // Chat
+  'dm_room:updated': (room: DmRoomDto) => void;
+  'notification:created': (notification: NotificationDto) => void;
+  'notification:updated': (notification: NotificationDto) => void;
   'message:created': (message: MessageDto) => void;
   'message:updated': (message: MessageDto) => void;
   'message:deleted': (data: { messageId: string }) => void;
@@ -226,6 +240,18 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
 
     void socket.join(`user:${userId}`);
     void socket.join('authenticated');
+    void (async () => {
+      try {
+        const memberships = await ServerMember.find({ userId }).select('serverId').lean();
+        await Promise.all(
+          memberships.map((membership) =>
+            socket.join(`server:${membership.serverId.toString()}:unread`),
+          ),
+        );
+      } catch (err) {
+        logger.warn({ err, userId }, 'realtime: failed to join server unread rooms');
+      }
+    })();
 
     logger.info({ userId, sid: socket.id }, 'realtime: client connected');
 
@@ -312,11 +338,23 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
 
     socket.on('channel:join', async (channelId) => {
       if (typeof channelId !== 'string') return;
-      // Membership gate replacing RLS: only members of the channel's server
-      // may join the room and receive its live message stream.
+      
+      // 1. Check server channel membership
       const serverId = await channelServerId(channelId);
-      if (!serverId || !(await isServerMember(userId, serverId))) return;
-      await socket.join(`channel:${channelId}:chat`);
+      if (serverId && (await isServerMember(userId, serverId))) {
+        await socket.join(`channel:${channelId}:chat`);
+        await socket.join(`server:${serverId}:unread`);
+        return;
+      }
+
+      // 2. Check DM room membership
+      if (OBJECT_ID_RE.test(channelId)) {
+        const dmRoom = await DmRoom.findById(channelId).lean();
+        if (dmRoom && (dmRoom.userAId.toString() === userId || dmRoom.userBId.toString() === userId)) {
+          await socket.join(`channel:${channelId}:chat`);
+          return;
+        }
+      }
     });
 
     socket.on('channel:leave', (channelId) => {
@@ -457,6 +495,24 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
   });
   messageEvents.on('message:reaction_removed', ({ channelId, messageId, emoji, userId }) => {
     io?.to(`channel:${channelId}:chat`).emit('message:reaction_removed', { messageId, emoji, userId });
+  });
+
+  serverUnreadEvents.on('changed', ({ serverId, channelId }) => {
+    io?.to(`server:${serverId}:unread`).emit('server_unread:changed', {
+      serverId,
+      channelId,
+    });
+  });
+
+  dmEvents.on('room:updated', ({ toUserId, room }) => {
+    io?.to(`user:${toUserId}`).emit('dm_room:updated', room);
+  });
+
+  notificationEvents.on('notification:created', ({ toUserId, notification }) => {
+    io?.to(`user:${toUserId}`).emit('notification:created', notification);
+  });
+  notificationEvents.on('notification:updated', ({ toUserId, notification }) => {
+    io?.to(`user:${toUserId}`).emit('notification:updated', notification);
   });
 
   logger.info('realtime: socket.io gateway started');

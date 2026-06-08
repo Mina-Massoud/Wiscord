@@ -1,26 +1,29 @@
 import { Inbox, Compass, Users, Plus } from 'lucide-react';
+import { useLocation } from 'react-router';
 
 import { fakeRecentRooms } from '@/data/fake-shell';
 import { SidebarNavRow } from './SidebarNavRow';
 import { RoomRow } from './RoomRow';
-import { SidebarSectionHeader } from './DmSidebarSidebarSectionHeader';
+import { useDms } from '@/queries/dms';
+import { DmRoomRow } from './DmRoomRow';
+import { Sidebar } from '@/components/ui/sidebar-shell';
 
 /**
  * Friends-mode left column (channel-list aside).
- * Top: pill search ("Find a study buddy or session").
- * Then two categorized nav groups:
+ * Top: Search pill.
+ * Then categorized nav groups using standard Sidebar.Section:
  *   SOCIAL  — Friends, Inbox
  *   EXPLORE — Find a study room, Start your own
- * Then: "Recent rooms" header + the room list (channels you've recently
- * been in, across all your servers). Discord-style 1:1 DMs are explicitly
- * out of scope in v1 (see docs/overview.md) — this list surfaces *rooms*.
- * The bottom user-identity pill is rendered separately by the shell so it
- * can span both the server rail and this sidebar.
+ *   DIRECT MESSAGES — Live DMs from useDms()
+ *   RECENT ROOMS — Historical recent channels
  */
 export function DmSidebar(): React.JSX.Element {
+  const { data: dmRooms = [] } = useDms();
+  const location = useLocation();
+
   return (
-    <>
-      <div className="px-2 pt-2">
+    <Sidebar.Root>
+      <div className="px-2 pt-2 pb-2">
         <button
           type="button"
           onClick={(e) => e.preventDefault()}
@@ -30,45 +33,57 @@ export function DmSidebar(): React.JSX.Element {
         </button>
       </div>
 
-      <SidebarSectionHeader label="Social" />
-      <nav aria-label="Social" className="flex flex-col gap-0.5">
-        <SidebarNavRow
-          to="/app"
-          end
-          label="Friends"
-          icon={<Users className="size-5" />}
-          forceActive
-        />
-        <SidebarNavRow to="/app/inbox" label="Inbox" icon={<Inbox className="size-5" />} />
-      </nav>
+      <Sidebar.Body>
+        <Sidebar.Section title="Social">
+          <nav aria-label="Social" className="flex flex-col gap-0.5">
+            <SidebarNavRow
+              to="/app"
+              end
+              label="Friends"
+              icon={<Users className="size-5" />}
+              forceActive={location.pathname === '/app'}
+            />
+            <SidebarNavRow to="/app/inbox" label="Inbox" icon={<Inbox className="size-5" />} />
+          </nav>
+        </Sidebar.Section>
 
-      <SidebarSectionHeader label="Explore" />
-      <nav aria-label="Explore" className="flex flex-col gap-0.5">
-        <SidebarNavRow
-          to="/app/discover"
-          label="Find a study room"
-          icon={<Compass className="size-5" />}
-        />
-        <SidebarNavRow
-          to="/app/create-server"
-          label="Start your own"
-          icon={<Plus className="size-5" />}
-        />
-      </nav>
+        <Sidebar.Section title="Explore">
+          <nav aria-label="Explore" className="flex flex-col gap-0.5">
+            <SidebarNavRow
+              to="/app/discover"
+              label="Find a study room"
+              icon={<Compass className="size-5" />}
+            />
+            <SidebarNavRow
+              to="/app/create-server"
+              label="Start your own"
+              icon={<Plus className="size-5" />}
+            />
+          </nav>
+        </Sidebar.Section>
 
-      <div className="mt-4 flex items-center justify-between px-4 pb-1">
-        <span className="text-ink-subtle text-badge font-bold tracking-wider uppercase">
-          Recent rooms
-        </span>
-      </div>
+        <Sidebar.Section title="Direct Messages">
+          <div className="flex flex-col gap-0.5">
+            {dmRooms.length === 0 ? (
+              <div className="text-ink-subtle px-2 py-1 text-xs">
+                No direct messages yet.
+              </div>
+            ) : (
+              dmRooms.map((room) => (
+                <DmRoomRow key={room.id} room={room} />
+              ))
+            )}
+          </div>
+        </Sidebar.Section>
 
-      <div className="flex-1 overflow-y-auto pb-2">
-        <div className="cv-auto flex flex-col gap-0.5">
-          {fakeRecentRooms.map((room) => (
-            <RoomRow key={room.id} room={room} />
-          ))}
-        </div>
-      </div>
-    </>
+        <Sidebar.Section title="Recent rooms">
+          <div className="flex flex-col gap-0.5">
+            {fakeRecentRooms.map((room) => (
+              <RoomRow key={room.id} room={room} />
+            ))}
+          </div>
+        </Sidebar.Section>
+      </Sidebar.Body>
+    </Sidebar.Root>
   );
 }

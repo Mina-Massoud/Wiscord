@@ -5,8 +5,9 @@ import {
   type UseMutationResult,
   type UseQueryResult,
 } from '@tanstack/react-query';
+import { useEffect } from 'react';
 
-import { api, type ApiError } from '@/queries/client';
+import { api, getSocket, type ApiError, type ServerUnreadChanged } from '@/queries/client';
 import type { ChannelDto } from '@/queries/channels';
 import { qk } from '@/queries/keys';
 
@@ -16,6 +17,12 @@ export interface ServerDto {
   iconUrl: string | null;
   ownerId: string;
   createdAt: string;
+}
+
+export interface ServerUnreadDto {
+  serverId: string;
+  hasUnread: boolean;
+  unreadCount: number;
 }
 
 interface ServersEnvelope {
@@ -143,4 +150,66 @@ export function useLeaveServer(): UseMutationResult<void, ApiError, string> {
       void queryClient.invalidateQueries({ queryKey: qk.servers.root });
     },
   });
+}
+
+interface ServersUnreadEnvelope {
+  servers: ServerUnreadDto[];
+}
+
+export function useServersUnread(): UseQueryResult<ServerUnreadDto[], ApiError> {
+  return useQuery<ServerUnreadDto[], ApiError>({
+    queryKey: qk.servers.unread(),
+    queryFn: async () => {
+      const result = await api<ServersUnreadEnvelope>('/servers/unread');
+      return result.servers;
+    },
+    staleTime: 10_000,
+  });
+}
+
+export function useServerUnreadRealtime(): void {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    const onServerUnreadChanged = (event: ServerUnreadChanged) => {
+      void (async () => {
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: qk.servers.unread() }),
+          queryClient.invalidateQueries({ queryKey: qk.channels.byServer(event.serverId) }),
+        ]);
+
+        const channels = queryClient.getQueryData<ChannelDto[]>(
+          qk.channels.byServer(event.serverId),
+        );
+        if (!channels) return;
+
+        const unreadCount = channels.reduce(
+          (total, channel) => total + (channel.unreadCount ?? 0),
+          0,
+        );
+
+        queryClient.setQueryData<ServerUnreadDto[]>(qk.servers.unread(), (servers) => {
+          if (!servers) return servers;
+          const nextUnread = {
+            serverId: event.serverId,
+            hasUnread: unreadCount > 0,
+            unreadCount,
+          };
+          return servers.some((server) => server.serverId === event.serverId)
+            ? servers.map((server) =>
+                server.serverId === event.serverId ? nextUnread : server,
+              )
+            : [...servers, nextUnread];
+        });
+      })();
+    };
+
+    socket.on('server_unread:changed', onServerUnreadChanged);
+
+    return () => {
+      socket.off('server_unread:changed', onServerUnreadChanged);
+    };
+  }, [queryClient]);
 }

@@ -6,6 +6,7 @@ import { useCopy } from '@/lib/copy/useCopy';
 import { toast } from '@/lib/toast';
 import { ApiError } from '@/queries/client';
 import { useRemoveFriend } from '@/queries/friends';
+import { useCreateDmRoom } from '@/queries/dms';
 import type { FriendDto } from '@/queries/client';
 import {
   DropdownMenu,
@@ -45,6 +46,7 @@ export function FriendRow({ friend }: FriendRowProps): React.JSX.Element {
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const remove = useRemoveFriend();
+  const createDm = useCreateDmRoom();
 
   function onRemoveConfirm(): void {
     remove.mutate(
@@ -54,6 +56,20 @@ export function FriendRow({ friend }: FriendRowProps): React.JSX.Element {
           setConfirmOpen(false);
           toast.success(t('friends.toast.removed'));
         },
+        onError: (err) => {
+          const message = err instanceof ApiError ? err.message : 'Something went wrong.';
+          toast.error(message);
+        },
+      },
+    );
+  }
+
+  function handleStartDm(e: React.MouseEvent): void {
+    e.preventDefault();
+    e.stopPropagation();
+    createDm.mutate(
+      { recipientId: user.id },
+      {
         onError: (err) => {
           const message = err instanceof ApiError ? err.message : 'Something went wrong.';
           toast.error(message);
@@ -93,7 +109,8 @@ export function FriendRow({ friend }: FriendRowProps): React.JSX.Element {
           <button
             type="button"
             aria-label={`${t('friends.row.message')} ${displayName}`}
-            onClick={(e) => e.preventDefault()}
+            onClick={handleStartDm}
+            disabled={createDm.isPending}
             className="bg-glass-surface-2 border-glass-border text-ink-muted hover:text-ink flex size-9 items-center justify-center rounded-full border"
           >
             <MessageCircle className="size-5" />

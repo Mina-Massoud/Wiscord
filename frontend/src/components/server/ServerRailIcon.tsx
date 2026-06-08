@@ -15,6 +15,7 @@ interface ServerRailIconProps {
   initials?: string;
   tileClassName?: string;
   children?: React.ReactNode;
+  end?: React.ReactNode;
 }
 
 export function ServerRailIcon({
@@ -27,6 +28,7 @@ export function ServerRailIcon({
   initials,
   tileClassName,
   children,
+  end,
 }: ServerRailIconProps): React.JSX.Element {
   const showPill = isActive ? 'active' : hasUnread ? 'hover' : 'idle';
 
@@ -79,6 +81,8 @@ export function ServerRailIcon({
         <span className="pointer-events-none absolute -right-0.5 -bottom-0.5">
           <UnreadBadge count={unreadCount} />
         </span>
+      ) : end ? (
+        <span className="pointer-events-none absolute -right-0.5 -bottom-0.5">{end}</span>
       ) : null}
     </div>
   );

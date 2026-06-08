@@ -10,8 +10,13 @@ interface MessagesResponse {
   hasMore: boolean;
 }
 
-export function useChannelSocket(channelId: string) {
+interface UseChannelSocketOptions {
+  onMessageCreated?: (message: MessageDto) => void;
+}
+
+export function useChannelSocket(channelId: string, options: UseChannelSocketOptions = {}) {
   const queryClient = useQueryClient();
+  const { onMessageCreated: onMessageCreatedCallback } = options;
 
   useEffect(() => {
     const socket = getSocket();
@@ -45,6 +50,7 @@ export function useChannelSocket(channelId: string) {
           return { ...old, pages: newPages };
         }
       );
+      onMessageCreatedCallback?.(message);
     };
 
     const onMessageUpdated = (message: MessageDto) => {
@@ -150,5 +156,5 @@ export function useChannelSocket(channelId: string) {
       socket.off('message:reaction_removed', onReactionRemoved);
       socket.emit('channel:leave', channelId);
     };
-  }, [channelId, queryClient]);
+  }, [channelId, onMessageCreatedCallback, queryClient]);
 }

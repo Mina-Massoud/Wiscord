@@ -51,10 +51,30 @@ export interface ChannelDto {
   type: ChannelTypeDto;
   position: number;
   createdAt: string;
+  unreadCount?: number;
 }
 
 export interface ChannelsEnvelope {
   channels: ChannelDto[];
+}
+
+export interface ServerMemberUserDto {
+  id: string;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+}
+
+export interface ServerMemberDto {
+  id: string;
+  serverId: string;
+  userId: string;
+  role: 'owner' | 'member';
+  user: ServerMemberUserDto;
+}
+
+export interface ServerMembersEnvelope {
+  members: ServerMemberDto[];
 }
 
 export interface CreateServerEnvelope {
@@ -93,6 +113,19 @@ export const channelIdParam = z.object({
 });
 export type ChannelIdParam = z.infer<typeof channelIdParam>;
 
+export const markChannelReadBody = z.object({}).strict();
+export type MarkChannelReadBody = z.infer<typeof markChannelReadBody>;
+
 export interface ChannelEnvelope {
   channel: ChannelDto;
+}
+
+export interface ServerUnreadDto {
+  serverId: string;
+  hasUnread: boolean;
+  unreadCount: number;
+}
+
+export interface ServersUnreadEnvelope {
+  servers: ServerUnreadDto[];
 }

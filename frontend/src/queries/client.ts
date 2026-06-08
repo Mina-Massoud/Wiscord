@@ -10,6 +10,8 @@ import type {
 } from '@/types/listen-together';
 import type { EventWithMeta } from '@/types/event';
 import type { MessageDto, ReactionEvent, TypingEvent } from '@/types/message';
+import type { DmRoomDto } from '@/queries/dms';
+import type { NotificationDto } from '@/queries/notifications';
 
 const apiUrl = import.meta.env['VITE_API_URL'] as string | undefined;
 
@@ -135,6 +137,11 @@ export interface CalendarEventChanged {
   kind: 'created' | 'updated' | 'deleted';
   channelId: string | null;
   eventId: string;
+}
+
+export interface ServerUnreadChanged {
+  serverId: string;
+  channelId: string;
 }
 
 export type WatchSourceKind = 'youtube' | 'direct' | 'screen';
@@ -304,8 +311,14 @@ export interface ServerToClientEvents {
     goingCount: number;
     interestedCount: number;
   }) => void;
+  'server_unread:changed': (event: ServerUnreadChanged) => void;
 
   // Chat
+  'dm_room:updated': (room: DmRoomDto) => void;
+  'notification:created': (notification: NotificationDto) => void;
+  'notification:updated': (notification: NotificationDto) => void;
+  'notification:deleted': (data: { notificationId: string }) => void;
+  'notification:read-cleared': (data: { toUserId: string }) => void;
   'message:created': (message: MessageDto) => void;
   'message:updated': (message: MessageDto) => void;
   'message:deleted': (data: { messageId: string }) => void;

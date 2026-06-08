@@ -7,6 +7,7 @@ const envSchema = z.object({
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('debug'),
 
   MONGODB_URI: z.string().min(1, 'MONGODB_URI is required'),
+  MONGODB_DNS_SERVERS: z.string().default('1.1.1.1,8.8.8.8'),
 
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 chars'),
   SESSION_TTL_SECONDS: z.coerce.number().int().positive().default(60 * 60 * 24 * 30),
