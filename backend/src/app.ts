@@ -31,6 +31,8 @@ import { serversRouter } from './modules/servers/routes.js';
 import { invitesRouter } from './modules/invites/routes.js';
 import { eventsRouter } from './modules/events/routes.js';
 import { messagesRouter } from './modules/messages/routes.js';
+import { dmsRouter } from './modules/dms/routes.js';
+import { notificationsRouter } from './modules/notifications/routes.js';
 
 /**
  * Builds the Express app. Boot logic (port binding, Socket.IO attach) lives
@@ -94,6 +96,8 @@ export function createApp(): Express {
   app.use('/integrations', integrationsRouter);
   app.use('/listen-together', listenTogetherRouter);
   app.use('/admin', adminRouter);
+  app.use('/dms', dmsRouter);
+  app.use('/notifications', notificationsRouter);
   app.use('/', messagesRouter);
 
   app.use(notFoundHandler);

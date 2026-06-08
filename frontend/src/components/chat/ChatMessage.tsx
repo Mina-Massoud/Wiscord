@@ -38,9 +38,6 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
     setIsEditing(false);
   };
 
-  // The API now returns a unified shape (toMessageDto): `authorId` is always a
-  // string and the author rides on `message.author`. Optimistic messages we
-  // create locally carry no author, so fall back to the signed-in user.
   const isOptimistic = message.authorId === 'optimistic';
 
   const author: MessageAuthor =
@@ -64,16 +61,22 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
 
   if (message.deletedAt) {
     return (
-      <div className={cn('group relative flex gap-4 px-4 py-1 hover:bg-black/5', isCompact ? 'mt-0' : 'mt-4')}>
+      <div
+        className={cn(
+          'group relative flex gap-4 px-4 py-1 hover:bg-black/5',
+          isCompact ? 'mt-0' : 'mt-4',
+          isAuthor && 'flex-row-reverse',
+        )}
+      >
         {!isCompact && (
-          <div className="w-10 h-10 flex-shrink-0 opacity-50">
-            <Avatar className="w-10 h-10">
+          <div className="h-10 w-10 flex-shrink-0 opacity-50">
+            <Avatar className="h-10 w-10">
               <AvatarFallback className="bg-surface-2 text-muted-foreground">{avatarInitials}</AvatarFallback>
             </Avatar>
           </div>
         )}
         {isCompact && <div className="w-10 flex-shrink-0" />}
-        <div className="flex-1 min-w-0 flex items-center text-sm text-muted-foreground italic">
+        <div className="text-muted-foreground flex-1 min-w-0 flex items-center text-sm italic">
           [message deleted]
         </div>
       </div>
@@ -81,14 +84,25 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
   }
 
   return (
-    <div className={cn('group relative flex gap-4 px-4 py-1 hover:bg-black/5', isCompact ? 'mt-0' : 'mt-4')}>
+    <div
+      className={cn(
+        'group relative flex gap-4 px-4 py-1 hover:bg-black/5 transition-colors',
+        isCompact ? 'mt-0' : 'mt-4',
+        isAuthor && 'flex-row-reverse justify-start',
+      )}
+    >
       {/* Actions toolbar */}
-      <div className="absolute right-4 top-[-14px] opacity-0 group-hover:opacity-100 transition-opacity z-10">
-        <div className="flex items-center bg-glass-surface-2 border border-glass-border rounded-md shadow-sm">
+      <div
+        className={cn(
+          'absolute top-[-14px] opacity-0 group-hover:opacity-100 transition-opacity z-10',
+          isAuthor ? 'left-4' : 'right-4',
+        )}
+      >
+        <div className="bg-glass-surface-2 border-glass-border flex items-center rounded-md shadow-sm border">
           {isAuthor && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-none rounded-r-md text-muted-foreground hover:text-foreground">
+                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground hover:text-foreground">
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -108,8 +122,8 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
       </div>
 
       {!isCompact && (
-        <div className="w-10 h-10 flex-shrink-0">
-          <Avatar className="w-10 h-10 cursor-pointer hover:opacity-90 transition-opacity">
+        <div className="h-10 w-10 flex-shrink-0">
+          <Avatar className="h-10 w-10 cursor-pointer hover:opacity-90 transition-opacity">
             <AvatarImage src={author.avatarUrl || undefined} />
             <AvatarFallback className="bg-blurple/10 text-blurple font-medium">{avatarInitials}</AvatarFallback>
           </Avatar>
@@ -124,9 +138,9 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
         </div>
       )}
 
-      <div className="flex-1 min-w-0">
+      <div className={cn('flex-1 min-w-0 flex flex-col', isAuthor ? 'items-end' : 'items-start')}>
         {!isCompact && (
-          <div className="flex items-baseline gap-2 mb-1">
+          <div className={cn('flex items-baseline gap-2 mb-1', isAuthor && 'flex-row-reverse')}>
             <span className="font-medium text-[15px] hover:underline cursor-pointer">{displayName}</span>
             <span className="text-xs text-muted-foreground">
               {new Intl.DateTimeFormat('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', hour: 'numeric', minute: 'numeric' }).format(new Date(message.createdAt))}
@@ -135,7 +149,7 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
         )}
 
         {isEditing ? (
-          <form onSubmit={handleEditSubmit} className="mt-1">
+          <form onSubmit={handleEditSubmit} className="mt-1 w-full max-w-md">
             <Textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
@@ -157,7 +171,14 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
             </div>
           </form>
         ) : (
-          <div className="text-[15px] text-foreground">
+          <div
+            className={cn(
+              'text-[15px] rounded-2xl px-4 py-2 border shadow-sm text-left',
+              isAuthor
+                ? 'bg-blurple/15 border-blurple/30 rounded-tr-none text-foreground'
+                : 'bg-glass-surface-1 border-glass-border rounded-tl-none text-foreground',
+            )}
+          >
             <ChatMessageMarkdown content={message.content} mentions={message.mentions} />
             {message.editedAt && (
               <span className="text-xs text-muted-foreground ml-1 select-none">(edited)</span>
@@ -166,7 +187,9 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
         )}
 
         {/* Reactions */}
-        <ChatReactions messageId={message.id} reactions={message.reactions} />
+        <div className={cn('mt-1', isAuthor && 'self-end')}>
+          <ChatReactions messageId={message.id} reactions={message.reactions} />
+        </div>
       </div>
     </div>
   );

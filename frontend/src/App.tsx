@@ -14,6 +14,7 @@ import { AuthedIsland } from './AppAuthedIsland';
 import { AuthedCheckoutReturnHandler } from './AppAuthedCheckoutReturnHandler';
 import { AuthedIntegrationsReturnHandler } from './AppAuthedIntegrationsReturnHandler';
 import { AuthedMusic } from './AppAuthedMusic';
+import { AuthedRealtime } from './AppAuthedRealtime';
 
 // ---------------------------------------------------------------------------
 // Route-level code splitting — each page chunk loaded on demand
@@ -37,6 +38,7 @@ const NotesIndexPage = lazy(() => import('@/pages/app/labs/NotesIndexPage'));
 const CalendarPage = lazy(() => import('@/pages/app/CalendarPage'));
 const CalendarLabPage = lazy(() => import('@/pages/app/labs/CalendarLabPage'));
 const CalendarIndexPage = lazy(() => import('@/pages/app/labs/CalendarIndexPage'));
+const DmWorkspacePage = lazy(() => import('@/pages/app/DmWorkspacePage'));
 
 // ---------------------------------------------------------------------------
 // Shared fallback while a lazy chunk is in flight
@@ -71,6 +73,7 @@ export default function App(): React.JSX.Element {
       <AuthedIsland />
       <AuthedCheckoutReturnHandler />
       <AuthedIntegrationsReturnHandler />
+      <AuthedRealtime />
       <AuthedMusic />
       <SettingsShell />
       <GlobalVoiceProvider>
@@ -101,6 +104,7 @@ export default function App(): React.JSX.Element {
           <Route element={<RequireAuth />}>
             <Route element={<RequireOnboarding />}>
               <Route path="/app" element={<FriendsPage />} />
+              <Route path="/app/dms/:dmRoomId" element={<DmWorkspacePage />} />
               <Route path="/app/servers/:serverId" element={<ServerWorkspacePage />} />
               <Route
                 path="/app/servers/:serverId/channels/:channelId"

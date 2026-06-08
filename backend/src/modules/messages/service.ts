@@ -1,22 +1,48 @@
 import { Types } from 'mongoose';
 
-import { Channel, Message, ServerMember, User } from '../../db/models/index.js';
+import { Channel, Message, ServerMember, User, DmRoom } from '../../db/models/index.js';
 import { forbidden, notFound } from '../../lib/errors.js';
 import { messageEvents } from './realtime-bridge.js';
 import { toMessageDto, type MessageDto } from './schemas.js';
+import { dmEvents } from '../dms/realtime-bridge.js';
+import { toDmRoomDto } from '../dms/schemas.js';
+import { NotificationService } from '../notifications/service.js';
+import { serverUnreadEvents } from '../servers/realtime-bridge.js';
 
 /**
  * Authorization gate replacing Supabase RLS: the caller must be a member of the
- * server that owns the channel. Throws `notFound('channel')` for both a missing
- * channel and a non-member, so we never confirm a channel's existence to someone
- * who has no access to it.
+ * server that owns the channel or a participant of the DM room. Throws `notFound('channel')`
+ * for both a missing channel/room and a non-member.
  */
-async function assertChannelMember(userId: string, channelId: string): Promise<void> {
+type MessageTarget =
+  | { kind: 'channel'; serverId: string }
+  | { kind: 'dm'; userAId: string; userBId: string };
+
+async function assertChannelMember(userId: string, channelId: string): Promise<MessageTarget> {
   if (!Types.ObjectId.isValid(channelId)) throw notFound('channel');
+  
+  // 1. Try finding a server channel
   const channel = await Channel.findById(channelId).select('serverId').lean();
-  if (!channel) throw notFound('channel');
-  const membership = await ServerMember.findOne({ serverId: channel.serverId, userId }).lean();
-  if (!membership) throw notFound('channel');
+  if (channel) {
+    const membership = await ServerMember.findOne({ serverId: channel.serverId, userId }).lean();
+    if (!membership) throw notFound('channel');
+    return { kind: 'channel', serverId: channel.serverId.toString() };
+  }
+
+  // 2. Try finding a DM room
+  const dmRoom = await DmRoom.findById(channelId).lean();
+  if (dmRoom) {
+    if (dmRoom.userAId.toString() !== userId && dmRoom.userBId.toString() !== userId) {
+      throw notFound('channel');
+    }
+    return {
+      kind: 'dm',
+      userAId: dmRoom.userAId.toString(),
+      userBId: dmRoom.userBId.toString(),
+    };
+  }
+
+  throw notFound('channel');
 }
 
 async function resolveMentions(content: string): Promise<Types.ObjectId[]> {
@@ -28,20 +54,117 @@ async function resolveMentions(content: string): Promise<Types.ObjectId[]> {
   return users.map((u) => u._id);
 }
 
+async function countDmUnreadForUser(args: {
+  roomId: string;
+  userId: string;
+  lastReadAt: Date;
+}): Promise<number> {
+  return Message.countDocuments({
+    channelId: args.roomId,
+    authorId: { $ne: new Types.ObjectId(args.userId) },
+    deletedAt: null,
+    createdAt: { $gt: args.lastReadAt },
+  });
+}
+
 export async function sendMessage(
   channelId: string,
   authorId: string,
   content: string,
 ): Promise<MessageDto> {
-  await assertChannelMember(authorId, channelId);
+  const target = await assertChannelMember(authorId, channelId);
 
   const mentions = await resolveMentions(content);
   const msg = new Message({ channelId, authorId, content, mentions });
   await msg.save();
   await msg.populate('authorId', 'id username displayName avatarUrl');
 
+  // If it's a DM room, update metadata cache
+  const dmRoom = await DmRoom.findById(channelId);
+  if (dmRoom) {
+    dmRoom.lastMessageAt = new Date();
+    dmRoom.lastMessagePreview = content.length > 100 ? `${content.slice(0, 97)}...` : content;
+    dmRoom.lastMessageAuthorId = new Types.ObjectId(authorId);
+    if (dmRoom.userAId.toString() === authorId) {
+      dmRoom.userALastReadAt = new Date();
+    } else {
+      dmRoom.userBLastReadAt = new Date();
+    }
+    await dmRoom.save();
+
+    await dmRoom.populate('userAId', 'id username displayName avatarUrl');
+    await dmRoom.populate('userBId', 'id username displayName avatarUrl');
+
+    const userAId = (dmRoom.userAId as any)._id?.toString() || dmRoom.userAId.toString();
+    const userBId = (dmRoom.userBId as any)._id?.toString() || dmRoom.userBId.toString();
+    const [userAUnreadCount, userBUnreadCount] = await Promise.all([
+      countDmUnreadForUser({
+        roomId: dmRoom.id,
+        userId: userAId,
+        lastReadAt: dmRoom.userALastReadAt,
+      }),
+      countDmUnreadForUser({
+        roomId: dmRoom.id,
+        userId: userBId,
+        lastReadAt: dmRoom.userBLastReadAt,
+      }),
+    ]);
+    dmEvents.emit('room:updated', {
+      toUserId: userAId,
+      room: toDmRoomDto(dmRoom, userAId, userAUnreadCount),
+    });
+    dmEvents.emit('room:updated', {
+      toUserId: userBId,
+      room: toDmRoomDto(dmRoom, userBId, userBUnreadCount),
+    });
+  }
+
+  const isDm = target.kind === 'dm';
+
+  if (isDm) {
+    const recipientId = target.userAId === authorId ? target.userBId : target.userAId;
+    await NotificationService.createDMNotification({
+      userId: recipientId,
+      channelId,
+      messageId: msg.id,
+      fromUserId: authorId,
+    });
+  } else {
+    const uniqueMentionedUserIds = new Set(mentions.map((id) => id.toString()));
+    const mentionedMembers = await ServerMember.find({
+      serverId: target.serverId,
+      userId: { $in: Array.from(uniqueMentionedUserIds) },
+    })
+      .select('userId')
+      .lean();
+    const notifiableUserIds = mentionedMembers.map((member) => member.userId.toString());
+
+    await Promise.all(
+      notifiableUserIds.map((userId) =>
+        NotificationService.createMentionNotification({
+          userId,
+          serverId: target.serverId,
+          channelId,
+          messageId: msg.id,
+          fromUserId: authorId,
+        }),
+      ),
+    );
+  }
+
   const dto = toMessageDto(msg);
-  messageEvents.emit('message:created', { channelId, message: dto });
+  messageEvents.emit('message:created', {
+    channelId,
+    isDm,
+    message: dto,
+    ...(target.kind === 'channel' ? { serverId: target.serverId } : {}),
+  });
+  if (target.kind === 'channel') {
+    serverUnreadEvents.emit('changed', {
+      serverId: target.serverId,
+      channelId,
+    });
+  }
   return dto;
 }
 
@@ -82,7 +205,7 @@ export async function updateMessage(
   const msg = await Message.findById(messageId);
   if (!msg || msg.deletedAt) throw notFound('message');
 
-  await assertChannelMember(userId, msg.channelId);
+  const target = await assertChannelMember(userId, msg.channelId);
   if (msg.authorId.toString() !== userId) throw forbidden();
 
   msg.content = content;
@@ -93,7 +216,11 @@ export async function updateMessage(
   await msg.populate('authorId', 'id username displayName avatarUrl');
 
   const dto = toMessageDto(msg);
-  messageEvents.emit('message:updated', { channelId: msg.channelId, message: dto });
+  messageEvents.emit('message:updated', {
+    channelId: msg.channelId,
+    isDm: target.kind === 'dm',
+    message: dto,
+  });
   return dto;
 }
 
@@ -101,20 +228,24 @@ export async function deleteMessage(messageId: string, userId: string): Promise<
   const msg = await Message.findById(messageId);
   if (!msg || msg.deletedAt) throw notFound('message');
 
-  await assertChannelMember(userId, msg.channelId);
+  const target = await assertChannelMember(userId, msg.channelId);
   if (msg.authorId.toString() !== userId) throw forbidden();
 
   msg.deletedAt = new Date();
   await msg.save();
 
-  messageEvents.emit('message:deleted', { channelId: msg.channelId, messageId: msg.id });
+  messageEvents.emit('message:deleted', {
+    channelId: msg.channelId,
+    isDm: target.kind === 'dm',
+    messageId: msg.id,
+  });
 }
 
 export async function addReaction(messageId: string, userId: string, emoji: string): Promise<void> {
   const msg = await Message.findById(messageId);
   if (!msg || msg.deletedAt) throw notFound('message');
 
-  await assertChannelMember(userId, msg.channelId);
+  const target = await assertChannelMember(userId, msg.channelId);
 
   const uid = new Types.ObjectId(userId);
   const existing = msg.reactions.find((r) => r.emoji === emoji);
@@ -128,6 +259,7 @@ export async function addReaction(messageId: string, userId: string, emoji: stri
   await msg.save();
   messageEvents.emit('message:reaction_added', {
     channelId: msg.channelId,
+    isDm: target.kind === 'dm',
     messageId: msg.id,
     emoji,
     userId,
@@ -142,7 +274,7 @@ export async function removeReaction(
   const msg = await Message.findById(messageId);
   if (!msg || msg.deletedAt) throw notFound('message');
 
-  await assertChannelMember(userId, msg.channelId);
+  const target = await assertChannelMember(userId, msg.channelId);
 
   const uid = new Types.ObjectId(userId);
   const ridx = msg.reactions.findIndex((r) => r.emoji === emoji);
@@ -158,6 +290,7 @@ export async function removeReaction(
   await msg.save();
   messageEvents.emit('message:reaction_removed', {
     channelId: msg.channelId,
+    isDm: target.kind === 'dm',
     messageId: msg.id,
     emoji,
     userId,

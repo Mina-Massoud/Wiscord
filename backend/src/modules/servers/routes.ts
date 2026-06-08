@@ -3,16 +3,27 @@ import { Router } from 'express';
 import { notFound } from '../../lib/errors.js';
 import { ok } from '../../lib/response.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
-import { channelIdParam, createChannelBody, createServerBody, serverIdParam, updateChannelBody, updateServerBody } from './schemas.js';
+import {
+  channelIdParam,
+  createChannelBody,
+  createServerBody,
+  markChannelReadBody,
+  serverIdParam,
+  updateChannelBody,
+  updateServerBody,
+} from './schemas.js';
 import {
   createChannel,
   createServer,
   deleteChannel,
   deleteServer,
   getServerForMember,
+  getServersUnread,
   leaveServer,
   listChannelsForServer,
+  listMembersForServer,
   listServersForUser,
+  markChannelAsRead,
   updateChannel,
   updateServer,
 } from './service.js';
@@ -21,7 +32,7 @@ export const serversRouter: Router = Router();
 
 serversRouter.use(requireAuth);
 
-/** GET /servers — servers the caller belongs to. */
+/** GET /servers - servers the caller belongs to. */
 serversRouter.get('/', async (req, res, next) => {
   try {
     const servers = await listServersForUser(req.userId!);
@@ -31,7 +42,7 @@ serversRouter.get('/', async (req, res, next) => {
   }
 });
 
-/** POST /servers — create a server with default text + voice channels. */
+/** POST /servers - create a server with default text + voice channels. */
 serversRouter.post('/', async (req, res, next) => {
   try {
     const body = createServerBody.parse(req.body);
@@ -42,7 +53,17 @@ serversRouter.post('/', async (req, res, next) => {
   }
 });
 
-/** GET /servers/:serverId/channels — channels in a server the caller belongs to. */
+/** GET /servers/unread - unread status for all servers the user belongs to. */
+serversRouter.get('/unread', async (req, res, next) => {
+  try {
+    const servers = await getServersUnread(req.userId!);
+    res.json(ok({ servers }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** GET /servers/:serverId/channels - channels in a server the caller belongs to. */
 serversRouter.get('/:serverId/channels', async (req, res, next) => {
   try {
     const { serverId } = serverIdParam.parse(req.params);
@@ -53,7 +74,7 @@ serversRouter.get('/:serverId/channels', async (req, res, next) => {
   }
 });
 
-/** POST /servers/:serverId/channels — create a text or voice channel. */
+/** POST /servers/:serverId/channels - create a text or voice channel. */
 serversRouter.post('/:serverId/channels', async (req, res, next) => {
   try {
     const { serverId } = serverIdParam.parse(req.params);
@@ -65,7 +86,18 @@ serversRouter.post('/:serverId/channels', async (req, res, next) => {
   }
 });
 
-/** GET /servers/:serverId — single server when the caller is a member. */
+/** GET /servers/:serverId/members - members in a server the caller belongs to. */
+serversRouter.get('/:serverId/members', async (req, res, next) => {
+  try {
+    const { serverId } = serverIdParam.parse(req.params);
+    const members = await listMembersForServer(req.userId!, serverId);
+    res.json(ok({ members }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** GET /servers/:serverId - single server when the caller is a member. */
 serversRouter.get('/:serverId', async (req, res, next) => {
   try {
     const { serverId } = serverIdParam.parse(req.params);
@@ -79,7 +111,7 @@ serversRouter.get('/:serverId', async (req, res, next) => {
   }
 });
 
-/** PATCH /servers/:serverId — update name/icon. Owner only. */
+/** PATCH /servers/:serverId - update name/icon. Owner only. */
 serversRouter.patch('/:serverId', async (req, res, next) => {
   try {
     const { serverId } = serverIdParam.parse(req.params);
@@ -91,7 +123,7 @@ serversRouter.patch('/:serverId', async (req, res, next) => {
   }
 });
 
-/** PATCH /servers/:serverId/channels/:channelId — rename a channel. Owner only. */
+/** PATCH /servers/:serverId/channels/:channelId - rename a channel. Owner only. */
 serversRouter.patch('/:serverId/channels/:channelId', async (req, res, next) => {
   try {
     const { serverId, channelId } = channelIdParam.parse(req.params);
@@ -103,7 +135,7 @@ serversRouter.patch('/:serverId/channels/:channelId', async (req, res, next) => 
   }
 });
 
-/** DELETE /servers/:serverId/channels/:channelId — delete a channel. Owner only. */
+/** DELETE /servers/:serverId/channels/:channelId - delete a channel. Owner only. */
 serversRouter.delete('/:serverId/channels/:channelId', async (req, res, next) => {
   try {
     const { serverId, channelId } = channelIdParam.parse(req.params);
@@ -114,7 +146,7 @@ serversRouter.delete('/:serverId/channels/:channelId', async (req, res, next) =>
   }
 });
 
-/** DELETE /servers/:serverId — delete server (owner) or leave it (member). */
+/** DELETE /servers/:serverId - delete server (owner) or leave it (member). */
 serversRouter.delete('/:serverId', async (req, res, next) => {
   try {
     const { serverId } = serverIdParam.parse(req.params);
@@ -125,6 +157,18 @@ serversRouter.delete('/:serverId', async (req, res, next) => {
       await deleteServer(req.userId!, serverId);
     }
     res.json(ok({ deleted: true }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** POST /servers/:serverId/channels/:channelId/read - mark channel as read. */
+serversRouter.post('/:serverId/channels/:channelId/read', async (req, res, next) => {
+  try {
+    const { serverId, channelId } = channelIdParam.parse(req.params);
+    markChannelReadBody.parse(req.body);
+    await markChannelAsRead(req.userId!, serverId, channelId);
+    res.json(ok({ success: true }));
   } catch (err) {
     next(err);
   }

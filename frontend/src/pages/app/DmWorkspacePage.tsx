@@ -1,0 +1,74 @@
+import { useParams } from 'react-router';
+import { AppShellLayout } from '@/components/app-shell/AppShellLayout';
+import { AppTitleBar } from '@/components/app-shell/AppTitleBar';
+import { GlobalUserPanel } from '@/components/app-shell/GlobalUserPanel';
+import { ServerRail } from '@/components/server/ServerRail';
+import { DmSidebar } from '@/components/app-shell/friends/DmSidebar';
+import { DmChatView } from '@/components/dms/DmChatView';
+import { useDmRoom } from '@/queries/dms';
+import { getIdenticonDataUrl } from '@/lib/avatar';
+
+export default function DmWorkspacePage(): React.JSX.Element {
+  const { dmRoomId = '' } = useParams<{ dmRoomId: string }>();
+  const { data: room, isLoading, isError } = useDmRoom(dmRoomId);
+
+  const recipient = room?.recipient;
+  const avatarSrc = recipient?.avatarUrl || (recipient?.id ? getIdenticonDataUrl(recipient.id) : '');
+
+  const titleBarText = recipient
+    ? `${recipient.displayName || recipient.username}`
+    : 'Direct Message';
+
+  return (
+    <AppShellLayout
+      titleBar={<AppTitleBar title={titleBarText} />}
+      serverRail={<ServerRail />}
+      sidebar={<DmSidebar />}
+      userPanel={<GlobalUserPanel />}
+      topBar={
+        <div className="flex h-12 w-full items-center gap-3 border-b border-glass-border px-4 bg-glass-surface-chrome backdrop-blur-md">
+          {recipient && (
+            <>
+              <img
+                src={avatarSrc}
+                alt=""
+                className="size-7 rounded-full object-cover"
+                loading="eager"
+              />
+              <div className="flex items-baseline gap-1.5 min-w-0">
+                <span className="font-semibold text-foreground text-subhead truncate">
+                  {recipient.displayName || recipient.username}
+                </span>
+                {recipient.displayName && (
+                  <span className="text-ink-subtle text-caption truncate">
+                    @{recipient.username}
+                  </span>
+                )}
+              </div>
+              <div className="ml-auto flex items-center gap-1.5">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span className="text-ink-subtle text-caption">Online</span>
+              </div>
+            </>
+          )}
+        </div>
+      }
+      main={
+        isLoading ? (
+          <div className="flex flex-1 items-center justify-center">
+            <div className="border-blurple h-6 w-6 animate-spin rounded-full border-2 border-t-transparent" />
+          </div>
+        ) : isError || !room ? (
+          <div className="text-ink-muted text-body flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
+            <p>Couldn&apos;t load this conversation.</p>
+          </div>
+        ) : (
+          <DmChatView room={room} />
+        )
+      }
+    />
+  );
+}

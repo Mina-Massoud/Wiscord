@@ -18,6 +18,7 @@ export interface ChannelDto {
   type: ChannelType;
   position: number;
   createdAt: string;
+  unreadCount?: number;
 }
 
 interface ChannelsEnvelope {
@@ -83,6 +84,42 @@ export interface UpdateChannelInput {
 export interface DeleteChannelInput {
   serverId: string;
   channelId: string;
+}
+
+export interface MarkChannelReadInput {
+  serverId: string;
+  channelId: string;
+}
+
+export function useMarkChannelRead(): UseMutationResult<
+  { success: boolean },
+  ApiError,
+  MarkChannelReadInput
+> {
+  const queryClient = useQueryClient();
+
+  return useMutation<{ success: boolean }, ApiError, MarkChannelReadInput>({
+    mutationFn: async ({ serverId, channelId }) => {
+      return api<{ success: boolean }>(`/servers/${serverId}/channels/${channelId}/read`, {
+        method: 'POST',
+        body: {},
+      });
+    },
+    onMutate: async ({ serverId, channelId }) => {
+      await queryClient.cancelQueries({ queryKey: qk.channels.byServer(serverId) });
+      queryClient.setQueryData<ChannelDto[]>(qk.channels.byServer(serverId), (channels) =>
+        channels
+          ? channels.map((channel) =>
+              channel.id === channelId ? { ...channel, unreadCount: 0 } : channel,
+            )
+          : channels,
+      );
+    },
+    onSettled: (_data, _err, { serverId }) => {
+      void queryClient.invalidateQueries({ queryKey: qk.channels.byServer(serverId) });
+      void queryClient.invalidateQueries({ queryKey: qk.servers.unread() });
+    },
+  });
 }
 
 export function useUpdateChannel(): UseMutationResult<ChannelDto, ApiError, UpdateChannelInput> {
