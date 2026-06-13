@@ -31,7 +31,6 @@ export function ThemeGeneratorRoot(): React.JSX.Element | null {
 
   if (!import.meta.env.DEV) return null;
 
-  return
   return (
     <>
       {!isOpen && (
