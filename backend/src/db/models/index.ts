@@ -1,4 +1,4 @@
-// Barrel: import { User, MagicLinkToken } from '@/db/models'
+// Barrel: import { User } from '@/db/models'
 export { User } from './User.js';
 export type { UserDoc, UserRow } from './User.js';
 export { Server } from './Server.js';
@@ -11,8 +11,6 @@ export { ChannelMember } from './ChannelMember.js';
 export type { ChannelMemberDoc, ChannelMemberRow } from './ChannelMember.js';
 export { Invite } from './Invite.js';
 export type { InviteDoc, InviteRow } from './Invite.js';
-export { MagicLinkToken } from './MagicLinkToken.js';
-export type { MagicLinkTokenDoc, MagicLinkTokenRow } from './MagicLinkToken.js';
 export { FriendRequest, FRIEND_REQUEST_STATUSES } from './FriendRequest.js';
 export type { FriendRequestDoc, FriendRequestRow, FriendRequestStatus } from './FriendRequest.js';
 export { Friendship, canonicalPair } from './Friendship.js';

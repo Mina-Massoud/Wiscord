@@ -31,26 +31,57 @@ export function useSession(): UseQueryResult<Profile | null> {
   });
 }
 
+export interface Credentials {
+  email: string;
+  password: string;
+}
+
 /**
- * Send a magic-link email. Always resolves true server-side (anti-enumeration);
- * failures are network/rate-limit and surface as AuthError.
+ * Sign in with email + password. On success the backend sets the session
+ * cookie and returns the profile; we prime the session cache so route guards
+ * read the authed state synchronously without waiting on a `/auth/me` refetch.
  */
-export function useSendMagicLink(): UseMutationResult<
-  { sent: true },
-  AuthError,
-  { email: string; redirectTo?: string }
-> {
-  return useMutation<{ sent: true }, AuthError, { email: string; redirectTo?: string }>({
-    mutationFn: async ({ email, redirectTo }) => {
+export function useSignIn(): UseMutationResult<Profile, AuthError, Credentials> {
+  const qc = useQueryClient();
+
+  return useMutation<Profile, AuthError, Credentials>({
+    mutationFn: async ({ email, password }) => {
       try {
-        const res = await api<{ sent: true }>('/auth/magic-link', {
+        return await api<Profile>('/auth/sign-in', {
           method: 'POST',
-          body: { email, redirectTo: redirectTo ?? '/' },
+          body: { email, password },
         });
-        return res;
       } catch (err) {
         throw normalizeAuthError(err);
       }
+    },
+    onSuccess: (profile) => {
+      qc.setQueryData(qk.auth.session(), profile);
+    },
+  });
+}
+
+/**
+ * Create an account with email + password. Same shape as sign-in — the backend
+ * creates the user, sets the session cookie, and returns the fresh profile so
+ * the SPA can route straight into onboarding.
+ */
+export function useSignUp(): UseMutationResult<Profile, AuthError, Credentials> {
+  const qc = useQueryClient();
+
+  return useMutation<Profile, AuthError, Credentials>({
+    mutationFn: async ({ email, password }) => {
+      try {
+        return await api<Profile>('/auth/sign-up', {
+          method: 'POST',
+          body: { email, password },
+        });
+      } catch (err) {
+        throw normalizeAuthError(err);
+      }
+    },
+    onSuccess: (profile) => {
+      qc.setQueryData(qk.auth.session(), profile);
     },
   });
 }

@@ -62,6 +62,11 @@ const billingSchema = new Schema(
 const userSchema = new Schema(
   {
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    // scrypt hash (see lib/password.ts), self-describing `scrypt$N$salt$hash`.
+    // `select: false` keeps it out of every default query — the sign-in path
+    // is the only place that explicitly `.select('+passwordHash')`s it back in,
+    // so it can never leak into a profile DTO or an accidental log line.
+    passwordHash: { type: String, default: null, select: false },
     username: {
       type: String,
       required: true,

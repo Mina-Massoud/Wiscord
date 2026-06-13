@@ -11,13 +11,8 @@ const envSchema = z.object({
 
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 chars'),
   SESSION_TTL_SECONDS: z.coerce.number().int().positive().default(60 * 60 * 24 * 30),
-  MAGIC_LINK_TTL_SECONDS: z.coerce.number().int().positive().default(60 * 15),
 
   FRONTEND_ORIGIN: z.string().url().default('http://localhost:5173'),
-
-  RESEND_API_KEY: z.string().optional(),
-  RESEND_FROM_EMAIL: z.string().email().default('onboarding@resend.dev'),
-  RESEND_FROM_NAME: z.string().default('Wiscord'),
 
   // Gemini API. Optional in dev so the rest of the app boots
   // without a key; /ai/ask returns 503 `ai_not_configured` when

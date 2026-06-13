@@ -1,70 +1,78 @@
-import { User, MagicLinkToken } from '../../db/models/index.js';
-import { hashToken, newMagicLinkToken } from '../../lib/tokens.js';
-import { sendMagicLinkEmail } from '../../lib/mail.js';
-import { badRequest, conflict, notFound } from '../../lib/errors.js';
-import { env } from '../../lib/env.js';
+import { User } from '../../db/models/index.js';
+import { hashPassword, verifyPassword } from '../../lib/password.js';
+import { AppError, conflict, notFound } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
 import type { UpdateProfileBody } from './schemas.js';
 
+// A well-formed-but-unmatchable hash (N=32768, 16-byte salt, 64-byte key) used
+// to spend the same scrypt time on an unknown-email sign-in as on a real one,
+// so response timing doesn't reveal whether the email exists. The actual bytes
+// never match any real password — it only needs to be valid `scrypt$…` shape.
+const DUMMY_HASH = `scrypt$32768$${'0'.repeat(32)}$${'0'.repeat(128)}`;
+
 /**
- * Get-or-create the user row for an email and issue a magic-link token.
+ * Create a new account from an email + password. The username is derived from
+ * the email local-part (disambiguated with a suffix on collision); the user
+ * finishes the rest of their profile in onboarding. Returns the userId so the
+ * caller can issue a session cookie.
  *
- * New email → new user (with a generated username derived from local-part,
- * disambiguated with a suffix on collision). The user finishes their profile
- * in onboarding after the magic link redirects them.
+ * Unlike the old magic-link flow there's no anti-enumeration dance here — a
+ * caller who tries to register an existing email *must* be told (otherwise we'd
+ * silently swallow the signup), so a taken email returns `409 email_taken`.
  */
-export async function startMagicLink(email: string, redirectTo?: string): Promise<void> {
+export async function signUp(email: string, password: string): Promise<{ userId: string }> {
   const lower = email.trim().toLowerCase();
 
-  let user = await User.findOne({ email: lower });
-  if (!user) {
-    const username = await pickAvailableUsername(lower);
-    user = await User.create({ email: lower, username });
+  const existing = await User.exists({ email: lower });
+  if (existing) {
+    throw conflict('email_taken', 'An account with this email already exists.');
   }
 
-  const { raw, hash } = newMagicLinkToken();
-  await MagicLinkToken.create({
-    tokenHash: hash,
-    userId: user._id,
-    expiresAt: new Date(Date.now() + env.MAGIC_LINK_TTL_SECONDS * 1000),
-    redirectTo: redirectTo ?? null,
-  });
+  const username = await pickAvailableUsername(lower);
+  const passwordHash = await hashPassword(password);
 
-  // The link points at the BACKEND callback. The backend verifies, sets the
-  // session cookie, then 302s onward to the frontend.
-  const backendOrigin = env.FRONTEND_ORIGIN.replace(/:\d+$/, `:${env.PORT}`);
-  const verifyUrl = `${backendOrigin}/auth/callback?token=${encodeURIComponent(raw)}`;
+  let user;
+  try {
+    user = await User.create({ email: lower, username, passwordHash });
+  } catch (err) {
+    // Lost a race against a concurrent signup with the same email — the unique
+    // index rejected the insert. Surface it as the same friendly conflict.
+    if (err instanceof Error && 'code' in err && (err as { code?: number }).code === 11000) {
+      throw conflict('email_taken', 'An account with this email already exists.');
+    }
+    throw err;
+  }
 
-  await sendMagicLinkEmail({ to: lower, url: verifyUrl });
-
-  logger.info({ email: lower, userId: user._id.toString() }, 'auth: magic link issued');
+  logger.info({ email: lower, userId: user._id.toString() }, 'auth: account created');
+  return { userId: user._id.toString() };
 }
 
 /**
- * Verify a magic-link token (hash + not-yet-used + not-expired), mark it
- * used, return the userId so the caller can issue a session cookie.
+ * Verify an email + password. Returns the userId so the caller can issue a
+ * session cookie. A wrong email and a wrong password fail identically with
+ * `401 invalid_credentials` so we don't leak which emails are registered.
  */
-export async function consumeMagicLink(
-  rawToken: string,
-): Promise<{ userId: string; redirectTo: string | null }> {
-  const hash = hashToken(rawToken);
+export async function signIn(email: string, password: string): Promise<{ userId: string }> {
+  const lower = email.trim().toLowerCase();
 
-  // findOneAndUpdate with a usedAt:null guard makes the consume step atomic
-  // — replays after a successful consume will see `usedAt != null` and fail.
-  const token = await MagicLinkToken.findOneAndUpdate(
-    { tokenHash: hash, usedAt: null, expiresAt: { $gt: new Date() } },
-    { $set: { usedAt: new Date() } },
-    { new: true },
-  );
+  // passwordHash is `select: false` on the schema — pull it in explicitly.
+  const user = await User.findOne({ email: lower }).select('+passwordHash');
 
-  if (!token) {
-    throw badRequest('invalid_or_expired_token', 'This sign-in link is no longer valid.');
+  // Same error for "no such email" and "wrong password" — don't leak which
+  // emails are registered. Still run a verify on a miss to keep the timing of
+  // both branches roughly equal (a constant dummy hash with the same params).
+  const invalid = new AppError(401, 'invalid_credentials', 'Wrong email or password.');
+
+  if (!user || !user.passwordHash) {
+    await verifyPassword(password, DUMMY_HASH);
+    throw invalid;
   }
 
-  return {
-    userId: token.userId.toString(),
-    redirectTo: token.redirectTo ?? null,
-  };
+  const ok = await verifyPassword(password, user.passwordHash);
+  if (!ok) throw invalid;
+
+  logger.info({ userId: user._id.toString() }, 'auth: signed in');
+  return { userId: user._id.toString() };
 }
 
 /**

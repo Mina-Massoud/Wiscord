@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -17,35 +17,60 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useSendMagicLink } from '@/queries/auth';
+import { useSignIn, useSignUp } from '@/queries/auth';
 
-const signInSchema = z.object({
+type Mode = 'signin' | 'signup';
+
+const credentialsSchema = z.object({
   email: z.string().email('Enter a valid email'),
+  password: z.string().min(8, 'At least 8 characters'),
 });
 
-type SignInValues = z.infer<typeof signInSchema>;
+type CredentialsValues = z.infer<typeof credentialsSchema>;
 
 function safeRedirectPath(next: string | null): string {
   if (!next || !next.startsWith('/') || next.startsWith('//')) return '/';
   return next;
 }
 
+const COPY: Record<Mode, { subtitle: string; heading: string; cta: string; switchPrompt: string; switchAction: string }> = {
+  signin: {
+    subtitle: 'Welcome back — pick up where you left off.',
+    heading: 'Sign in to Wiscord',
+    cta: 'Sign in',
+    switchPrompt: 'New here?',
+    switchAction: 'Create an account',
+  },
+  signup: {
+    subtitle: 'A calmer place to study together.',
+    heading: 'Create your account',
+    cta: 'Create account',
+    switchPrompt: 'Already have an account?',
+    switchAction: 'Sign in',
+  },
+};
+
 export default function SignInPage(): React.JSX.Element {
-  const [sentTo, setSentTo] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode>('signin');
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const redirectTo = safeRedirectPath(params.get('next'));
 
-  const mutation = useSendMagicLink();
+  const signIn = useSignIn();
+  const signUp = useSignUp();
 
-  const form = useForm<SignInValues>({
-    resolver: zodResolver(signInSchema),
-    defaultValues: { email: '' },
+  const form = useForm<CredentialsValues>({
+    resolver: zodResolver(credentialsSchema),
+    defaultValues: { email: '', password: '' },
   });
 
-  async function onSubmit(values: SignInValues): Promise<void> {
+  async function onSubmit(values: CredentialsValues): Promise<void> {
+    const mutation = mode === 'signin' ? signIn : signUp;
     try {
-      await mutation.mutateAsync({ email: values.email, redirectTo });
-      setSentTo(values.email);
+      await mutation.mutateAsync(values);
+      // Session cache is primed by the mutation's onSuccess; route guards at
+      // the destination send the user onward to onboarding or the app.
+      navigate(redirectTo, { replace: true });
     } catch (err: unknown) {
       const message =
         err !== null &&
@@ -58,36 +83,19 @@ export default function SignInPage(): React.JSX.Element {
     }
   }
 
-  if (sentTo !== null) {
-    return (
-      <AuthLayout subtitle="Check your inbox">
-        <div className="flex flex-col items-center gap-4 text-center">
-          <h1 className="text-foreground text-xl font-semibold">Check your inbox</h1>
-          <p className="text-muted-foreground text-sm">
-            We sent a magic link to <span className="text-foreground font-medium">{sentTo}</span>.
-            Click it to sign in.
-          </p>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setSentTo(null);
-              form.reset();
-              mutation.reset();
-            }}
-          >
-            Use a different email
-          </Button>
-        </div>
-      </AuthLayout>
-    );
+  function switchMode(): void {
+    setMode((m) => (m === 'signin' ? 'signup' : 'signin'));
+    form.clearErrors();
+    signIn.reset();
+    signUp.reset();
   }
 
-  const isPending = form.formState.isSubmitting || mutation.isPending;
+  const copy = COPY[mode];
+  const isPending = form.formState.isSubmitting || signIn.isPending || signUp.isPending;
 
   return (
-    <AuthLayout subtitle="We'll email you a magic link to get back in.">
-      <h1 className="text-foreground mb-6 text-center text-xl font-semibold">Sign in to Wiscord</h1>
+    <AuthLayout subtitle={copy.subtitle}>
+      <h1 className="text-foreground mb-6 text-center text-xl font-semibold">{copy.heading}</h1>
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
@@ -110,18 +118,51 @@ export default function SignInPage(): React.JSX.Element {
             )}
           />
 
+          <FormField
+            control={form.control}
+            name="password"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Password</FormLabel>
+                <FormControl>
+                  <Input
+                    type="password"
+                    placeholder="••••••••"
+                    autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <Button type="submit" disabled={isPending} className="w-full">
             {isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Sending…
+                {mode === 'signin' ? 'Signing in…' : 'Creating account…'}
               </>
             ) : (
-              'Send magic link'
+              copy.cta
             )}
           </Button>
         </form>
       </Form>
+
+      <p className="text-muted-foreground mt-6 text-center text-sm">
+        {copy.switchPrompt}{' '}
+        <Button
+          type="button"
+          variant="link"
+          size="sm"
+          className="h-auto p-0 align-baseline"
+          onClick={switchMode}
+          disabled={isPending}
+        >
+          {copy.switchAction}
+        </Button>
+      </p>
     </AuthLayout>
   );
 }

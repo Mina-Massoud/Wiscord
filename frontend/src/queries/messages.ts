@@ -8,6 +8,7 @@ import { api } from './client';
 import { qk } from './keys';
 import { toast } from '@/lib/toast';
 import type { MessageDto } from '@/types/message';
+import type { Profile } from '@/types/auth';
 
 // ── Queries ─────────────────────────────────────────────────────────────────
 
@@ -57,11 +58,24 @@ export function useSendMessage() {
 
       // We only insert optimistically if we have previous data
       if (previousMessages) {
-        // Create a fake optimistic message
+        // Stamp the optimistic message with the real signed-in identity (read
+        // from the session cache) so it renders on the correct side immediately
+        // — the previous `authorId: 'optimistic'` placeholder never matched the
+        // current user, so own messages flashed on the left until the real
+        // message arrived and replaced them.
+        const me = queryClient.getQueryData<Profile>(qk.auth.session());
         const optimisticMsg: MessageDto = {
           id: `temp-${Date.now()}`,
           channelId,
-          authorId: 'optimistic',
+          authorId: me?.id ?? 'optimistic',
+          author: me
+            ? {
+                id: me.id,
+                username: me.username,
+                displayName: me.display_name,
+                avatarUrl: me.avatar_url,
+              }
+            : undefined,
           content,
           mentions: [],
           reactions: [],

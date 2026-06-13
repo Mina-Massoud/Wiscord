@@ -20,7 +20,6 @@ import { AuthedRealtime } from './AppAuthedRealtime';
 // Route-level code splitting — each page chunk loaded on demand
 // ---------------------------------------------------------------------------
 const SignInPage = lazy(() => import('@/pages/sign-in/SignInPage'));
-const CallbackPage = lazy(() => import('@/pages/auth/CallbackPage'));
 const OnboardingLayout = lazy(() => import('@/pages/onboarding/OnboardingLayout'));
 const RoleStep = lazy(() => import('@/pages/onboarding/RoleStep'));
 const VibeStep = lazy(() => import('@/pages/onboarding/VibeStep'));
@@ -50,7 +49,7 @@ const DmWorkspacePage = lazy(() => import('@/pages/app/DmWorkspacePage'));
 // ---------------------------------------------------------------------------
 
 // Gate the dynamic island behind auth + onboarding — pre-app surfaces
-// (sign-in, magic-link callback, onboarding) shouldn't show in-app chrome.
+// (sign-in, onboarding) shouldn't show in-app chrome.
 
 // Same scope as AuthedIsland — only an authed user can return from Stripe
 // Checkout, so we only mount the handler past the auth/onboarding gate.
@@ -86,7 +85,6 @@ export default function App(): React.JSX.Element {
           <Route path="/sign-in" element={<RedirectIfAuthed />}>
             <Route index element={<SignInPage />} />
           </Route>
-          <Route path="/auth/callback" element={<CallbackPage />} />
 
           {/* Onboarding (auth required; onboarding not yet required) */}
           <Route element={<RequireAuth />}>

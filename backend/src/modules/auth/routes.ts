@@ -1,62 +1,61 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
-import { env } from '../../lib/env.js';
 import { ok } from '../../lib/response.js';
 import { signSessionToken } from '../../lib/jwt.js';
 import { setSessionCookie, clearSessionCookie } from '../../lib/cookies.js';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import {
-  callbackQuery,
   checkUsernameQuery,
-  magicLinkBody,
+  signInBody,
+  signUpBody,
   updateProfileBody,
 } from './schemas.js';
 import {
-  consumeMagicLink,
   getCurrentUser,
   isUsernameAvailable,
-  startMagicLink,
+  signIn,
+  signUp,
   updateProfile,
 } from './service.js';
 
 export const authRouter: Router = Router();
 
 /**
- * POST /auth/magic-link
- * Body: { email, redirectTo? }
- * Sends a one-time sign-in link. Always returns 200 to avoid leaking
- * which emails are registered (anti-enumeration).
+ * POST /auth/sign-up
+ * Body: { email, password }
+ * Creates the account, issues a session cookie, and returns the profile so the
+ * SPA can route straight into onboarding without a second round-trip.
  */
-authRouter.post('/magic-link', async (req, res, next) => {
+authRouter.post('/sign-up', async (req, res, next) => {
   try {
-    const { email, redirectTo } = magicLinkBody.parse(req.body);
-    await startMagicLink(email, redirectTo);
-    res.json(ok({ sent: true } as const));
+    const { email, password } = signUpBody.parse(req.body);
+    const { userId } = await signUp(email, password);
+
+    const jwt = await signSessionToken(userId);
+    setSessionCookie(res, jwt);
+
+    const me = await getCurrentUser(userId);
+    res.status(201).json(ok(me));
   } catch (err) {
     next(err);
   }
 });
 
 /**
- * GET /auth/callback?token=...
- * The user clicked the email link. Verify, set the session cookie, and
- * 302 to the frontend so the SPA hydrates state via /auth/me.
+ * POST /auth/sign-in
+ * Body: { email, password }
+ * Verifies the credentials, issues a session cookie, and returns the profile.
  */
-authRouter.get('/callback', async (req, res, next) => {
+authRouter.post('/sign-in', async (req, res, next) => {
   try {
-    const { token } = callbackQuery.parse(req.query);
-    const { userId, redirectTo } = await consumeMagicLink(token);
+    const { email, password } = signInBody.parse(req.body);
+    const { userId } = await signIn(email, password);
 
     const jwt = await signSessionToken(userId);
     setSessionCookie(res, jwt);
 
-    const safeRedirect = sanitizeRedirect(redirectTo);
-    res.redirect(safeRedirect);
+    const me = await getCurrentUser(userId);
+    res.json(ok(me));
   } catch (err) {
-    // Bounce to frontend's sign-in with an error code so the SPA can show it.
-    if (err instanceof Error && err.message.includes('invalid_or_expired_token')) {
-      res.redirect(`${env.FRONTEND_ORIGIN}/sign-in?error=expired_link`);
-      return;
-    }
     next(err);
   }
 });
@@ -128,12 +127,3 @@ authRouter.get('/check-username', async (req, res, next) => {
     next(err);
   }
 });
-
-function sanitizeRedirect(redirectTo: string | null): string {
-  if (!redirectTo) return env.FRONTEND_ORIGIN;
-  // Only same-origin paths — never trust an absolute URL from a token.
-  if (redirectTo.startsWith('/') && !redirectTo.startsWith('//')) {
-    return `${env.FRONTEND_ORIGIN}${redirectTo}`;
-  }
-  return env.FRONTEND_ORIGIN;
-}

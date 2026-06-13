@@ -1,15 +1,20 @@
 import { z } from 'zod';
 
-export const magicLinkBody = z.object({
-  email: z.string().email().max(254),
-  redirectTo: z.string().optional(),
-});
-export type MagicLinkBody = z.infer<typeof magicLinkBody>;
+// Password: 8–200 chars. Lower bound is the OWASP minimum; upper bound caps
+// the scrypt work an attacker can force us to do with a giant input.
+const password = z.string().min(8, 'At least 8 characters').max(200);
 
-export const callbackQuery = z.object({
-  token: z.string().min(20).max(200),
+export const signUpBody = z.object({
+  email: z.string().email().max(254),
+  password,
 });
-export type CallbackQuery = z.infer<typeof callbackQuery>;
+export type SignUpBody = z.infer<typeof signUpBody>;
+
+export const signInBody = z.object({
+  email: z.string().email().max(254),
+  password,
+});
+export type SignInBody = z.infer<typeof signInBody>;
 
 export const updateProfileBody = z
   .object({

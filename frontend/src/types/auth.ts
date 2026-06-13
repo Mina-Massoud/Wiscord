@@ -50,7 +50,14 @@ export type ProfileUpdate = Partial<
 >;
 
 // Typed auth errors
-export type AuthErrorCode = 'invalid_email' | 'rate_limited' | 'network' | 'unknown';
+export type AuthErrorCode =
+  | 'invalid_email'
+  | 'invalid_credentials'
+  | 'email_taken'
+  | 'weak_password'
+  | 'rate_limited'
+  | 'network'
+  | 'unknown';
 export interface AuthError {
   code: AuthErrorCode;
   message: string;
