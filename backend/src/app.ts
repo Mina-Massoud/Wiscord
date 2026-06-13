@@ -2,7 +2,7 @@ import express, { type Express } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
-import pinoHttp from 'pino-http';
+import { pinoHttp } from 'pino-http';
 import { Router } from 'express';
 
 import { env } from './lib/env.js';
@@ -33,6 +33,7 @@ import { eventsRouter } from './modules/events/routes.js';
 import { messagesRouter } from './modules/messages/routes.js';
 import { dmsRouter } from './modules/dms/routes.js';
 import { notificationsRouter } from './modules/notifications/routes.js';
+import { presenceRouter } from './modules/presence/routes.js';
 
 /**
  * Builds the Express app. Boot logic (port binding, Socket.IO attach) lives
@@ -98,6 +99,7 @@ export function createApp(): Express {
   app.use('/admin', adminRouter);
   app.use('/dms', dmsRouter);
   app.use('/notifications', notificationsRouter);
+  app.use('/presence', presenceRouter);
   app.use('/', messagesRouter);
 
   app.use(notFoundHandler);

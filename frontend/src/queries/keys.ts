@@ -23,6 +23,7 @@ export const qk = {
     byId: (id: string) => ['servers', id] as const,
     mine: () => ['servers', 'mine'] as const,
     unread: () => ['servers', 'unread'] as const,
+    discover: () => ['servers', 'discover'] as const,
   },
 
   members: {
@@ -49,6 +50,8 @@ export const qk = {
   presence: {
     root: ['presence'] as const,
     byServer: (serverId: string) => ['presence', serverId] as const,
+    /** Per-user online/idle/offline map for the caller's friends. */
+    users: () => ['presence', 'users'] as const,
   },
 
   focus: {

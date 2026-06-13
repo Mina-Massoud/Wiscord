@@ -4,10 +4,16 @@ import { env } from './env.js';
 export const SESSION_COOKIE = 'wiscord_session';
 
 function baseOptions(): CookieOptions {
+  // In production the frontend (Vercel) and backend (Render) live on different
+  // origins, so the session cookie rides cross-site XHR/fetch requests. Browsers
+  // only attach a cookie on cross-site requests when it is SameSite=None *and*
+  // Secure — `lax` would be silently dropped and every authed call would 401.
+  // Locally everything is same-origin-ish over http, so keep lax + insecure.
+  const crossSite = env.NODE_ENV === 'production';
   return {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: env.NODE_ENV === 'production',
+    sameSite: crossSite ? 'none' : 'lax',
+    secure: crossSite,
     path: '/',
   };
 }

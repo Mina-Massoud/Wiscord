@@ -1,6 +1,6 @@
 /**
  * Two views for the AI capsule. Same pattern as `musicCapsuleShapes` —
- * idle is a 26×26 circle, expanded is a wider card. The shell
+ * idle is a circular launcher dot, expanded is a wider card. The shell
  * `animate={{ width, height }}` morph + `ISLAND_SHELL_SPRING` lift
  * comes from the shared island animations module.
  */
@@ -17,8 +17,11 @@ export type AiView = 'idle' | 'expanded' | 'expanded-with-source';
 
 export const AI_SHAPES: Record<AiView, AiShape> = {
   idle: {
-    width: 26,
-    height: 26,
+    // Sized to match the floating React Query devtools toggle it now
+    // replaces in the bottom-right corner — reads as a peer launcher
+    // button rather than the tiny header dot it used to be.
+    width: 40,
+    height: 40,
     paddingX: 0,
     paddingY: 0,
     radiusClass: 'rounded-full',

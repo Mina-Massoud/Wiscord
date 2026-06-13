@@ -1,19 +1,16 @@
-import {
-  fakeFeatureSpotlight,
-  fakeFocusingRooms,
-  fakeSuggestedRooms,
-} from '@/data/fake-active-now';
+import { useCopy } from '@/lib/copy/useCopy';
 import { FeatureSpotlightCard } from './active-now/FeatureSpotlightCard';
 import { FocusingNowList } from './active-now/FocusingNowList';
 import { SuggestedRoomsList } from './active-now/SuggestedRoomsList';
 
 /**
- * Right rail of the friends view. Hybrid showcase that anchors Wiscord's
- * core loop (sync timer + body-doubling + room discovery) even when no
- * friends are active, instead of mirroring Discord's empty "Active Now"
- * card. Pure static — no realtime wiring in v1 (see docs/overview.md).
+ * Right rail of the friends view. Anchors Wiscord's core loop (sync timer +
+ * body-doubling + room discovery): a static feature spotlight, the live
+ * "Focusing now" surface, and real public-server suggestions from discovery.
  */
 export function ActiveNowPanel(): React.JSX.Element {
+  const t = useCopy();
+
   return (
     <>
       <div className="flex h-12 shrink-0 items-center px-4">
@@ -22,11 +19,14 @@ export function ActiveNowPanel(): React.JSX.Element {
 
       <div className="flex flex-col gap-1 overflow-y-auto pb-4">
         <div className="px-3">
-          <FeatureSpotlightCard spotlight={fakeFeatureSpotlight} />
+          <FeatureSpotlightCard
+            title={t('home.spotlight.title')}
+            blurb={t('home.spotlight.blurb')}
+          />
         </div>
 
-        <FocusingNowList rooms={fakeFocusingRooms} />
-        <SuggestedRoomsList rooms={fakeSuggestedRooms} />
+        <FocusingNowList />
+        <SuggestedRoomsList />
       </div>
     </>
   );

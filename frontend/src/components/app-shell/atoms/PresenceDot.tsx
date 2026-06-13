@@ -1,5 +1,8 @@
 import { cn } from '@/lib/cn';
-import type { Presence } from '@/data/fake-shell.types';
+
+/** UI presence states. Superset of the backend `PresenceStatus` — `dnd` is a
+ *  reserved render state that no v1 source emits yet. */
+export type Presence = 'online' | 'idle' | 'dnd' | 'offline';
 
 interface PresenceDotProps {
   presence: Presence;

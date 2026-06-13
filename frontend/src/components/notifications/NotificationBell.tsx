@@ -9,11 +9,7 @@ import {
   useNotifications,
   type NotificationDto,
 } from '@/queries/notifications';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { UnreadBadge } from '@/components/app-shell/atoms/UnreadBadge';
 
 function notificationLabel(notification: NotificationDto): string {
@@ -50,11 +46,15 @@ export function NotificationBell(): React.JSX.Element {
     // Navigate to target location based on notification type
     if (notification.type === 'mention' && notification.serverId && notification.channelId) {
       const url = `/app/servers/${notification.serverId}/channels/${notification.channelId}`;
-      const withMessage = notification.messageId ? `${url}?highlight=${notification.messageId}` : url;
+      const withMessage = notification.messageId
+        ? `${url}?highlight=${notification.messageId}`
+        : url;
       navigate(withMessage);
     } else if (notification.type === 'dm' && notification.channelId) {
       const url = `/app/dms/${notification.channelId}`;
-      const withMessage = notification.messageId ? `${url}?highlight=${notification.messageId}` : url;
+      const withMessage = notification.messageId
+        ? `${url}?highlight=${notification.messageId}`
+        : url;
       navigate(withMessage);
     }
   };
@@ -85,13 +85,13 @@ export function NotificationBell(): React.JSX.Element {
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className="bg-glass-surface-chrome border-glass-border w-80 p-0 text-ink shadow-xl"
+        className="bg-surface-2 border-border text-ink w-80 p-0 shadow-xl"
       >
         <div className="border-glass-border flex h-11 items-center justify-between border-b px-3">
           <div className="flex items-center gap-2">
             <span className="text-control font-semibold">Notifications</span>
             {mentionCount > 0 ? (
-              <span className="bg-blurple/15 text-blurple flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold">
+              <span className="bg-blurple/15 text-blurple text-badge flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold">
                 <AtSign className="size-3" aria-hidden />
                 {mentionCount}
               </span>
@@ -112,9 +112,9 @@ export function NotificationBell(): React.JSX.Element {
           </div>
         </div>
 
-        <div className="max-h-96 rounded-3xl overflow-y-auto ">
+        <div className="max-h-96 overflow-y-auto">
           {notifications.length === 0 ? (
-            <div className="text-ink-subtle px-3 py-8 text-center text-sm">
+            <div className="text-ink-subtle text-caption px-3 py-8 text-center">
               No notifications yet.
             </div>
           ) : (
@@ -124,9 +124,8 @@ export function NotificationBell(): React.JSX.Element {
                 type="button"
                 onClick={() => handleNotificationClick(notification)}
                 className={cn(
-                  'hover:bg-glass-hover flex w-full items-start gap-3 px-3 py-2 text-left transition-colors',
-                  !notification.read && 'bg-gray-900 border-l-2 hover:bg-gray-800',
-                  notification.read && 'bg-gray-900 border-l-2 hover:bg-gray-800',
+                  'hover:bg-glass-hover flex w-full items-start gap-3 border-l-2 px-3 py-2 text-left transition-colors',
+                  notification.read ? 'border-transparent' : 'border-blurple bg-blurple/5',
                 )}
               >
                 <span

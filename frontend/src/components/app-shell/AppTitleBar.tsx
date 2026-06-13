@@ -1,4 +1,4 @@
-import { Users, HelpCircle } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { NotificationBell } from '@/components/notifications/NotificationBell';
 
 interface AppTitleBarProps {
@@ -23,14 +23,6 @@ export function AppTitleBar({ title }: AppTitleBarProps): React.JSX.Element {
 
       <div className="absolute right-3 flex items-center gap-3">
         <NotificationBell />
-        <button
-          type="button"
-          aria-label="Help"
-          className="hover:text-ink"
-          onClick={(e) => e.preventDefault()}
-        >
-          <HelpCircle className="size-4" />
-        </button>
       </div>
     </header>
   );

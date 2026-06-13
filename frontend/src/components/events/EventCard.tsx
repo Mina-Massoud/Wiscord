@@ -1,4 +1,13 @@
-import { Calendar, ExternalLink, Mic2, MoreVertical, Trash2, Users, Volume2, Pencil } from 'lucide-react';
+import {
+  Calendar,
+  ExternalLink,
+  Mic2,
+  MoreVertical,
+  Trash2,
+  Users,
+  Volume2,
+  Pencil,
+} from 'lucide-react';
 import type { EventWithMeta, EventType } from '@/types/event';
 import { Button } from '@/components/ui/button';
 import {
@@ -28,15 +37,11 @@ function EventTypeIcon({ type }: { type: EventType }): React.JSX.Element {
 
 function EventTypeBadge({ type }: { type: EventType }): React.JSX.Element {
   const label =
-    type === 'voice_channel'
-      ? 'Voice'
-      : type === 'stage_channel'
-        ? 'Stage'
-        : 'External';
+    type === 'voice_channel' ? 'Voice' : type === 'stage_channel' ? 'Stage' : 'External';
   return (
     <Badge
       variant="secondary"
-      className="bg-glass-surface-1 border-glass-border text-ink-muted flex items-center gap-1 px-2 py-0.5 text-badge font-medium"
+      className="bg-glass-surface-1 border-glass-border text-ink-muted text-badge flex items-center gap-1 px-2 py-0.5 font-medium"
     >
       <EventTypeIcon type={type} />
       {label}
@@ -56,7 +61,9 @@ function formatEventTime(startsAt: string, endsAt: string | null): string {
   const startStr = new Intl.DateTimeFormat(undefined, opts).format(start);
   if (!endsAt) return startStr;
   const end = new Date(endsAt);
-  const endStr = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(end);
+  const endStr = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(
+    end,
+  );
   return `${startStr} – ${endStr}`;
 }
 
@@ -87,8 +94,7 @@ export function EventCard({
   const upsertRsvp = useUpsertRsvp(serverId);
   const isPast = new Date(event.startsAt) < new Date();
   const accentColor = event.coverColor ?? DEFAULT_COVER_COLORS[event.type];
-  const canEdit =
-    currentUserId === event.creatorId || currentUserId === serverOwnerId;
+  const canEdit = currentUserId === event.creatorId || currentUserId === serverOwnerId;
   const joinHref = getJoinHref(event);
 
   function handleRsvp(status: 'going' | 'interested'): void {
@@ -97,12 +103,12 @@ export function EventCard({
 
   return (
     <article
-      className="group relative flex flex-col overflow-hidden rounded-xl border border-glass-border bg-glass-surface-1 transition-all duration-base hover:border-glass-border-strong hover:shadow-lg"
+      className="group border-glass-border bg-glass-surface-1 duration-base hover:border-glass-border-strong relative flex flex-col overflow-hidden rounded-xl border transition-all hover:shadow-lg"
       aria-label={event.title}
     >
       {/* Accent stripe */}
       <div
-        className="h-1.5 w-full shrink-0 transition-all duration-base group-hover:h-2"
+        className="duration-base h-1.5 w-full shrink-0 transition-all group-hover:h-2"
         style={{ backgroundColor: accentColor }}
         aria-hidden
       />
@@ -156,13 +162,11 @@ export function EventCard({
 
         {/* Title */}
         <div>
-          <h3 className="text-body font-semibold text-ink line-clamp-2 leading-tight">
+          <h3 className="text-body text-ink line-clamp-2 leading-tight font-semibold">
             {event.title}
           </h3>
           {event.description && (
-            <p className="text-caption text-ink-muted mt-1 line-clamp-2">
-              {event.description}
-            </p>
+            <p className="text-caption text-ink-muted mt-1 line-clamp-2">{event.description}</p>
           )}
         </div>
 
@@ -201,14 +205,16 @@ export function EventCard({
 
         {/* Actions row */}
         <div className="flex items-center gap-2 pt-1">
-          {/* Going button */}
+          {/* Going button. Inactive state uses surface-2 (darker than the
+              surface-1 card) + a stronger border so it reads as a button
+              instead of blending into the card. */}
           <Button
             size="sm"
             variant={event.myRsvp === 'going' ? 'default' : 'secondary'}
             className={
               event.myRsvp === 'going'
-                ? 'bg-blurple hover:bg-blurple/90 text-white flex-1'
-                : 'bg-glass-surface-1 border-glass-border hover:bg-glass-surface-2 flex-1'
+                ? 'bg-blurple hover:bg-blurple/90 flex-1 text-white'
+                : 'bg-glass-surface-2 border-glass-border-strong text-ink hover:bg-glass-hover flex-1'
             }
             onClick={() => handleRsvp('going')}
             disabled={upsertRsvp.isPending || isPast}
@@ -221,11 +227,11 @@ export function EventCard({
           {/* Interested button */}
           <Button
             size="sm"
-            variant={event.myRsvp === 'interested' ? 'default' : 'outline'}
+            variant={event.myRsvp === 'interested' ? 'default' : 'secondary'}
             className={
               event.myRsvp === 'interested'
                 ? 'bg-blurple/15 border-blurple/50 text-blurple hover:bg-blurple/20 flex-1'
-                : 'border-glass-border text-ink-muted hover:text-ink flex-1'
+                : 'bg-glass-surface-2 border-glass-border-strong text-ink-muted hover:text-ink hover:bg-glass-hover flex-1'
             }
             onClick={() => handleRsvp('interested')}
             disabled={upsertRsvp.isPending || isPast}

@@ -16,7 +16,7 @@ import { Types } from 'mongoose';
 import { badRequest, conflict, forbidden, notFound } from '../../lib/errors.js';
 import { createDefaultInviteForServer } from '../invites/service.js';
 import { serverUnreadEvents } from './realtime-bridge.js';
-import type { ChannelDto, CreateChannelBody, CreateServerBody, ServerDto, ServerMemberDto, ServerUnreadDto, UpdateChannelBody, UpdateServerBody } from './schemas.js';
+import type { ChannelDto, CreateChannelBody, CreateServerBody, DiscoverServerDto, ServerDto, ServerMemberDto, ServerUnreadDto, UpdateChannelBody, UpdateServerBody } from './schemas.js';
 
 function toServerDto(doc: ServerDoc): ServerDto {
   return {
@@ -24,6 +24,7 @@ function toServerDto(doc: ServerDoc): ServerDto {
     name: doc.name,
     iconUrl: doc.iconUrl ?? null,
     ownerId: doc.ownerId.toString(),
+    isPublic: doc.isPublic ?? false,
     createdAt: doc.createdAt.toISOString(),
   };
 }
@@ -160,8 +161,57 @@ export async function updateServer(
 
   if (body.name !== undefined) server.name = body.name;
   if (body.iconUrl !== undefined) server.iconUrl = body.iconUrl;
+  if (body.isPublic !== undefined) server.isPublic = body.isPublic;
   await server.save();
   return toServerDto(server);
+}
+
+/**
+ * Public servers the caller is not already a member of, newest first. Powers
+ * the "Suggested rooms" discovery rail. Each row carries a member count and
+ * the first text channel to land in on join.
+ */
+export async function listPublicServers(
+  callerId: string,
+  limit = 12,
+): Promise<DiscoverServerDto[]> {
+  const memberships = await ServerMember.find({ userId: callerId }).select('serverId').lean();
+  const myServerIds = memberships.map((m) => m.serverId);
+
+  const servers = await Server.find({ isPublic: true, _id: { $nin: myServerIds } })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .exec();
+  if (servers.length === 0) return [];
+
+  const serverIds = servers.map((s) => s._id);
+
+  // Member counts in one grouped pass.
+  const counts = await ServerMember.aggregate<{ _id: Types.ObjectId; count: number }>([
+    { $match: { serverId: { $in: serverIds } } },
+    { $group: { _id: '$serverId', count: { $sum: 1 } } },
+  ]);
+  const countByServer = new Map(counts.map((c) => [c._id.toString(), c.count]));
+
+  // First text channel per server (lowest position). One query, grouped client-side.
+  const channels = await Channel.find({ serverId: { $in: serverIds }, type: 'text' })
+    .sort({ position: 1 })
+    .select('_id serverId')
+    .lean();
+  const firstChannelByServer = new Map<string, string>();
+  for (const c of channels) {
+    const sid = c.serverId.toString();
+    if (!firstChannelByServer.has(sid)) firstChannelByServer.set(sid, c._id.toString());
+  }
+
+  return servers.map((s) => ({
+    id: s._id.toString(),
+    name: s.name,
+    iconUrl: s.iconUrl ?? null,
+    memberCount: countByServer.get(s._id.toString()) ?? 0,
+    firstChannelId: firstChannelByServer.get(s._id.toString()) ?? null,
+    blurb: null,
+  }));
 }
 
 export async function listChannelsForServer(

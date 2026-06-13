@@ -138,6 +138,31 @@ const COPY = {
     professional: 'Contact removed.',
   },
 
+  // ── Home / friends right-rail showcase ────────────────────────────
+  // Static product copy (not live data). Lives in the registry so it
+  // reads as intentional content and adapts to the user's vibe.
+  'home.announcement.tag': { genz: 'New', chill: 'New', professional: 'New' },
+  'home.announcement.headline': {
+    genz: 'Room AI now cites the chat.',
+    chill: 'Room AI now cites the chat.',
+    professional: 'Room AI now cites the chat.',
+  },
+  'home.announcement.tagline': {
+    genz: 'Ask the room anything — answers link straight back to the exact message.',
+    chill: 'Ask anything about your room — answers link back to the exact message.',
+    professional: 'Ask a question about your room and answers link back to the exact message.',
+  },
+  'home.spotlight.title': {
+    genz: 'Sync Timer',
+    chill: 'Sync timer',
+    professional: 'Sync timer',
+  },
+  'home.spotlight.blurb': {
+    genz: 'Start a Pomodoro and the whole room locks in and counts down with you.',
+    chill: 'Start a Pomodoro and the whole room counts down with you.',
+    professional: 'Start a Pomodoro and the entire room counts down together.',
+  },
+
   // ── Voice lounge — channel header ─────────────────────────────────
   'voice.title': { genz: 'The Voice Vibe', chill: 'Voice lounge', professional: 'Voice channel' },
 

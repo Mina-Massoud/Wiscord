@@ -15,9 +15,10 @@ export const updateServerBody = z
   .object({
     name: z.string().trim().min(2, 'At least 2 characters').max(64, 'At most 64 characters').optional(),
     iconUrl: z.string().url().max(2048).nullable().optional(),
+    isPublic: z.boolean().optional(),
   })
   .strict()
-  .refine((b) => b.name !== undefined || b.iconUrl !== undefined, {
+  .refine((b) => b.name !== undefined || b.iconUrl !== undefined || b.isPublic !== undefined, {
     message: 'Provide at least one field to update.',
   });
 
@@ -31,7 +32,23 @@ export interface ServerDto {
   name: string;
   iconUrl: string | null;
   ownerId: string;
+  isPublic: boolean;
   createdAt: string;
+}
+
+/** A public server surfaced in discovery — a non-member's view (no ownerId). */
+export interface DiscoverServerDto {
+  id: string;
+  name: string;
+  iconUrl: string | null;
+  memberCount: number;
+  /** First text channel to land in on join, or null if the server has none. */
+  firstChannelId: string | null;
+  blurb: string | null;
+}
+
+export interface DiscoverServersEnvelope {
+  servers: DiscoverServerDto[];
 }
 
 export interface ServersEnvelope {

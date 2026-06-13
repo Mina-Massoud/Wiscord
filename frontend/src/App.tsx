@@ -28,6 +28,7 @@ const ProfileStep = lazy(() => import('@/pages/onboarding/ProfileStep'));
 const ServerWorkspacePage = lazy(() => import('@/pages/app/ServerWorkspacePage'));
 const InviteRedeemPage = lazy(() => import('@/pages/invite/InviteRedeemPage'));
 const FriendsPage = lazy(() => import('@/pages/app/FriendsPage'));
+const DiscoverPage = lazy(() => import('@/pages/app/DiscoverPage'));
 const VoiceLabPage = lazy(() => import('@/pages/app/labs/VoiceLabPage'));
 const QuizLabPage = lazy(() => import('@/pages/app/labs/QuizLabPage'));
 const QuizIndexPage = lazy(() => import('@/pages/app/labs/QuizIndexPage'));
@@ -104,16 +105,14 @@ export default function App(): React.JSX.Element {
           <Route element={<RequireAuth />}>
             <Route element={<RequireOnboarding />}>
               <Route path="/app" element={<FriendsPage />} />
+              <Route path="/app/discover" element={<DiscoverPage />} />
               <Route path="/app/dms/:dmRoomId" element={<DmWorkspacePage />} />
               <Route path="/app/servers/:serverId" element={<ServerWorkspacePage />} />
               <Route
                 path="/app/servers/:serverId/channels/:channelId"
                 element={<ServerWorkspacePage />}
               />
-              <Route
-                path="/app/servers/:serverId/events"
-                element={<ServerWorkspacePage />}
-              />
+              <Route path="/app/servers/:serverId/events" element={<ServerWorkspacePage />} />
               {/* Dev-only feature sandboxes — stripped from prod builds */}
               {import.meta.env.DEV && (
                 <Route path="/app/labs/voice/:channelId" element={<VoiceLabPage />} />

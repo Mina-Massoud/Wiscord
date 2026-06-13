@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
 import { SettingsPanelTitle, SettingsSection } from '@/components/settings/SettingsShell';
 import { toast } from '@/lib/toast';
 import { ApiError } from '@/queries/client';
@@ -43,6 +44,7 @@ export function EditServerDialog({
 
   // Start with the existing icon URL (if any)
   const [iconPreviewUrl, setIconPreviewUrl] = useState<string | null>(server.iconUrl);
+  const [isPublic, setIsPublic] = useState(server.isPublic);
 
   const form = useForm<EditServerValues>({
     resolver: zodResolver(editServerSchema),
@@ -55,7 +57,8 @@ export function EditServerDialog({
   const resetForm = useCallback((): void => {
     form.reset({ name: server.name });
     setIconPreviewUrl(server.iconUrl);
-  }, [form, server.name, server.iconUrl]);
+    setIsPublic(server.isPublic);
+  }, [form, server.name, server.iconUrl, server.isPublic]);
 
   const handleOpenChange = (next: boolean): void => {
     if (!next) resetForm();
@@ -83,8 +86,9 @@ export function EditServerDialog({
   async function onSubmit(values: EditServerValues): Promise<void> {
     const nameChanged = values.name !== server.name;
     const iconChanged = iconPreviewUrl !== server.iconUrl;
+    const publicChanged = isPublic !== server.isPublic;
 
-    if (!nameChanged && !iconChanged) {
+    if (!nameChanged && !iconChanged && !publicChanged) {
       handleOpenChange(false);
       return;
     }
@@ -94,6 +98,7 @@ export function EditServerDialog({
         serverId: server.id,
         ...(nameChanged ? { name: values.name } : {}),
         ...(iconChanged ? { iconUrl: iconPreviewUrl } : {}),
+        ...(publicChanged ? { isPublic } : {}),
       },
       {
         onSuccess: (updated) => {
@@ -111,10 +116,7 @@ export function EditServerDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        hideClose
-        className="bg-canvas gap-0 overflow-hidden border-0 p-0 sm:max-w-lg"
-      >
+      <DialogContent hideClose className="bg-canvas gap-0 overflow-hidden border-0 p-0 sm:max-w-lg">
         <div className="relative">
           {/* Close button */}
           <div className="absolute top-4 right-4 z-10 flex flex-col items-center">
@@ -132,7 +134,7 @@ export function EditServerDialog({
           <div className="max-h-[85vh] overflow-y-auto px-10 py-14">
             <SettingsPanelTitle>Server Settings</SettingsPanelTitle>
             <p className="text-ink-muted text-control mt-2">
-              Customize your server's name and icon.
+              Customize your server&apos;s name and icon.
             </p>
 
             <Form {...form}>
@@ -152,7 +154,10 @@ export function EditServerDialog({
                   />
                 </SettingsSection>
 
-                <SettingsSection title="Server name" description="What should people call this room?">
+                <SettingsSection
+                  title="Server name"
+                  description="What should people call this room?"
+                >
                   <FormField
                     control={form.control}
                     name="name"
@@ -172,6 +177,21 @@ export function EditServerDialog({
                       </FormItem>
                     )}
                   />
+                </SettingsSection>
+
+                <SettingsSection
+                  title="Discovery"
+                  description="Public servers appear in Suggested rooms for people to find and join."
+                >
+                  <label className="flex items-center justify-between gap-4">
+                    <span className="text-ink text-control">List this server publicly</span>
+                    <Switch
+                      checked={isPublic}
+                      onCheckedChange={setIsPublic}
+                      disabled={isPending}
+                      aria-label="List this server publicly"
+                    />
+                  </label>
                 </SettingsSection>
 
                 <div className="mt-10 flex justify-end gap-2">

@@ -1,4 +1,4 @@
-import { Users, MessageSquarePlus } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { useCopy } from '@/lib/copy/useCopy';
 import type { CopyKey } from '@/lib/copy/registry';
@@ -65,20 +65,11 @@ export function FriendsTopBar({
         type="button"
         onClick={() => onTabChange('add')}
         className={cn(
-          'text-control rounded-md px-3 py-1 font-medium transition-colors',
+          'text-control ml-auto rounded-md px-3 py-1 font-medium transition-colors',
           'bg-blurple hover:bg-blurple-hover text-white',
         )}
       >
         {t('friends.add')}
-      </button>
-
-      <button
-        type="button"
-        aria-label="New message"
-        onClick={(e) => e.preventDefault()}
-        className="text-ink-muted hover:text-ink ml-auto"
-      >
-        <MessageSquarePlus className="size-5" />
       </button>
     </header>
   );

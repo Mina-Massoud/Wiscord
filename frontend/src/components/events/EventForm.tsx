@@ -5,20 +5,40 @@ import { Loader2, X, Volume2, Mic2, ExternalLink, CalendarPlus } from 'lucide-re
 
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { SettingsPanelTitle } from '@/components/settings/SettingsShell';
 import { toast } from '@/lib/toast';
 import { useCreateEvent, useUpdateEvent } from '@/queries/events';
-import { useCreateEvent as useCreateCalendarEvent, useCalendarCategories } from '@/queries/calendar';
+import {
+  useCreateEvent as useCreateCalendarEvent,
+  useCalendarCategories,
+} from '@/queries/calendar';
 import { useServerChannels } from '@/queries/channels';
 import { useSession } from '@/queries/auth';
 import type { EventWithMeta, EventType } from '@/types/event';
 import { eventFormSchema, toDatetimeLocal, type EventFormValues } from './Eventformschema';
 import { EventColorPicker } from './EventColorPicker';
+
+// Shared section-label style for every field in the form — small,
+// uppercase, wide-tracked. Kept in one place so the rhythm stays
+// consistent and the className isn't repeated on every FormLabel.
+const FIELD_LABEL = 'text-ink-subtle text-badge font-semibold tracking-wider uppercase';
 
 interface EventFormProps {
   serverId: string;
@@ -206,19 +226,18 @@ export function EventForm({
             <span className="text-ink-subtle text-badge mt-1 font-bold tracking-wider">ESC</span>
           </div>
 
-          <div className="max-h-[85vh] overflow-y-auto px-10 py-14">
+          <div className="max-h-[85vh] overflow-y-auto px-8 py-8">
             <DialogTitle asChild>
-              <SettingsPanelTitle>
+              <h2 className="text-ink text-title">
                 {eventToEdit ? 'Edit server event' : 'Create server event'}
-              </SettingsPanelTitle>
+              </h2>
             </DialogTitle>
-            <p className="text-ink-muted text-control mt-2">
+            <p className="text-ink-muted text-control mt-1.5 max-w-prose">
               Gather your community for a focused hangout, study session, or voice channel chat.
             </p>
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="mt-8 flex flex-col gap-6">
-
+              <form onSubmit={form.handleSubmit(onSubmit)} className="mt-7 flex flex-col gap-5">
                 {/* Add to Calendar toggle — create mode only */}
                 {!eventToEdit && (
                   <FormField
@@ -227,7 +246,7 @@ export function EventForm({
                     render={({ field }) => (
                       <FormItem className="border-blurple/20 bg-blurple/5 flex items-center justify-between gap-4 rounded-xl border px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="bg-blurple/10 flex size-8 items-center justify-center rounded-lg text-blurple">
+                          <div className="bg-blurple/10 text-blurple flex size-8 items-center justify-center rounded-lg">
                             <CalendarPlus className="size-4" />
                           </div>
                           <div>
@@ -263,10 +282,8 @@ export function EventForm({
                   control={form.control}
                   name="title"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-ink-subtle text-badge font-semibold tracking-wider uppercase">
-                        Event Title
-                      </FormLabel>
+                    <FormItem className="flex flex-col gap-3 space-y-0">
+                      <FormLabel className={FIELD_LABEL}>Event Title</FormLabel>
                       <FormControl>
                         <Input
                           id={titleId}
@@ -287,10 +304,8 @@ export function EventForm({
                   control={form.control}
                   name="description"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-ink-subtle text-badge font-semibold tracking-wider uppercase">
-                        Description
-                      </FormLabel>
+                    <FormItem className="flex flex-col gap-3 space-y-0">
+                      <FormLabel className={FIELD_LABEL}>Description</FormLabel>
                       <FormControl>
                         <Textarea
                           {...field}
@@ -312,10 +327,8 @@ export function EventForm({
                   control={form.control}
                   name="type"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-ink-subtle text-badge font-semibold tracking-wider uppercase">
-                        Event Type
-                      </FormLabel>
+                    <FormItem className="flex flex-col gap-3 space-y-0">
+                      <FormLabel className={FIELD_LABEL}>Event Type</FormLabel>
                       <Select
                         disabled={isPending}
                         onValueChange={(v: EventType) => {
@@ -330,26 +343,26 @@ export function EventForm({
                         value={field.value}
                       >
                         <FormControl>
-                          <SelectTrigger className="w-full bg-glass-surface-1 text-ink">
+                          <SelectTrigger className="bg-glass-surface-1 text-ink w-full">
                             <SelectValue placeholder="Select type" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="voice_channel">
                             <span className="flex items-center gap-2">
-                              <Volume2 className="size-4 text-ink-muted" />
+                              <Volume2 className="text-ink-muted size-4" />
                               Voice Channel
                             </span>
                           </SelectItem>
                           <SelectItem value="stage_channel">
                             <span className="flex items-center gap-2">
-                              <Mic2 className="size-4 text-ink-muted" />
+                              <Mic2 className="text-ink-muted size-4" />
                               Stage Channel
                             </span>
                           </SelectItem>
                           <SelectItem value="external">
                             <span className="flex items-center gap-2">
-                              <ExternalLink className="size-4 text-ink-muted" />
+                              <ExternalLink className="text-ink-muted size-4" />
                               External Link
                             </span>
                           </SelectItem>
@@ -366,17 +379,15 @@ export function EventForm({
                     control={form.control}
                     name="channelId"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-ink-subtle text-badge font-semibold tracking-wider uppercase">
-                          Select Voice Channel
-                        </FormLabel>
+                      <FormItem className="flex flex-col gap-3 space-y-0">
+                        <FormLabel className={FIELD_LABEL}>Select Voice Channel</FormLabel>
                         <Select
                           disabled={isPending || channelsQuery.isLoading}
                           onValueChange={field.onChange}
                           value={field.value ?? ''}
                         >
                           <FormControl>
-                            <SelectTrigger className="w-full bg-glass-surface-1 text-ink">
+                            <SelectTrigger className="bg-glass-surface-1 text-ink w-full">
                               <SelectValue placeholder="Select voice room" />
                             </SelectTrigger>
                           </FormControl>
@@ -403,10 +414,8 @@ export function EventForm({
                     control={form.control}
                     name="externalLink"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-ink-subtle text-badge font-semibold tracking-wider uppercase">
-                          Meeting Link URL
-                        </FormLabel>
+                      <FormItem className="flex flex-col gap-3 space-y-0">
+                        <FormLabel className={FIELD_LABEL}>Meeting Link URL</FormLabel>
                         <FormControl>
                           <Input
                             {...field}
@@ -427,10 +436,8 @@ export function EventForm({
                     control={form.control}
                     name="startsAt"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-ink-subtle text-badge font-semibold tracking-wider uppercase">
-                          Starts At
-                        </FormLabel>
+                      <FormItem className="flex flex-col gap-3 space-y-0">
+                        <FormLabel className={FIELD_LABEL}>Starts At</FormLabel>
                         <FormControl>
                           <Input
                             type="datetime-local"
@@ -448,10 +455,8 @@ export function EventForm({
                     control={form.control}
                     name="endsAt"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-ink-subtle text-badge font-semibold tracking-wider uppercase">
-                          Ends At (optional)
-                        </FormLabel>
+                      <FormItem className="flex flex-col gap-3 space-y-0">
+                        <FormLabel className={FIELD_LABEL}>Ends At (optional)</FormLabel>
                         <FormControl>
                           <Input
                             type="datetime-local"
@@ -467,7 +472,7 @@ export function EventForm({
                   />
                 </div>
 
-                <div className="mt-8 flex justify-end gap-2">
+                <div className="mt-3 flex justify-end gap-2">
                   <Button
                     type="button"
                     variant="ghost"

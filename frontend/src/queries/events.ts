@@ -8,12 +8,7 @@ import {
 
 import { api, type ApiError } from '@/queries/client';
 import { qk } from '@/queries/keys';
-import type {
-  EventWithMeta,
-  CreateEventDto,
-  UpdateEventDto,
-  RsvpStatus,
-} from '@/types/event';
+import type { EventWithMeta, CreateEventDto, UpdateEventDto, RsvpStatus } from '@/types/event';
 
 interface EventsEnvelope {
   events: EventWithMeta[];
@@ -48,9 +43,16 @@ export function useCreateEvent(
       return result.event;
     },
     onSuccess: (event) => {
+      // Idempotent insert. The realtime `server_event:created` handler also
+      // inserts this same event (our own socket is in the server-events room),
+      // so a blind append would race it and briefly show the event twice
+      // before `onSettled` refetches. Dedupe by id and prepend to match the
+      // realtime handler's ordering.
       queryClient.setQueryData<EventWithMeta[]>(qk.events.byServer(serverId), (prev) => {
         const list = prev ?? [];
-        return [...list, event];
+        return list.some((e) => e.id === event.id)
+          ? list.map((e) => (e.id === event.id ? event : e))
+          : [event, ...list];
       });
     },
     onSettled: () => {

@@ -44,11 +44,11 @@ export function EditChannelDialog({
     >
       <DialogContent
         hideClose
-        className="bg-surface-2 h-[85vh] w-[85vw] max-w-4xl gap-0 overflow-hidden border-0 p-0"
+        className="bg-surface-chrome h-[85vh] w-[85vw] max-w-4xl gap-0 overflow-hidden border-0 p-0"
       >
         <div className="flex h-full min-h-0">
           {/* ── Left nav ─────────────────────────────────────────────── */}
-          <div className="bg-surface-chrome flex w-56 shrink-0 flex-col px-2 py-6">
+          <div className="bg-surface-2 flex w-56 shrink-0 flex-col px-2 py-6">
             {/* Channel name header */}
             <div className="mb-4 flex items-center gap-1.5 px-2.5">
               <Icon className="text-ink-subtle size-4 shrink-0" aria-hidden />

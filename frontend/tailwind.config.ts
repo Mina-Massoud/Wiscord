@@ -205,6 +205,10 @@ const config: Config = {
         control: ['13px', { lineHeight: '1.4', letterSpacing: '0' }],
         tab: ['14px', { lineHeight: '1.4', letterSpacing: '0' }],
         subhead: ['15px', { lineHeight: '1.4', letterSpacing: '-0.01em' }],
+        // Dialog / section heading — fills the gap between subhead (15) and
+        // the hero `display` (40). Used for modal titles where `display` is
+        // too shouty.
+        title: ['24px', { lineHeight: '1.2', letterSpacing: '-0.02em', fontWeight: '700' }],
       },
 
       transitionDuration: {

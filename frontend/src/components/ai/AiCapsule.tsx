@@ -9,7 +9,6 @@ import {
   ISLAND_SHELL_SPRING,
 } from '@/components/island/animations';
 import { useIslandStore } from '@/components/island/useIslandStore';
-import { useMusicShellWidth } from '@/components/music/useMusicShellWidth';
 import { cn } from '@/lib/cn';
 
 import { AI_SHAPES, type AiView } from './aiCapsuleShapes';
@@ -32,11 +31,11 @@ import { Slot } from './AiCapsuleSlot';
  * The capsule hides when the Dynamic Island is expanded (they share
  * z-50 airspace) and unmounts SSR-side by deferring portal mount
  * until after first render.
+ *
+ * It floats in the bottom-right corner as a small launcher dot (sized
+ * to sit where the dev-only React Query devtools button used to live)
+ * and morphs up-and-to-the-left into the ask card when expanded.
  */
-// Music shell sits at right-[224px]. The AI capsule sits 8px to the left
-// of music's left edge, so its right offset = 224 + musicWidth + 8.
-const MUSIC_SHELL_RIGHT = 224;
-const CAPSULE_GAP = 8;
 
 export function AiCapsule(): React.JSX.Element | null {
   const reducedMotion = useReducedMotion();
@@ -48,8 +47,6 @@ export function AiCapsule(): React.JSX.Element | null {
   const closeSourcePane = useAiCapsuleStore((s) => s.closeSourcePane);
 
   const islandExpanded = useIslandStore((s) => s.expandedTo !== null);
-  const musicWidth = useMusicShellWidth();
-  const rightOffset = MUSIC_SHELL_RIGHT + musicWidth + CAPSULE_GAP;
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -120,20 +117,25 @@ export function AiCapsule(): React.JSX.Element | null {
               }
         }
         initial={false}
-        animate={{ width: shape.width, height: shape.height, right: rightOffset }}
+        animate={{ width: shape.width, height: shape.height }}
         style={{
           ...ISLAND_SHAPE_STYLE,
+          // Anchored bottom-right, so the shell morphs up-and-to-the-left
+          // out of the launcher dot rather than down-and-right (the
+          // header capsule's origin). Keeps the same spring morph feel.
+          transformOrigin: 'bottom right',
+          originX: 1,
+          originY: 1,
           backgroundColor: '#0A0A0C',
           boxShadow:
             '0 0 0 1px rgba(255,255,255,0.06) inset, 0 12px 32px -8px rgba(0,0,0,0.55), 0 2px 8px -2px rgba(0,0,0,0.5)',
         }}
         transition={reducedMotion ? { duration: 0 } : ISLAND_SHELL_SPRING}
         className={cn(
-          // Sits 8px to the left of the music capsule. The right offset
-          // is animated above (driven by `useMusicShellWidth`) so the AI
-          // capsule slides out of the way as the music shell morphs
-          // through idle (26) → bar (240) → expanded (380+).
-          'fixed top-[4.5px]',
+          // Floats in the bottom-right corner as a launcher dot and grows
+          // up-and-left into the ask card. `bottom`/`right` stay pinned
+          // while width/height animate, so the morph anchors to the dot.
+          'fixed right-4 bottom-20',
           expanded ? 'z-50' : 'z-30',
           'text-ink',
           'overflow-hidden',

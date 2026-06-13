@@ -17,7 +17,7 @@ export function ChatPane({ channelId }: ChatPaneProps) {
   const usernames = typingUsers.map((u) => u.username);
 
   return (
-    <div className="flex flex-col h-full bg-glass-surface-1 border-l border-glass-border">
+    <div className="flex flex-col h-full">
       <div className="h-12 border-b border-glass-border flex items-center px-4 flex-shrink-0 bg-glass-surface-chrome backdrop-blur-md">
         <h2 className="font-semibold text-foreground flex items-center gap-1.5">
           <span className="text-muted-foreground text-lg font-light leading-none">#</span>

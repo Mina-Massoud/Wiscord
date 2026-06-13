@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCallback } from 'react';
+import { useSearchParams } from 'react-router';
 
 import { AppShellLayout } from '@/components/app-shell/AppShellLayout';
 import { AppTitleBar } from '@/components/app-shell/AppTitleBar';
@@ -10,13 +11,37 @@ import { FriendsTopBar, type FriendsTab } from '@/components/app-shell/friends/F
 import { ActiveNowPanel } from '@/components/app-shell/friends/ActiveNowPanel';
 import { useFriendRealtime, useIncomingFriendRequests } from '@/queries/friends';
 
+const FRIENDS_TABS: FriendsTab[] = ['online', 'all', 'pending', 'add'];
+
+function parseTab(value: string | null): FriendsTab {
+  return value && (FRIENDS_TABS as string[]).includes(value) ? (value as FriendsTab) : 'online';
+}
+
 /**
- * Default landing for /app. Owns the active-tab state so the top bar can
- * span the main pane + Active Now rail. Mounts `useFriendRealtime` once so
- * incoming requests / removals invalidate cache without a refresh.
+ * Default landing for /app. The active tab lives in the URL (`?tab=`) so the
+ * DM sidebar's "Inbox" link can deep-link straight to pending requests and the
+ * tab survives a reload. Mounts `useFriendRealtime` once so incoming requests /
+ * removals invalidate cache without a refresh.
  */
 export default function FriendsPage(): React.JSX.Element {
-  const [tab, setTab] = useState<FriendsTab>('online');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab = parseTab(searchParams.get('tab'));
+
+  const setTab = useCallback(
+    (next: FriendsTab): void => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          if (next === 'online') params.delete('tab');
+          else params.set('tab', next);
+          return params;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
   useFriendRealtime();
   const incoming = useIncomingFriendRequests();
   const pendingCount = incoming.data?.length ?? 0;

@@ -130,7 +130,14 @@ const PRODUCTION_REQUIRED: Array<{
   },
 ];
 
-if (parsed.data.NODE_ENV === 'production') {
+// Billing is opt-in. The Stripe vars are only mandatory in production once
+// STRIPE_SECRET_KEY is present — i.e. once you've chosen to turn billing on,
+// you must finish wiring it (or webhooks silently fail). A deploy that never
+// configures Stripe at all leaves the billing routes returning 503, exactly
+// like dev, and the rest of the app boots normally.
+const billingEnabled = Boolean(parsed.data.STRIPE_SECRET_KEY);
+
+if (parsed.data.NODE_ENV === 'production' && billingEnabled) {
   const missing = PRODUCTION_REQUIRED.filter(({ key }) => {
     const value = parsed.data[key];
     return value === undefined || value === '';
