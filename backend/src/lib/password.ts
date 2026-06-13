@@ -17,6 +17,10 @@ import { randomBytes, scrypt as scryptCb, timingSafeEqual, type ScryptOptions } 
 const COST_N = 1 << 15;
 const KEY_LEN = 64;
 const SALT_BYTES = 16;
+// scrypt's working set is ~128 * N * r bytes ≈ 32 MiB at N=32768, r=8 — right
+// at OpenSSL's default maxmem ceiling, which makes it throw. Lift the ceiling
+// to 64 MiB so the derivation has headroom.
+const MAX_MEM = 64 * 1024 * 1024;
 
 // Promisified scrypt that keeps the options overload (promisify() drops it).
 function scrypt(
@@ -35,7 +39,7 @@ function scrypt(
 
 export async function hashPassword(plain: string): Promise<string> {
   const salt = randomBytes(SALT_BYTES);
-  const derived = await scrypt(plain, salt, KEY_LEN, { N: COST_N });
+  const derived = await scrypt(plain, salt, KEY_LEN, { N: COST_N, maxmem: MAX_MEM });
   return `scrypt$${COST_N}$${salt.toString('hex')}$${derived.toString('hex')}`;
 }
 
@@ -54,7 +58,7 @@ export async function verifyPassword(plain: string, stored: string): Promise<boo
   const expected = Buffer.from(hashHex, 'hex');
   if (salt.length === 0 || expected.length === 0) return false;
 
-  const derived = await scrypt(plain, salt, expected.length, { N: n });
+  const derived = await scrypt(plain, salt, expected.length, { N: n, maxmem: MAX_MEM });
   if (derived.length !== expected.length) return false;
   return timingSafeEqual(derived, expected);
 }
