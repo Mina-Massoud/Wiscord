@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'vitest';
 
-import { createChannelBody, createServerBody, serverIdParam } from '../../src/modules/servers/schemas.js';
+import {
+  createChannelBody,
+  createServerBody,
+  serverIdParam,
+  updateServerBody,
+} from '../../src/modules/servers/schemas.js';
 
 const VALID_OID = '1234567890abcdef12345678';
 
@@ -23,6 +28,20 @@ describe('createServerBody', () => {
 
   test('rejects extra properties', () => {
     expect(() => createServerBody.parse({ name: 'Hub', sneaky: true })).toThrow();
+  });
+});
+
+describe('updateServerBody', () => {
+  test('accepts an isPublic toggle on its own', () => {
+    expect(updateServerBody.parse({ isPublic: true }).isPublic).toBe(true);
+  });
+
+  test('rejects an empty patch', () => {
+    expect(() => updateServerBody.parse({})).toThrow();
+  });
+
+  test('rejects a non-boolean isPublic', () => {
+    expect(() => updateServerBody.parse({ isPublic: 'yes' })).toThrow();
   });
 });
 

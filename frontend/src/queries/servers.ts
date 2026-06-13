@@ -16,7 +16,23 @@ export interface ServerDto {
   name: string;
   iconUrl: string | null;
   ownerId: string;
+  isPublic: boolean;
   createdAt: string;
+}
+
+/** A public server in the discovery rail — a non-member's view. */
+export interface DiscoverServerDto {
+  id: string;
+  name: string;
+  iconUrl: string | null;
+  memberCount: number;
+  /** First text channel to land in on join, or null when the server has none. */
+  firstChannelId: string | null;
+  blurb: string | null;
+}
+
+interface DiscoverServersEnvelope {
+  servers: DiscoverServerDto[];
 }
 
 export interface ServerUnreadDto {
@@ -47,6 +63,7 @@ export interface UpdateServerInput {
   serverId: string;
   name?: string;
   iconUrl?: string | null;
+  isPublic?: boolean;
 }
 
 /** Servers the signed-in user belongs to (replaces demo `fakeServers` in the rail). */
@@ -58,6 +75,18 @@ export function useMyServers(): UseQueryResult<ServerDto[]> {
       return result.servers;
     },
     staleTime: 5 * 60 * 1000,
+  });
+}
+
+/** Public servers the user hasn't joined — powers the "Suggested rooms" rail. */
+export function useDiscoverServers(): UseQueryResult<DiscoverServerDto[]> {
+  return useQuery<DiscoverServerDto[]>({
+    queryKey: qk.servers.discover(),
+    queryFn: async () => {
+      const result = await api<DiscoverServersEnvelope>('/servers/discover');
+      return result.servers;
+    },
+    staleTime: 60 * 1000,
   });
 }
 
@@ -73,7 +102,11 @@ export function useServer(serverId: string | undefined): UseQueryResult<ServerDt
   });
 }
 
-export function useCreateServer(): UseMutationResult<CreateServerResult, ApiError, CreateServerInput> {
+export function useCreateServer(): UseMutationResult<
+  CreateServerResult,
+  ApiError,
+  CreateServerInput
+> {
   const queryClient = useQueryClient();
   return useMutation<CreateServerResult, ApiError, CreateServerInput>({
     mutationFn: async (input) => {
@@ -113,7 +146,6 @@ export function useUpdateServer(): UseMutationResult<ServerDto, ApiError, Update
       );
     },
   });
-
 }
 
 export function useDeleteServer(): UseMutationResult<void, ApiError, string> {
@@ -198,9 +230,7 @@ export function useServerUnreadRealtime(): void {
             unreadCount,
           };
           return servers.some((server) => server.serverId === event.serverId)
-            ? servers.map((server) =>
-                server.serverId === event.serverId ? nextUnread : server,
-              )
+            ? servers.map((server) => (server.serverId === event.serverId ? nextUnread : server))
             : [...servers, nextUnread];
         });
       })();

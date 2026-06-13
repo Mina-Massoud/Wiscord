@@ -284,6 +284,13 @@ export interface FriendRemovedEvent {
   removedUserId: string;
 }
 
+export type PresenceStatus = 'online' | 'idle' | 'offline';
+
+export interface PresenceChange {
+  userId: string;
+  status: PresenceStatus;
+}
+
 export interface ServerToClientEvents {
   'voice:state_changed': (change: VoiceStateChange) => void;
   'quiz:analytics_changed': (snapshot: QuizAnalyticsSnapshot) => void;
@@ -312,6 +319,7 @@ export interface ServerToClientEvents {
     interestedCount: number;
   }) => void;
   'server_unread:changed': (event: ServerUnreadChanged) => void;
+  'presence:changed': (change: PresenceChange) => void;
 
   // Chat
   'dm_room:updated': (room: DmRoomDto) => void;
@@ -342,6 +350,7 @@ export interface ClientToServerEvents {
   'channel:leave': (channelId: string) => void;
   'typing:start': (channelId: string, username: string) => void;
   'typing:stop': (channelId: string, username: string) => void;
+  'presence:heartbeat': (idle: boolean) => void;
 }
 
 export type WiscordSocket = Socket<ServerToClientEvents, ClientToServerEvents>;

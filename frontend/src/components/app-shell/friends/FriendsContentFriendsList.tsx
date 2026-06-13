@@ -1,11 +1,10 @@
 import { useCopy } from '@/lib/copy/useCopy';
 import { useMemo, useState } from 'react';
 import { useFriends } from '@/queries/friends';
-import type { FriendDto } from '@/queries/client';
+import { usePresence } from '@/queries/presence';
 import { Info, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { AnnouncementBanner } from './showcase/AnnouncementBanner';
-import { fakeFriendsAnnouncement } from '@/data/fake-active-now';
 import { FriendsEmptyState } from './FriendsEmptyState';
 import { FriendRow } from './FriendRow';
 import type { FriendsTab } from './FriendsTopBar';
@@ -24,19 +23,23 @@ export function FriendsList({ activeTab, onTabChange }: FriendsListProps): React
 
   const friendsQuery = useFriends();
   const friends = useMemo(() => friendsQuery.data ?? [], [friendsQuery.data]);
-
-  // Online tab is presence-gated. We don't have per-user presence yet, so
-  // the filter passes through nothing — the empty state explains why.
-  const baseRows: FriendDto[] = activeTab === 'online' ? [] : friends;
+  const friendIds = useMemo(() => friends.map((f) => f.user.id), [friends]);
+  const presence = usePresence(friendIds).data;
 
   const visible = useMemo(() => {
+    const map = presence ?? {};
+    // Online tab shows friends who are online or idle (anything but offline).
+    const baseRows =
+      activeTab === 'online'
+        ? friends.filter((f) => (map[f.user.id] ?? 'offline') !== 'offline')
+        : friends;
     const term = search.trim().toLowerCase();
     if (!term) return baseRows;
     return baseRows.filter((f) => {
       const name = (f.user.displayName ?? '').toLowerCase();
       return name.includes(term) || f.user.username.toLowerCase().includes(term);
     });
-  }, [baseRows, search]);
+  }, [activeTab, friends, presence, search]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
@@ -61,7 +64,11 @@ export function FriendsList({ activeTab, onTabChange }: FriendsListProps): React
       ) : null}
 
       <div className="px-4 pt-3">
-        <AnnouncementBanner announcement={fakeFriendsAnnouncement} />
+        <AnnouncementBanner
+          tag={t('home.announcement.tag')}
+          headline={t('home.announcement.headline')}
+          tagline={t('home.announcement.tagline')}
+        />
       </div>
 
       <div className="px-4 pt-3">
@@ -108,7 +115,13 @@ export function FriendsList({ activeTab, onTabChange }: FriendsListProps): React
             />
           )
         ) : (
-          visible.map((friend) => <FriendRow key={friend.user.id} friend={friend} />)
+          visible.map((friend) => (
+            <FriendRow
+              key={friend.user.id}
+              friend={friend}
+              status={presence?.[friend.user.id] ?? 'offline'}
+            />
+          ))
         )}
       </div>
     </div>

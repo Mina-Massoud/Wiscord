@@ -21,6 +21,8 @@ import { dmEvents } from '../dms/realtime-bridge.js';
 import type { DmRoomDto } from '../dms/schemas.js';
 import { notificationEvents } from '../notifications/realtime-bridge.js';
 import type { NotificationDto } from '../notifications/schemas.js';
+import { presence, type PresenceChange } from '../presence/presence-store.js';
+import { friendIdsOf } from '../presence/service.js';
 import {
   friendEvents,
   type FriendRemovedEvent,
@@ -124,6 +126,9 @@ export interface ServerToClientEvents {
   /** RSVP counts changed on an event — update counts in list + detail caches. */
   'server_event:rsvp_changed': (event: ServerEventRsvpChangedEvent) => void;
   'server_unread:changed': (event: ServerUnreadChanged) => void;
+  /** A friend's online/idle/offline status changed. Delivered only to that
+   *  user's friends. */
+  'presence:changed': (change: PresenceChange) => void;
 
   // Chat
   'dm_room:updated': (room: DmRoomDto) => void;
@@ -170,6 +175,9 @@ interface ClientToServerEvents {
   'channel:leave': (channelId: string) => void;
   'typing:start': (channelId: string, username: string) => void;
   'typing:stop': (channelId: string, username: string) => void;
+  /** Client-driven idle refinement: true when the tab has been idle, false on
+   *  activity resume. Connection itself already implies online. */
+  'presence:heartbeat': (idle: boolean) => void;
 }
 
 type WiscordIoServer = IoServer<
@@ -240,6 +248,9 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
 
     void socket.join(`user:${userId}`);
     void socket.join('authenticated');
+    // Connection-derived presence: this socket counts toward the user being
+    // online. The store emits an `online` change only on the first socket.
+    presence.markOnline(userId);
     void (async () => {
       try {
         const memberships = await ServerMember.find({ userId }).select('serverId').lean();
@@ -388,8 +399,16 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
       });
     });
 
+    socket.on('presence:heartbeat', (idle) => {
+      if (typeof idle !== 'boolean') return;
+      presence.setIdle(userId, idle);
+    });
+
     socket.on('disconnect', (reason) => {
       logger.info({ userId, sid: socket.id, reason }, 'realtime: client disconnected');
+      // This socket no longer counts toward presence; the store emits an
+      // `offline` change only when it was the user's last live socket.
+      presence.markOffline(userId);
       // Only tear down listen-together state when *all* of the user's
       // sockets are gone — same user with two tabs open shouldn't lose
       // their session because one tab closed. The socket emitting
@@ -439,6 +458,23 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
   });
   friendEvents.on('removed', (event: FriendRemovedEvent) => {
     io?.to(`user:${event.toUserId}`).emit('friend:removed', event);
+  });
+
+  // Bridge the presence store. A user's status change is delivered only to
+  // their friends' `user:<id>` rooms — presence never leaks to strangers.
+  // We resolve friend edges per change; at v1 scale this is a cheap indexed
+  // read, and it keeps the store free of any DB dependency.
+  presence.on('state_changed', (change: PresenceChange) => {
+    void (async () => {
+      try {
+        const friendIds = await friendIdsOf(change.userId);
+        for (const friendId of friendIds) {
+          io?.to(`user:${friendId}`).emit('presence:changed', change);
+        }
+      } catch (err) {
+        logger.warn({ err, userId: change.userId }, 'realtime: presence fan-out failed');
+      }
+    })();
   });
 
   // Bridge the listen-together store. Every event carries a `toUserId`;

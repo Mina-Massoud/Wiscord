@@ -7,7 +7,7 @@ import { toast } from '@/lib/toast';
 import { ApiError } from '@/queries/client';
 import { useRemoveFriend } from '@/queries/friends';
 import { useCreateDmRoom } from '@/queries/dms';
-import type { FriendDto } from '@/queries/client';
+import type { FriendDto, PresenceStatus } from '@/queries/client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,17 +28,16 @@ import { PresenceDot } from '../atoms/PresenceDot';
 
 interface FriendRowProps {
   friend: FriendDto;
+  /** Live presence for this friend; defaults to offline if unknown. */
+  status?: PresenceStatus;
 }
 
 /**
  * Single row in the Friends list (Online / All tabs).
  * Avatar + name + presence label, with trailing action icons on hover.
- *
- * Presence is hard-coded to 'offline' in this slice — a per-user presence
- * system isn't wired yet. The dot stays in the layout so adding presence
- * later is a one-prop change, not a layout swap.
+ * The presence dot reflects live status from the presence store.
  */
-export function FriendRow({ friend }: FriendRowProps): React.JSX.Element {
+export function FriendRow({ friend, status = 'offline' }: FriendRowProps): React.JSX.Element {
   const t = useCopy();
   const { user } = friend;
   const avatarFallback = getIdenticonDataUrl(user.username);
@@ -93,7 +92,7 @@ export function FriendRow({ friend }: FriendRowProps): React.JSX.Element {
           />
           <span className="absolute -right-0.5 -bottom-0.5">
             <PresenceDot
-              presence="offline"
+              presence={status}
               size={12}
               ringClassName="ring-glass-canvas group-hover/friend:ring-glass-hover"
             />

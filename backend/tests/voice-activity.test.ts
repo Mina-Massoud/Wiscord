@@ -13,12 +13,16 @@ const VALID_UUID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const VALID_OBJECT_ID = '1234567890abcdef12345678';
 
 describe('channelIdParam', () => {
-  test('accepts a valid UUID', () => {
-    expect(channelIdParam.parse({ channelId: VALID_UUID }).channelId).toBe(VALID_UUID);
+  test('accepts a valid ObjectId', () => {
+    expect(channelIdParam.parse({ channelId: VALID_OBJECT_ID }).channelId).toBe(VALID_OBJECT_ID);
   });
 
-  test('rejects a non-UUID', () => {
-    expect(() => channelIdParam.parse({ channelId: 'not-a-uuid' })).toThrow();
+  test('rejects a UUID (channels are ObjectIds, not UUIDs)', () => {
+    expect(() => channelIdParam.parse({ channelId: VALID_UUID })).toThrow();
+  });
+
+  test('rejects a non-id string', () => {
+    expect(() => channelIdParam.parse({ channelId: 'not-an-id' })).toThrow();
   });
 });
 

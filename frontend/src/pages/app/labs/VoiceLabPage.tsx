@@ -143,9 +143,9 @@ export default function VoiceLabPage(): React.JSX.Element {
         }
         userPanel={<VoiceUserPanelGroup onActivitySelect={pickActivity} />}
         main={
-          <div className={`flex w-full h-full ${isIdle ? 'flex-col' : 'flex-row'}`}>
+          <div className={`flex w-full h-full items-stretch flex-row`}>
             {!(isIdle && chatOnly) && (
-              <div className={`border-glass-border ${isIdle ? 'flex-shrink-0 border-b' : 'flex-1 min-w-0 border-r'}`}>
+              <div className={`border-glass-border flex flex-col ${isIdle ? 'lg:w-[70%] border-b' : 'flex-1 min-w-0 border-r'}`}>
                 <VoiceMainPane
                   channelId={channelId}
                   isThisChannelConnected={isThisChannelConnected}

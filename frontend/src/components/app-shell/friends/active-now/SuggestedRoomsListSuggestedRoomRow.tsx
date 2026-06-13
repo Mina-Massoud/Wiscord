@@ -1,40 +1,42 @@
-import { Hash, Volume2 } from 'lucide-react';
+import { NavLink } from 'react-router';
+import { Users } from 'lucide-react';
+
 import { getIdenticonDataUrl } from '@/lib/avatar';
-import type { FakeSuggestedRoom } from '@/data/fake-shell.types';
+import type { DiscoverServerDto } from '@/queries/servers';
 
 interface SuggestedRoomRowProps {
-  room: FakeSuggestedRoom;
+  server: DiscoverServerDto;
 }
 
-export function SuggestedRoomRow({ room }: SuggestedRoomRowProps): React.JSX.Element {
-  const ChannelGlyph = room.channelKind === 'voice' ? Volume2 : Hash;
-  const serverIconSrc = getIdenticonDataUrl(room.serverIconSeed);
+export function SuggestedRoomRow({ server }: SuggestedRoomRowProps): React.JSX.Element {
+  const iconSrc = server.iconUrl ?? getIdenticonDataUrl(server.id);
+  const memberLabel = `${server.memberCount} ${server.memberCount === 1 ? 'member' : 'members'}`;
+  // Land in the first text channel when known; otherwise the server home route
+  // resolves it (and redirects to the first channel once channels load).
+  const to = server.firstChannelId
+    ? `/app/servers/${server.id}/channels/${server.firstChannelId}`
+    : `/app/servers/${server.id}`;
 
   return (
-    <div className="text-ink-muted hover:bg-glass-hover hover:text-ink mx-2 flex items-start gap-3 rounded-md px-2 py-2 transition-colors">
-      <span className="relative mt-0.5 shrink-0">
-        <img
-          src={serverIconSrc}
-          alt=""
-          width={32}
-          height={32}
-          className="size-8 rounded-md"
-          loading="lazy"
-        />
-        <span className="bg-glass-surface-1 border-glass-border absolute -right-1 -bottom-1 flex size-4 items-center justify-center rounded-full border">
-          <ChannelGlyph className="text-ink-muted size-3" />
-        </span>
-      </span>
-
+    <NavLink
+      to={to}
+      className="text-ink-muted hover:bg-glass-hover hover:text-ink mx-2 flex items-center gap-3 rounded-md px-2 py-2 transition-colors"
+    >
+      <img
+        src={iconSrc}
+        alt=""
+        width={32}
+        height={32}
+        className="size-8 shrink-0 rounded-md"
+        loading="lazy"
+      />
       <span className="flex min-w-0 flex-1 flex-col gap-0.5 leading-tight">
-        <span className="text-control flex items-baseline gap-1.5 truncate font-medium">
-          <span className="truncate">{room.channelName}</span>
-          <span className="text-ink-subtle text-caption truncate font-normal">
-            · {room.serverName}
-          </span>
+        <span className="text-control truncate font-medium">{server.name}</span>
+        <span className="text-ink-subtle text-caption flex items-center gap-1">
+          <Users className="size-3 shrink-0" aria-hidden />
+          {server.blurb ?? memberLabel}
         </span>
-        <span className="text-ink-subtle text-caption">{room.blurb}</span>
       </span>
-    </div>
+    </NavLink>
   );
 }

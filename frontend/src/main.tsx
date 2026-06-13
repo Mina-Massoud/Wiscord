@@ -28,7 +28,11 @@ createRoot(rootEl).render(
           </AuthProvider>
         </BrowserRouter>
         <Toaster />
-        {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
+        {/* Bottom-left so the dev toggle doesn't sit under the AI launcher,
+            which now occupies the bottom-right corner. */}
+        {import.meta.env.DEV && (
+          <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
+        )}
       </QueryClientProvider>
     </ErrorBoundary>
   </StrictMode>,

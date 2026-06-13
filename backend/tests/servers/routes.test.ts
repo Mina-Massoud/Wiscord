@@ -18,6 +18,7 @@ vi.mock('../../src/middleware/requireAuth.js', () => ({
 const mockGetServersUnread = vi.fn();
 const mockGetServerForMember = vi.fn();
 const mockListServersForUser = vi.fn();
+const mockListPublicServers = vi.fn();
 
 vi.mock('../../src/modules/servers/service.js', () => ({
   createChannel: vi.fn(),
@@ -29,6 +30,7 @@ vi.mock('../../src/modules/servers/service.js', () => ({
   leaveServer: vi.fn(),
   listChannelsForServer: vi.fn(),
   listMembersForServer: vi.fn(),
+  listPublicServers: (...args: unknown[]) => mockListPublicServers(...args),
   listServersForUser: (...args: unknown[]) => mockListServersForUser(...args),
   markChannelAsRead: vi.fn(),
   updateChannel: vi.fn(),
@@ -41,6 +43,7 @@ beforeEach(async () => {
   mockGetServersUnread.mockReset();
   mockGetServerForMember.mockReset();
   mockListServersForUser.mockReset();
+  mockListPublicServers.mockReset();
 
   const { serversRouter } = await import('../../src/modules/servers/routes.js');
   app = express();
@@ -66,6 +69,32 @@ describe('GET /servers/unread', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.servers).toHaveLength(1);
     expect(mockGetServersUnread).toHaveBeenCalledWith('507f1f77bcf86cd799439011');
+    expect(mockGetServerForMember).not.toHaveBeenCalled();
+  });
+});
+
+describe('GET /servers/discover', () => {
+  test('is handled before /servers/:serverId and returns public servers', async () => {
+    mockListPublicServers.mockResolvedValue([
+      {
+        id: '507f1f77bcf86cd799439099',
+        name: 'Open Study Hall',
+        iconUrl: null,
+        memberCount: 12,
+        firstChannelId: '507f1f77bcf86cd7994390aa',
+        blurb: null,
+      },
+    ]);
+    mockGetServerForMember.mockResolvedValue(null);
+
+    const res = await request(app).get('/servers/discover');
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.servers).toHaveLength(1);
+    expect(res.body.data.servers[0].name).toBe('Open Study Hall');
+    expect(mockListPublicServers).toHaveBeenCalledWith('507f1f77bcf86cd799439011');
+    // "discover" must not be parsed as a :serverId.
     expect(mockGetServerForMember).not.toHaveBeenCalled();
   });
 });

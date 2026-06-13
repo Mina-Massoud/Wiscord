@@ -1,0 +1,43 @@
+# Render Blueprint — Wiscord backend (long-running Node server with Socket.IO,
+# tldraw/Hocuspocus WebSocket gateways, and background pollers). This is the
+# part that cannot run on Vercel serverless; Render runs it as a real always-on
+# process. The Vite frontend deploys separately to Vercel.
+#
+# First deploy:
+#   1. render login           (browser auth, run it yourself)
+#   2. render blueprint launch (or connect this repo in the Render dashboard)
+#   3. Fill the sync:false vars below when prompted (see notes per var).
+services:
+  - type: web
+    name: wiscord-backend
+    runtime: node
+    plan: free
+    region: oregon
+    # Monorepo: the backend lives in ./backend, build/run happen there.
+    rootDir: backend
+    branch: refactor/replace-hardcoded-shell
+    # NODE_ENV=production makes npm skip devDependencies, but the build needs
+    # TypeScript (a devDependency) to compile, so force it back in for build.
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm run start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"
+      # MongoDB Atlas connection string (mongodb+srv://...). Set in the
+      # dashboard / when prompted — never commit it.
+      - key: MONGODB_URI
+        sync: false
+      # 32+ char session-signing secret. Render generates a strong value once
+      # and keeps it stable across deploys (rotating it logs everyone out).
+      - key: JWT_SECRET
+        generateValue: true
+      # The deployed frontend origin (e.g. https://wiscord.vercel.app). Used by
+      # CORS, the Socket.IO gateway, and the magic-link redirect. Set this to a
+      # placeholder for the first deploy, then update it to the real Vercel URL
+      # once the frontend is live.
+      - key: FRONTEND_ORIGIN
+        sync: false

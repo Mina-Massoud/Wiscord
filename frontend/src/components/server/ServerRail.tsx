@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams } from 'react-router';
+import { useNavigate, useParams } from 'react-router';
 import { Compass, Download, Plus } from 'lucide-react';
 
 import { Skeleton } from '@/components/ui/skeleton';
@@ -16,6 +16,7 @@ import { CreateServerDialog } from './CreateServerDialog';
  */
 export function ServerRail(): React.JSX.Element {
   const { serverId } = useParams<{ serverId?: string }>();
+  const navigate = useNavigate();
   const isHomeActive = !serverId;
   const { data: servers, isLoading, isError } = useMyServers();
   const { data: unreadData } = useServersUnread();
@@ -72,7 +73,12 @@ export function ServerRail(): React.JSX.Element {
       />
       <CreateServerDialog open={createOpen} onOpenChange={setCreateOpen} />
 
-      <ServerRailRailActionIcon label="Explore" icon={<Compass className="size-5" />} accent="online" />
+      <ServerRailRailActionIcon
+        label="Explore"
+        icon={<Compass className="size-5" />}
+        accent="online"
+        onClick={() => void navigate('/app/discover')}
+      />
 
       <ServerRailSeparator />
 

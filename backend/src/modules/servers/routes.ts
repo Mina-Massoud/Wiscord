@@ -22,6 +22,7 @@ import {
   leaveServer,
   listChannelsForServer,
   listMembersForServer,
+  listPublicServers,
   listServersForUser,
   markChannelAsRead,
   updateChannel,
@@ -57,6 +58,19 @@ serversRouter.post('/', async (req, res, next) => {
 serversRouter.get('/unread', async (req, res, next) => {
   try {
     const servers = await getServersUnread(req.userId!);
+    res.json(ok({ servers }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /servers/discover - public servers the caller hasn't joined, newest
+ * first. Declared before `/:serverId` so "discover" isn't parsed as an id.
+ */
+serversRouter.get('/discover', async (req, res, next) => {
+  try {
+    const servers = await listPublicServers(req.userId!);
     res.json(ok({ servers }));
   } catch (err) {
     next(err);

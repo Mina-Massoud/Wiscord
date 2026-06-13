@@ -13,6 +13,7 @@ import { firstTextChannel, useServerChannels } from '@/queries/channels';
 import { useServer } from '@/queries/servers';
 import { useServerEvents } from '@/queries/events';
 import { useServerEventsRealtime } from '@/hooks/useServerEventsRealtime';
+import { useRecordRoomVisit } from '@/hooks/useRecordRoomVisit';
 import { toast } from '@/lib/toast';
 import { EventsView } from '@/components/events/EventsView';
 
@@ -27,7 +28,7 @@ export default function ServerWorkspacePage(): React.JSX.Element {
 
   const serverQuery = useServer(serverId);
   const channelsQuery = useServerChannels(serverId);
-  
+
   // Real-time events cache sync
   useServerEventsRealtime(serverId);
   const eventsQuery = useServerEvents(serverId);
@@ -35,6 +36,20 @@ export default function ServerWorkspacePage(): React.JSX.Element {
   const channels = channelsQuery.data;
   const activeChannel = channels?.find((c) => c.id === channelId);
   const isEventsPage = location.pathname.endsWith('/events');
+
+  // Persist this visit into the recent-rooms rail once the channel resolves.
+  useRecordRoomVisit(
+    activeChannel && serverId
+      ? {
+          serverId,
+          channelId: activeChannel.id,
+          serverName: serverQuery.data?.name ?? activeChannel.name,
+          serverIconUrl: serverQuery.data?.iconUrl ?? null,
+          channelName: activeChannel.name,
+          channelType: activeChannel.type,
+        }
+      : null,
+  );
 
   useEffect(() => {
     const list = channelsQuery.data;
@@ -62,10 +77,9 @@ export default function ServerWorkspacePage(): React.JSX.Element {
         if (startTime > now && startTime <= fiveMinutesFromNow) {
           if (!notifiedEventsRef.current.has(event.id)) {
             notifiedEventsRef.current.add(event.id);
-            toast.info(
-              `"${event.title}" is starting soon!`,
-              { description: `Starts at ${new Date(event.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Click Events to join.` }
-            );
+            toast.info(`"${event.title}" is starting soon!`, {
+              description: `Starts at ${new Date(event.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}. Click Events to join.`,
+            });
           }
         }
       });
@@ -87,11 +101,7 @@ export default function ServerWorkspacePage(): React.JSX.Element {
         : activeChannel.name
       : (serverQuery.data?.name ?? 'Server');
 
-  const TopBarIcon = isEventsPage
-    ? Calendar
-    : activeChannel?.type === 'voice'
-      ? Volume2
-      : Hash;
+  const TopBarIcon = isEventsPage ? Calendar : activeChannel?.type === 'voice' ? Volume2 : Hash;
 
   return (
     <AppShellLayout

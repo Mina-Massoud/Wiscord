@@ -2,22 +2,20 @@ import { NavLink } from 'react-router';
 import { Hash, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 import { getIdenticonDataUrl } from '@/lib/avatar';
-import { UnreadBadge } from '../atoms/UnreadBadge';
-import type { FakeRecentRoom } from '@/data/fake-shell.types';
+import type { RecentRoom } from '@/lib/recent-rooms-store';
 
 interface RoomRowProps {
-  room: FakeRecentRoom;
+  room: RecentRoom;
 }
 
 /**
  * Single channel row in the "Recent rooms" list.
  * Server icon + a hash/voice glyph + channel name, with the parent server
- * as the subtitle. Clicks navigate to the channel route (the page is a
- * placeholder for now, but the route is real).
+ * as the subtitle. Clicks navigate to the real channel route.
  */
 export function RoomRow({ room }: RoomRowProps): React.JSX.Element {
-  const ChannelGlyph = room.channelKind === 'voice' ? Volume2 : Hash;
-  const serverIconSrc = getIdenticonDataUrl(room.serverIconSeed);
+  const ChannelGlyph = room.channelType === 'voice' ? Volume2 : Hash;
+  const serverIconSrc = room.serverIconUrl ?? getIdenticonDataUrl(room.serverId);
 
   return (
     <NavLink
@@ -49,8 +47,6 @@ export function RoomRow({ room }: RoomRowProps): React.JSX.Element {
         <span className="text-control truncate font-medium">{room.channelName}</span>
         <span className="text-ink-subtle text-caption truncate">{room.serverName}</span>
       </span>
-
-      {room.hasUnread && room.unreadCount ? <UnreadBadge count={room.unreadCount} /> : null}
     </NavLink>
   );
 }
