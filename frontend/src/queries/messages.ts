@@ -6,8 +6,9 @@ import {
 } from '@tanstack/react-query';
 import { api } from './client';
 import { qk } from './keys';
+import { generateObjectId } from '@/lib/objectId';
 import { toast } from '@/lib/toast';
-import type { MessageDto } from '@/types/message';
+import type { MessageDto, MessageReaction } from '@/types/message';
 import type { Profile } from '@/types/auth';
 
 // ── Queries ─────────────────────────────────────────────────────────────────
@@ -40,17 +41,31 @@ export function useChannelMessages(channelId: string) {
 
 // ── Mutations ───────────────────────────────────────────────────────────────
 
+interface SendMessageVars {
+  channelId: string;
+  content: string;
+  // Minted in `onMutate` (if absent) and sent to the server as `clientId` so
+  // the optimistic message and the persisted message share one id — see
+  // `generateObjectId`. Optional at the call site; callers never pass it.
+  id?: string;
+}
+
 export function useSendMessage() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ channelId, content }: { channelId: string; content: string }) => {
+    mutationFn: async ({ channelId, content, id }: SendMessageVars) => {
       return api<MessageDto>(`/channels/${channelId}/messages`, {
         method: 'POST',
-        body: { content },
+        body: { content, clientId: id },
       });
     },
-    onMutate: async ({ channelId, content }) => {
+    onMutate: async (variables: SendMessageVars) => {
+      // Mint the id once, on the shared `variables` object, so `mutationFn`
+      // (which receives the same reference) sends the same id we render with.
+      variables.id ??= generateObjectId();
+      const { channelId, content, id } = variables;
+
       await queryClient.cancelQueries({ queryKey: qk.messages.byChannel(channelId) });
       const previousMessages = queryClient.getQueryData<InfiniteData<MessagesResponse>>(
         qk.messages.byChannel(channelId),
@@ -65,7 +80,7 @@ export function useSendMessage() {
         // message arrived and replaced them.
         const me = queryClient.getQueryData<Profile>(qk.auth.session());
         const optimisticMsg: MessageDto = {
-          id: `temp-${Date.now()}`,
+          id: id!,
           channelId,
           authorId: me?.id ?? 'optimistic',
           author: me
@@ -151,23 +166,105 @@ export function useDeleteMessage() {
   });
 }
 
+// ── Reactions ─────────────────────────────────────────────────────────────
+//
+// Reactions update optimistically: clicking a chip or picking an emoji patches
+// the cached message instantly, so the UI never waits on the POST/DELETE round
+// trip (or the socket echo) before reflecting the change. `onError` rolls the
+// snapshot back and toasts. The channel socket remains the source of truth for
+// *other* clients and reconciles our own patch idempotently when its event
+// lands, so we deliberately don't invalidate here and cause a refetch flicker.
+
+interface ReactionVars {
+  channelId: string;
+  messageId: string;
+  emoji: string;
+}
+
+interface ReactionContext {
+  previousMessages?: InfiniteData<MessagesResponse>;
+}
+
+function patchMessageReactions(
+  data: InfiniteData<MessagesResponse> | undefined,
+  messageId: string,
+  update: (reactions: MessageReaction[]) => MessageReaction[],
+): InfiniteData<MessagesResponse> | undefined {
+  if (!data) return data;
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      messages: page.messages.map((message) =>
+        message.id === messageId ? { ...message, reactions: update(message.reactions) } : message,
+      ),
+    })),
+  };
+}
+
+function useReactionOptimism() {
+  const queryClient = useQueryClient();
+
+  const apply = async (
+    { channelId, messageId }: ReactionVars,
+    update: (reactions: MessageReaction[], userId: string) => MessageReaction[],
+  ): Promise<ReactionContext> => {
+    const me = queryClient.getQueryData<Profile>(qk.auth.session());
+    if (!me?.id) return {};
+
+    const key = qk.messages.byChannel(channelId);
+    await queryClient.cancelQueries({ queryKey: key });
+    const previousMessages = queryClient.getQueryData<InfiniteData<MessagesResponse>>(key);
+
+    queryClient.setQueryData<InfiniteData<MessagesResponse>>(key, (old) =>
+      patchMessageReactions(old, messageId, (reactions) => update(reactions, me.id)),
+    );
+
+    return { previousMessages };
+  };
+
+  const rollback = (vars: ReactionVars, context: ReactionContext | undefined) => {
+    if (context?.previousMessages) {
+      queryClient.setQueryData(qk.messages.byChannel(vars.channelId), context.previousMessages);
+    }
+  };
+
+  return { apply, rollback };
+}
+
 export function useAddReaction() {
+  const { apply, rollback } = useReactionOptimism();
+
   return useMutation({
-    mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
+    mutationFn: async ({ messageId, emoji }: ReactionVars) => {
       return api<{ success: boolean }>(`/messages/${messageId}/reactions`, {
         method: 'POST',
         body: { emoji },
       });
     },
-    onError: () => {
+    onMutate: (vars) =>
+      apply(vars, (reactions, userId) => {
+        const existing = reactions.find((r) => r.emoji === vars.emoji);
+        if (existing) {
+          if (existing.userIds.includes(userId)) return reactions;
+          return reactions.map((r) =>
+            r.emoji === vars.emoji ? { ...r, userIds: [...r.userIds, userId] } : r,
+          );
+        }
+        return [...reactions, { emoji: vars.emoji, userIds: [userId] }];
+      }),
+    onError: (_err, vars, context) => {
+      rollback(vars, context);
       toast.error("Couldn't add your reaction. Try again?");
     },
   });
 }
 
 export function useRemoveReaction() {
+  const { apply, rollback } = useReactionOptimism();
+
   return useMutation({
-    mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
+    mutationFn: async ({ messageId, emoji }: ReactionVars) => {
       return api<{ success: boolean }>(
         `/messages/${messageId}/reactions/${encodeURIComponent(emoji)}`,
         {
@@ -175,7 +272,16 @@ export function useRemoveReaction() {
         },
       );
     },
-    onError: () => {
+    onMutate: (vars) =>
+      apply(vars, (reactions, userId) =>
+        reactions
+          .map((r) =>
+            r.emoji === vars.emoji ? { ...r, userIds: r.userIds.filter((id) => id !== userId) } : r,
+          )
+          .filter((r) => r.userIds.length > 0),
+      ),
+    onError: (_err, vars, context) => {
+      rollback(vars, context);
       toast.error("Couldn't remove your reaction. Try again?");
     },
   });

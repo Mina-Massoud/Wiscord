@@ -16,6 +16,14 @@ import type { ActivityKind } from '@/queries/client';
 interface VoiceSessionStore {
   /** Channel the user wants to be in. `null` = not in voice. */
   channelId: string | null;
+  /**
+   * Route path that *owns* the connected channel — where "jump to voice"
+   * and the activity launcher navigate back to. A server voice channel
+   * sets `/app/servers/:serverId/channels/:channelId`; the labs voice page
+   * sets `/app/labs/voice/:channelId`. Recorded at join time so navigation
+   * never has to guess which surface the channel lives on.
+   */
+  voiceHome: string | null;
   /** LiveKit access token, fetched after channelId is set. */
   token: string | null;
   /** LiveKit server URL paired with the token. */
@@ -34,8 +42,12 @@ interface VoiceSessionStore {
    * disconnects, then a lifecycle hook will fetch the new channel's
    * token and call `setSession`. Calling with the currently-active
    * channelId is a no-op so this is safe to call defensively.
+   *
+   * `home` is the route that owns the channel (server channel route or
+   * labs voice route); it's refreshed even on the no-op path so a re-join
+   * from a different surface keeps the navigation target accurate.
    */
-  joinChannel: (channelId: string) => void;
+  joinChannel: (channelId: string, home?: string | null) => void;
 
   /**
    * Write the freshly-fetched token+url for `channelId` back to the
@@ -59,16 +71,22 @@ interface VoiceSessionStore {
 
 export const useVoiceSessionStore = create<VoiceSessionStore>((set) => ({
   channelId: null,
+  voiceHome: null,
   token: null,
   livekitUrl: null,
   myActivityKind: null,
   hasConnected: false,
 
-  joinChannel: (channelId) =>
+  joinChannel: (channelId, home = null) =>
     set((state) => {
-      if (state.channelId === channelId) return state;
+      if (state.channelId === channelId) {
+        // Already in this channel — refresh the home route if a new one
+        // was supplied (e.g. re-entered from a different surface).
+        return home && home !== state.voiceHome ? { voiceHome: home } : state;
+      }
       return {
         channelId,
+        voiceHome: home,
         token: null,
         livekitUrl: null,
         myActivityKind: null,
@@ -86,6 +104,7 @@ export const useVoiceSessionStore = create<VoiceSessionStore>((set) => ({
   leaveChannel: () =>
     set({
       channelId: null,
+      voiceHome: null,
       token: null,
       livekitUrl: null,
       myActivityKind: null,
@@ -109,6 +128,9 @@ export const useVoiceSessionStore = create<VoiceSessionStore>((set) => ({
 
 /** Stable selector helpers for components that only need one field. */
 export const useConnectedChannelId = (): string | null => useVoiceSessionStore((s) => s.channelId);
+
+/** Route that owns the connected channel (server channel route or labs voice route). */
+export const useVoiceHome = (): string | null => useVoiceSessionStore((s) => s.voiceHome);
 
 export const useMyActivityKind = (): ActivityKind | null =>
   useVoiceSessionStore((s) => s.myActivityKind);

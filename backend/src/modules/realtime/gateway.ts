@@ -4,6 +4,7 @@ import { parseCookie } from 'cookie';
 
 import { env } from '../../lib/env.js';
 import { logger } from '../../lib/logger.js';
+import { CHANNEL_ID_RE } from '../../lib/channel-id.js';
 import { SESSION_COOKIE } from '../../lib/cookies.js';
 import { verifySessionToken } from '../../lib/jwt.js';
 import { voicePresence, type VoiceStateChange } from '../voice/presence-store.js';
@@ -189,8 +190,6 @@ type WiscordIoServer = IoServer<
 
 let io: WiscordIoServer | null = null;
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /**
  * One Socket.IO server per backend process. Wired up from `server.ts` after
  * the HTTP listener is created so it shares the same port and TLS termination
@@ -300,7 +299,7 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
     });
 
     socket.on('calendar:subscribe_channel', async (channelId, ack) => {
-      if (typeof channelId !== 'string' || !UUID_RE.test(channelId)) {
+      if (typeof channelId !== 'string' || !CHANNEL_ID_RE.test(channelId)) {
         ack(false);
         return;
       }
@@ -314,7 +313,7 @@ export function startRealtimeGateway(httpServer: HttpServer): WiscordIoServer {
     });
 
     socket.on('voice:subscribe_activity', async (channelId, ack) => {
-      if (typeof channelId !== 'string' || !UUID_RE.test(channelId)) {
+      if (typeof channelId !== 'string' || !CHANNEL_ID_RE.test(channelId)) {
         ack(false);
         return;
       }

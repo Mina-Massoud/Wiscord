@@ -4,6 +4,7 @@ import {
   CALENDAR_CATEGORY_COLOR_SLUGS,
   CALENDAR_BUILTIN_SLUGS,
 } from '../../db/models/CalendarCategory.js';
+import { channelIdSchema } from '../../lib/channel-id.js';
 
 const isoDate = z
   .string()
@@ -13,10 +14,7 @@ const objectIdString = z
   .string()
   .regex(/^[a-f\d]{24}$/i, 'must be a 24-char hex ObjectId');
 
-const channelIdNullable = z.union([
-  z.string().uuid('channelId must be a UUID'),
-  z.null(),
-]);
+const channelIdNullable = z.union([channelIdSchema, z.null()]);
 
 // ── Params ────────────────────────────────────────────────────────────────
 
@@ -32,7 +30,7 @@ export const eventRangeQuery = z
   .object({
     from: isoDate,
     to: isoDate,
-    channelId: z.string().uuid('channelId must be a UUID').optional(),
+    channelId: channelIdSchema.optional(),
   })
   .refine((q) => new Date(q.from) < new Date(q.to), {
     message: '`from` must be earlier than `to`',
@@ -50,7 +48,7 @@ export type MineRangeQuery = z.infer<typeof mineRangeQuery>;
 
 export const categoryListQuery = z.object({
   scope: z.enum(['user', 'channel']),
-  channelId: z.string().uuid('channelId must be a UUID').optional(),
+  channelId: channelIdSchema.optional(),
 });
 export type CategoryListQuery = z.infer<typeof categoryListQuery>;
 
@@ -104,7 +102,7 @@ const colorEnum = z.enum(CALENDAR_CATEGORY_COLOR_SLUGS);
 
 export const createCategoryBody = z.object({
   scope: z.enum(['user', 'channel']),
-  channelId: z.string().uuid('channelId must be a UUID').optional(),
+  channelId: channelIdSchema.optional(),
   name: z.string().trim().min(1).max(60),
   color: colorEnum,
 });

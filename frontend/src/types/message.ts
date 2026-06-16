@@ -1,3 +1,8 @@
+export interface MessageReaction {
+  emoji: string;
+  userIds: string[];
+}
+
 export interface MessageDto {
   id: string;
   channelId: string;
@@ -5,7 +10,7 @@ export interface MessageDto {
   author?: MessageAuthor;
   content: string;
   mentions: string[];
-  reactions: { emoji: string; userIds: string[] }[];
+  reactions: MessageReaction[];
   editedAt: string | null;
   deletedAt: string | null;
   createdAt: string;

@@ -11,8 +11,8 @@ The previous Supabase implementation is archived at [`./.legacy-supabase/`](./.l
 This backend implements **auth and profile only**. CRUD for servers / channels / messages, realtime, AI streaming, LiveKit, and storage are deliberately not built yet — they'll come back behind their own endpoints when the time comes.
 
 Endpoints currently live:
-- `POST /auth/magic-link` — request a sign-in email
-- `GET /auth/callback?token=…` — verify token, set cookie, redirect to frontend
+- `POST /auth/sign-up` — create an account (email + password), set cookie, return profile
+- `POST /auth/sign-in` — verify email + password, set cookie, return profile
 - `POST /auth/signout` — clear cookie
 - `GET /auth/me` — current user (auth-gated)
 - `PATCH /auth/me` — update username / display name / avatar / onboarded_at (auth-gated)
@@ -27,8 +27,7 @@ Endpoints currently live:
 | Runtime | Node ≥20, ESM | `"type": "module"`. Imports use `.js` extensions even for `.ts` files. |
 | HTTP | Express 4 | Single `createApp()` factory in `src/app.ts`; `server.ts` boots and binds. |
 | DB | MongoDB 8 via Mongoose 9 | Local via `docker compose up -d mongo` on port 27017. |
-| Auth | Self-issued JWT in HttpOnly cookie | `jose` for sign/verify; magic-link tokens hashed at rest. |
-| Email | Resend REST API | Falls back to logging the URL when `RESEND_API_KEY` is unset (so dev sign-ins work without burning quota). |
+| Auth | Email + password → self-issued JWT in HttpOnly cookie | `jose` for sign/verify; passwords hashed at rest with scrypt (`lib/password.ts`). |
 | Validation | Zod | At every system boundary — env, request body, request query. |
 | Logging | Pino + pino-http | Pretty in dev; JSON in prod. Request-id correlation header. |
 | Errors | `AppError` + Express error middleware | All responses ride a `{ success, data?, error? }` envelope. |
@@ -93,12 +92,13 @@ authRouter.get('/me', requireAuth, async (req, res, next) => {
 - Default TTL 30 days, configurable via `SESSION_TTL_SECONDS`.
 - Signing/verifying lives in `src/lib/jwt.ts`; cookie helpers in `src/lib/cookies.ts`. Don't reach into `res.cookie` directly from feature code.
 
-### Magic-link tokens
+### Password hashing
 
-- 32 random bytes, url-safe base64. Raw token goes in the email **only**.
-- Stored as SHA-256 hex in `magic_link_tokens.tokenHash`. DB leak ≠ login compromise.
-- 15-minute TTL. Single-use — the consume step is an atomic `findOneAndUpdate({ usedAt: null }, { $set: { usedAt: now } })`. Replays fail because `usedAt != null` after the first hit.
-- 24-hour TTL index sweeps expired-but-unused rows automatically.
+- scrypt via `node:crypto` (no native dependency) — see `lib/password.ts`.
+- Cost N=2^15 (OWASP floor), 16-byte random salt per password, 64-byte key.
+- Stored as a single self-describing column: `scrypt$<N>$<salt>$<hash>`. The cost is baked into each hash, so raising it later only affects new passwords.
+- `passwordHash` is `select: false` on the `User` schema — only the sign-in path `.select('+passwordHash')`s it back in, so it can't leak into a profile DTO or a log line.
+- Wrong-email and wrong-password sign-ins fail identically (`401 invalid_credentials`), and an unknown email still runs a dummy verify so response timing doesn't reveal which emails are registered.
 
 ### No `console.log`
 
@@ -107,13 +107,13 @@ authRouter.get('/me', requireAuth, async (req, res, next) => {
 ### Tests
 
 Test files live in `tests/`. Use Vitest + Supertest. Every meaningful unit of behavior gets a test:
-- Auth: full magic-link round-trip, expired token, replay protection, signout clears cookie.
+- Auth: sign-up creates a user + sets the cookie, duplicate email is rejected, sign-in verifies the password, wrong password fails, signout clears cookie. Password hashing has its own unit test (`tests/auth/password.test.ts`).
 - Profile: username conflict, validation failures, partial PATCH.
 - Health: `/health` returns 200 even when the DB is unreachable (smoke).
 
 ### Anti-enumeration
 
-`POST /auth/magic-link` always returns `200 { sent: true }`, even when the email isn't registered. The address gets a brand-new user row instead — which is fine because users are essentially defined by their email, and we don't want anonymous probes to confirm membership.
+`POST /auth/sign-in` returns the same `401 invalid_credentials` whether the email is unregistered or the password is wrong, and runs a dummy scrypt verify on the unknown-email branch so timing doesn't betray membership. `POST /auth/sign-up` is the one surface that *must* leak existence — it returns `409 email_taken` for a duplicate, because silently swallowing a signup would be worse than confirming the address is in use.
 
 ### Commit hygiene
 
@@ -142,7 +142,7 @@ npm run dev
 
 `docker info` must succeed before `db:up`. If you don't want Docker, point `MONGODB_URI` at a MongoDB Atlas free-tier cluster instead.
 
-In dev, leave `RESEND_API_KEY` empty — magic-link URLs print to the server log so you can paste them straight into the browser without touching email.
+`npm run db:seed` creates `dev@wiscord.local`, `alice@wiscord.local`, and `bob@wiscord.local`, all with the password `password123` — sign in at `/sign-in` with any of those.
 
 ---
 

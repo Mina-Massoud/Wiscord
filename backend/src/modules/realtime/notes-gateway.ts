@@ -7,6 +7,7 @@ import * as Y from 'yjs';
 
 import { env } from '../../lib/env.js';
 import { logger } from '../../lib/logger.js';
+import { CHANNEL_ID_RE } from '../../lib/channel-id.js';
 import { SESSION_COOKIE } from '../../lib/cookies.js';
 import { verifySessionToken } from '../../lib/jwt.js';
 import {
@@ -90,13 +91,6 @@ export function closeNotesDocument(channelId: string): void {
 }
 
 const PATH_PREFIX = '/sync/notes/';
-// Permissive hex-only UUID shape — matches the realtime gateway and the
-// voice token mint, both of which accept any UUID-shaped string. The
-// previous strict version+variant pattern rejected dev/test UUIDs that
-// voice channels use today (e.g. `11111111-1111-1111-1111-111111111111`),
-// leaving the notes editor stuck in its initial loading state.
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface NotesContext {
   userId: string;
@@ -278,7 +272,7 @@ async function handleUpgrade(
   if (!url.startsWith(PATH_PREFIX)) return;
 
   const channelId = url.slice(PATH_PREFIX.length).split('?')[0] ?? '';
-  if (!UUID_RE.test(channelId)) {
+  if (!CHANNEL_ID_RE.test(channelId)) {
     rejectSocket(socket, 400, 'invalid_channel_id');
     return;
   }

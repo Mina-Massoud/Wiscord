@@ -20,6 +20,7 @@ import { useServerEvents } from '@/queries/events';
 import { cn } from '@/lib/cn';
 import { CreateChannelDialog } from './CreateChannelDialog';
 import { ServerChannelRow } from './ServerChannelRow';
+import { ServerVoiceChannelRow } from './ServerVoiceChannelRow';
 import { ServerChannelSidebarAddButton } from './ServerChannelSidebarAddButton';
 import { ServerInviteDialog } from './ServerInviteDialog';
 import { ServerSettingsDropdown } from './ServerSettingsDropdown';
@@ -170,7 +171,7 @@ export function ServerChannelSidebar({
               <Sidebar.Empty>No voice channels yet.</Sidebar.Empty>
             ) : null}
             {voiceChannels.map((channel) => (
-              <ServerChannelRow
+              <ServerVoiceChannelRow
                 key={channel.id}
                 channel={channel}
                 serverId={server.id}

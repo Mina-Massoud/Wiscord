@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MEDIA_KINDS } from '../../db/models/index.js';
+import { CHANNEL_ID_RE } from '../../lib/channel-id.js';
 
 /**
  * Upload metadata travels in headers (not the body) because the body is the
@@ -16,7 +17,7 @@ export const uploadHeaders = z.object({
     .min(1, 'x-filename header is required')
     .max(512),
   'x-storage-kind': z.enum([...MEDIA_KINDS] as [string, ...string[]]).default('document'),
-  'x-channel-id': z.string().uuid().optional(),
+  'x-channel-id': z.string().regex(CHANNEL_ID_RE).optional(),
 });
 export type UploadHeaders = z.infer<typeof uploadHeaders>;
 

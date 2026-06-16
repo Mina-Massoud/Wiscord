@@ -7,6 +7,10 @@ const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id');
 
 export const sendMessageBody = z.object({
   content: z.string().min(1).max(4000),
+  // Optional client-minted id so the sender's optimistic message and the
+  // persisted document share one id (stable React key, no re-animation on
+  // confirmation). Validated to ObjectId shape; ignored on collision.
+  clientId: objectId.optional(),
 });
 
 export const updateMessageBody = z.object({

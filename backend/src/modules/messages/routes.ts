@@ -17,9 +17,9 @@ export const messagesRouter = Router();
 messagesRouter.post('/channels/:channelId/messages', requireAuth, async (req, res, next) => {
   try {
     const { channelId } = channelIdParam.parse(req.params);
-    const { content } = sendMessageBody.parse(req.body);
+    const { content, clientId } = sendMessageBody.parse(req.body);
 
-    const msg = await service.sendMessage(channelId, req.userId!, content);
+    const msg = await service.sendMessage(channelId, req.userId!, content, clientId);
     res.json(ok(msg));
   } catch (err) {
     next(err);

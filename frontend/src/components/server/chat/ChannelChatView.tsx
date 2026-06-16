@@ -9,6 +9,7 @@ import { useChannelMessages, useSendMessage } from '@/queries/messages';
 import { useChannelSocket } from '@/hooks/useChannelSocket';
 import { useServerMembers } from '@/queries/members';
 import type { MessageDto } from '@/types/message';
+import { isCompactMessage } from '@/lib/messageGrouping';
 import { ChannelChatComposer } from './ChannelChatComposer';
 import { ChannelChatMessageRow } from './ChannelChatMessageRow';
 
@@ -23,7 +24,9 @@ export function ChannelChatView({ channel }: ChannelChatViewProps): React.JSX.El
   const [listParent] = useAutoAnimate<HTMLDivElement>();
 
   // Fetch messages from backend
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } = useChannelMessages(channel.id);
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } = useChannelMessages(
+    channel.id,
+  );
 
   const userId = profile?.id ?? '';
   const { mutate: markChannelRead } = useMarkChannelRead();
@@ -99,7 +102,9 @@ export function ChannelChatView({ channel }: ChannelChatViewProps): React.JSX.El
     let cancelled = false;
 
     const tryFindAndHighlight = (): boolean => {
-      const el = scrollRef.current?.querySelector(`[data-message-id="${highlightId}"]`) as HTMLElement | null;
+      const el = scrollRef.current?.querySelector(
+        `[data-message-id="${highlightId}"]`,
+      ) as HTMLElement | null;
       if (!el) return false;
       // Scroll into view within the scroll container
       el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
@@ -120,7 +125,7 @@ export function ChannelChatView({ channel }: ChannelChatViewProps): React.JSX.El
       while (!cancelled && hasNextPage) {
         try {
           await fetchNextPage();
-        } catch (_) {
+        } catch {
           break;
         }
         // small delay to allow DOM to update
@@ -153,22 +158,22 @@ export function ChannelChatView({ channel }: ChannelChatViewProps): React.JSX.El
           <div className="bg-glass-surface-1 mb-4 flex h-16 w-16 items-center justify-center rounded-full text-3xl">
             👋
           </div>
-          <p className="text-ink text-subhead font-semibold">Welcome to the beginning of #{channel.name}</p>
+          <p className="text-ink text-subhead font-semibold">
+            Welcome to the beginning of #{channel.name}
+          </p>
           <p className="text-ink-muted text-body max-w-sm">
             This is the start of the chat. Say hi to everyone!
           </p>
         </div>
       ) : (
-        <div
-          ref={scrollRef}
-          className="flex flex-1 flex-col-reverse overflow-y-auto px-1 py-3"
-        >
-          <div ref={listParent} className="flex flex-col-reverse w-full">
-            {allMessages.map((message) => (
+        <div ref={scrollRef} className="flex flex-1 flex-col-reverse overflow-y-auto px-1 py-3">
+          <div ref={listParent} className="flex w-full flex-col-reverse flex-grow">
+            {allMessages.map((message, index) => (
               <ChannelChatMessageRow
                 key={message.id}
                 message={message}
                 isOwn={message.authorId === userId}
+                isCompact={isCompactMessage(allMessages, index)}
               />
             ))}
           </div>
@@ -181,11 +186,7 @@ export function ChannelChatView({ channel }: ChannelChatViewProps): React.JSX.El
         </div>
       )}
 
-      <ChannelChatComposer
-        channelLabel={channel.name}
-        onSend={handleSend}
-        members={members}
-      />
+      <ChannelChatComposer channelLabel={channel.name} onSend={handleSend} members={members} />
     </div>
   );
 }

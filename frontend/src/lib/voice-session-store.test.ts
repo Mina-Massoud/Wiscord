@@ -17,10 +17,30 @@ describe('voice-session-store', () => {
   it('starts in a fully disconnected state', () => {
     const s = useVoiceSessionStore.getState();
     expect(s.channelId).toBeNull();
+    expect(s.voiceHome).toBeNull();
     expect(s.token).toBeNull();
     expect(s.livekitUrl).toBeNull();
     expect(s.myActivityKind).toBeNull();
     expect(s.hasConnected).toBe(false);
+  });
+
+  it('joinChannel records the home route for the connected channel', () => {
+    useVoiceSessionStore.getState().joinChannel(CHANNEL_A, '/app/servers/s1/channels/aaa');
+    expect(useVoiceSessionStore.getState().voiceHome).toBe('/app/servers/s1/channels/aaa');
+  });
+
+  it('joinChannel refreshes the home route even when the channel is unchanged', () => {
+    useVoiceSessionStore.getState().joinChannel(CHANNEL_A, '/app/labs/voice/aaa');
+    // Re-entered from the server surface — same channel, new home.
+    useVoiceSessionStore.getState().joinChannel(CHANNEL_A, '/app/servers/s1/channels/aaa');
+    expect(useVoiceSessionStore.getState().channelId).toBe(CHANNEL_A);
+    expect(useVoiceSessionStore.getState().voiceHome).toBe('/app/servers/s1/channels/aaa');
+  });
+
+  it('leaveChannel clears the home route', () => {
+    useVoiceSessionStore.getState().joinChannel(CHANNEL_A, '/app/servers/s1/channels/aaa');
+    useVoiceSessionStore.getState().leaveChannel();
+    expect(useVoiceSessionStore.getState().voiceHome).toBeNull();
   });
 
   it('joinChannel sets channelId and leaves token null until setSession fires', () => {

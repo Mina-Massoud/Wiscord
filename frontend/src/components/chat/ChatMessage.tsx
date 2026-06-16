@@ -3,10 +3,13 @@ import { cn } from '@/lib/cn';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ChatMessageMarkdown } from './ChatMessageMarkdown';
 import { ChatReactions } from './ChatReactions';
+import { EmojiPicker } from './EmojiPicker';
 import { useAuth } from '@/hooks/useAuth';
+import { useMessageReactions } from '@/hooks/useMessageReactions';
 import { useDeleteMessage, useEditMessage } from '@/queries/messages';
+import { formatMessageTime, formatMessageTimestamp } from '@/lib/date';
 import type { MessageAuthor, MessageDto } from '@/types/message';
-import { MoreHorizontal, Pencil, Trash } from 'lucide-react';
+import { MoreHorizontal, Pencil, SmilePlus, Trash } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +24,7 @@ interface ChatMessageProps {
   isCompact?: boolean;
 }
 
-export function ChatMessage({ message, isCompact }: ChatMessageProps) {
+export function ChatMessage({ message, isCompact = false }: ChatMessageProps) {
   const { user } = useAuth();
   const isAuthor = user?.id === message.authorId || user?.id === message.author?.id;
   const [isEditing, setIsEditing] = useState(false);
@@ -29,19 +32,29 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
 
   const { mutate: editMessage } = useEditMessage();
   const { mutate: deleteMessage } = useDeleteMessage();
+  const { toggle: toggleReaction } = useMessageReactions(
+    message.channelId,
+    message.id,
+    message.reactions,
+  );
 
   const handleEditSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editContent.trim() && editContent !== message.content) {
-      editMessage({ messageId: message.id, content: editContent.trim() });
+    const next = editContent.trim();
+    if (next && next !== message.content) {
+      editMessage({ messageId: message.id, content: next });
     }
     setIsEditing(false);
   };
 
+  const startEditing = () => {
+    setEditContent(message.content);
+    setIsEditing(true);
+  };
+
   const isOptimistic = message.authorId === 'optimistic';
 
-  const author: MessageAuthor =
-    message.author ||
+  const author: MessageAuthor = message.author ||
     (isOptimistic && user
       ? {
           id: user.id,
@@ -61,23 +74,18 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
 
   if (message.deletedAt) {
     return (
-      <div
-        className={cn(
-          'group relative flex gap-4 px-4 py-1 hover:bg-black/5',
-          isCompact ? 'mt-0' : 'mt-4',
-          isAuthor && 'flex-row-reverse',
-        )}
-      >
-        {!isCompact && (
-          <div className="h-10 w-10 flex-shrink-0 opacity-50">
-            <Avatar className="h-10 w-10">
-              <AvatarFallback className="bg-surface-2 text-muted-foreground">{avatarInitials}</AvatarFallback>
+      <div className={cn('group flex px-4 py-0.5', isCompact ? 'mt-0' : 'mt-4 pt-1')}>
+        <div className="w-10 flex-shrink-0">
+          {!isCompact && (
+            <Avatar className="h-10 w-10 opacity-50">
+              <AvatarFallback className="bg-surface-2 text-ink-subtle">
+                {avatarInitials}
+              </AvatarFallback>
             </Avatar>
-          </div>
-        )}
-        {isCompact && <div className="w-10 flex-shrink-0" />}
-        <div className="text-muted-foreground flex-1 min-w-0 flex items-center text-sm italic">
-          [message deleted]
+          )}
+        </div>
+        <div className="text-ink-subtle text-caption ml-4 flex min-w-0 flex-1 items-center italic">
+          message deleted
         </div>
       </div>
     );
@@ -86,33 +94,58 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
   return (
     <div
       className={cn(
-        'group relative flex gap-4 px-4 py-1 hover:bg-black/5 transition-colors',
-        isCompact ? 'mt-0' : 'mt-4',
-        isAuthor && 'flex-row-reverse justify-start',
+        'group hover:bg-glass-hover relative flex px-4 py-0.5 transition-colors',
+        isCompact ? 'mt-0' : 'mt-4 pt-1',
       )}
     >
-      {/* Actions toolbar */}
-      <div
-        className={cn(
-          'absolute top-[-14px] opacity-0 group-hover:opacity-100 transition-opacity z-10',
-          isAuthor ? 'left-4' : 'right-4',
-        )}
-      >
-        <div className="bg-glass-surface-2 border-glass-border flex items-center rounded-md shadow-sm border">
+      {/* Hover toolbar — react is available on every message; edit/delete only for the author */}
+      <div className="absolute -top-4 right-4 z-10 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        <div className="bg-glass-surface-2 border-glass-border shadow-card flex items-center gap-0.5 rounded-md border p-0.5">
+          <EmojiPicker
+            onSelect={toggleReaction}
+            trigger={
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Add reaction"
+                className="text-ink-muted hover:text-ink h-7 w-7 rounded-sm"
+              >
+                <SmilePlus className="h-4 w-4" />
+              </Button>
+            }
+          />
+          {isAuthor && (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Edit message"
+              onClick={startEditing}
+              className="text-ink-muted hover:text-ink h-7 w-7 rounded-sm"
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
           {isAuthor && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 rounded-md text-muted-foreground hover:text-foreground">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="More actions"
+                  className="text-ink-muted hover:text-ink h-7 w-7 rounded-sm"
+                >
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-32 bg-glass-surface-2 border-glass-border">
-                <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => deleteMessage({ messageId: message.id })} className="text-red-500 focus:text-red-500">
-                  <Trash className="h-4 w-4 mr-2" />
+              <DropdownMenuContent
+                align="end"
+                className="bg-glass-surface-2 border-glass-border w-32"
+              >
+                <DropdownMenuItem
+                  onClick={() => deleteMessage({ messageId: message.id })}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash className="mr-2 h-4 w-4" />
                   Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -121,39 +154,40 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
         </div>
       </div>
 
-      {!isCompact && (
-        <div className="h-10 w-10 flex-shrink-0">
-          <Avatar className="h-10 w-10 cursor-pointer hover:opacity-90 transition-opacity">
-            <AvatarImage src={author.avatarUrl || undefined} />
-            <AvatarFallback className="bg-blurple/10 text-blurple font-medium">{avatarInitials}</AvatarFallback>
+      {/* Left gutter: avatar on a group's first message, hover-revealed time on compact rows */}
+      <div className="w-10 flex-shrink-0">
+        {!isCompact ? (
+          <Avatar className="h-10 w-10 cursor-pointer transition-opacity hover:opacity-90">
+            <AvatarImage src={author.avatarUrl || undefined} alt={displayName} />
+            <AvatarFallback className="bg-blurple/10 text-blurple font-medium">
+              {avatarInitials}
+            </AvatarFallback>
           </Avatar>
-        </div>
-      )}
-
-      {isCompact && (
-        <div className="w-10 flex-shrink-0 flex justify-center opacity-0 group-hover:opacity-100 items-start pt-1">
-          <span className="text-[10px] text-muted-foreground select-none">
-            {new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: 'numeric' }).format(new Date(message.createdAt))}
+        ) : (
+          <span className="text-ink-subtle text-badge mt-0.5 hidden justify-end pr-1 select-none group-hover:flex">
+            {formatMessageTime(message.createdAt)}
           </span>
-        </div>
-      )}
+        )}
+      </div>
 
-      <div className={cn('flex-1 min-w-0 flex flex-col', isAuthor ? 'items-end' : 'items-start')}>
+      <div className="ml-4 flex min-w-0 flex-1 flex-col">
         {!isCompact && (
-          <div className={cn('flex items-baseline gap-2 mb-1', isAuthor && 'flex-row-reverse')}>
-            <span className="font-medium text-[15px] hover:underline cursor-pointer">{displayName}</span>
-            <span className="text-xs text-muted-foreground">
-              {new Intl.DateTimeFormat('en-US', { month: '2-digit', day: '2-digit', year: 'numeric', hour: 'numeric', minute: 'numeric' }).format(new Date(message.createdAt))}
+          <div className="flex items-baseline gap-2">
+            <span className="text-ink text-subhead cursor-pointer font-medium hover:underline">
+              {displayName}
+            </span>
+            <span className="text-ink-subtle text-badge">
+              {formatMessageTimestamp(message.createdAt)}
             </span>
           </div>
         )}
 
         {isEditing ? (
-          <form onSubmit={handleEditSubmit} className="mt-1 w-full max-w-md">
+          <form onSubmit={handleEditSubmit} className="mt-1 w-full">
             <Textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              className="min-h-[40px] resize-none bg-surface-1 border-border focus-visible:ring-1 focus-visible:ring-blurple"
+              className="bg-surface-composer border-border focus-visible:ring-blurple resize-none focus-visible:ring-1"
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Escape') {
@@ -166,30 +200,44 @@ export function ChatMessage({ message, isCompact }: ChatMessageProps) {
                 }
               }}
             />
-            <div className="text-[11px] text-muted-foreground mt-1">
-              escape to <span className="text-blurple cursor-pointer hover:underline" onClick={() => setIsEditing(false)}>cancel</span> • enter to <span className="text-blurple cursor-pointer hover:underline" onClick={handleEditSubmit}>save</span>
+            <div className="text-ink-muted text-badge mt-1">
+              escape to{' '}
+              <Button
+                type="button"
+                variant="link"
+                className="text-blurple text-badge h-auto p-0"
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditContent(message.content);
+                }}
+              >
+                cancel
+              </Button>{' '}
+              • enter to{' '}
+              <Button
+                type="button"
+                variant="link"
+                className="text-blurple text-badge h-auto p-0"
+                onClick={handleEditSubmit}
+              >
+                save
+              </Button>
             </div>
           </form>
         ) : (
-          <div
-            className={cn(
-              'text-[15px] rounded-2xl px-4 py-2 border shadow-sm text-left',
-              isAuthor
-                ? 'bg-blurple/15 border-blurple/30 rounded-tr-none text-foreground'
-                : 'bg-glass-surface-1 border-glass-border rounded-tl-none text-foreground',
-            )}
-          >
+          <div className="text-ink text-body">
             <ChatMessageMarkdown content={message.content} mentions={message.mentions} />
             {message.editedAt && (
-              <span className="text-xs text-muted-foreground ml-1 select-none">(edited)</span>
+              <span className="text-ink-subtle text-badge ml-1 select-none">(edited)</span>
             )}
           </div>
         )}
 
-        {/* Reactions */}
-        <div className={cn('mt-1', isAuthor && 'self-end')}>
-          <ChatReactions messageId={message.id} reactions={message.reactions} />
-        </div>
+        <ChatReactions
+          channelId={message.channelId}
+          messageId={message.id}
+          reactions={message.reactions}
+        />
       </div>
     </div>
   );

@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { channelIdSchema } from '../../lib/channel-id.js';
+
 /**
  * Discriminated-union question schema. The same shape is used by:
  *   - Mongoose validation (via custom validator on the questions array)
@@ -98,7 +100,7 @@ export type QuizMode = z.infer<typeof quizModeSchema>;
 // ── REST inputs ────────────────────────────────────────────────────────────
 
 export const channelIdQuery = z.object({
-  channelId: z.string().uuid('channelId must be a UUID'),
+  channelId: channelIdSchema,
 });
 
 export const quizIdParam = z.object({
@@ -111,7 +113,7 @@ export const attemptIdParam = z.object({
 });
 
 export const createQuizBody = z.object({
-  channelId: z.string().uuid(),
+  channelId: channelIdSchema,
   title: z.string().min(1).max(120),
 });
 export type CreateQuizBody = z.infer<typeof createQuizBody>;

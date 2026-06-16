@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { AppError } from '../../lib/errors.js';
+import { channelIdSchema } from '../../lib/channel-id.js';
 import { logger } from '../../lib/logger.js';
 import { listCategories } from '../calendar/category-service.js';
 import { createEvent, deleteEvent, updateEvent } from '../calendar/event-service.js';
@@ -91,7 +92,7 @@ export const createNoteArgs = z.object({
  * (10k source, 100 questions).
  */
 export const generateExamArgs = z.object({
-  channelId: z.string().uuid('channelId must be a UUID'),
+  channelId: channelIdSchema,
   title: z.string().trim().min(1).max(120),
   topic: z.string().trim().min(1).max(500),
   questionCount: z

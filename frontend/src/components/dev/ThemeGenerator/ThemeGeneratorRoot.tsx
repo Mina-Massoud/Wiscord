@@ -29,7 +29,7 @@ export function ThemeGeneratorRoot(): React.JSX.Element | null {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  if (!import.meta.env.DEV) return null;
+  if (true) return null;
 
   return (
     <>

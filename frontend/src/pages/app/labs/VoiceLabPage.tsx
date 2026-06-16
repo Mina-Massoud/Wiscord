@@ -87,7 +87,7 @@ export default function VoiceLabPage(): React.JSX.Element {
 
   const handleJoin = useCallback((): void => {
     if (!channelId || !tokenQuery.data) return;
-    useVoiceSessionStore.getState().joinChannel(channelId);
+    useVoiceSessionStore.getState().joinChannel(channelId, `/app/labs/voice/${channelId}`);
     useVoiceSessionStore.getState().setSession({
       channelId,
       token: tokenQuery.data.token,

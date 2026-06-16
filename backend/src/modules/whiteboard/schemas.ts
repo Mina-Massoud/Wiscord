@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
+import { channelIdSchema } from '../../lib/channel-id.js';
+
 export const channelIdParam = z.object({
-  channelId: z.string().uuid('channelId must be a UUID'),
+  channelId: channelIdSchema,
 });
 export type ChannelIdParam = z.infer<typeof channelIdParam>;
 

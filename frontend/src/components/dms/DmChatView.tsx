@@ -8,6 +8,7 @@ import { getSocket } from '@/queries/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { qk } from '@/queries/keys';
 import { useMarkDmRead, type DmRoomDto } from '@/queries/dms';
+import { isCompactMessage } from '@/lib/messageGrouping';
 import { ChannelChatComposer } from '../server/chat/ChannelChatComposer';
 import { ChannelChatMessageRow } from '../server/chat/ChannelChatMessageRow';
 
@@ -25,7 +26,8 @@ export function DmChatView({ room }: DmChatViewProps): React.JSX.Element {
   const userId = profile?.id ?? '';
 
   // Fetch DM messages from the messages API (reused channel endpoints)
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } = useChannelMessages(dmRoomId);
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } =
+    useChannelMessages(dmRoomId);
 
   // Real-time updates via Socket.io (subscribes to DM room messages)
   useChannelSocket(dmRoomId);
@@ -37,17 +39,21 @@ export function DmChatView({ room }: DmChatViewProps): React.JSX.Element {
   // Mark room as read when this DM is active and visible.
   const { mutate: markRead } = useMarkDmRead();
 
-  const markRoomAsRead = useCallback((dmRoomId: string): void => {
-    markRead({ dmRoomId });
-    queryClient.setQueryData<DmRoomDto[]>(qk.dms.list(), (rooms) =>
-      rooms?.map((room) =>
-        room.id === dmRoomId ? { ...room, unreadCount: 0 } : room,
-      ) ?? rooms,
-    );
-    queryClient.setQueryData<DmRoomDto>(qk.dms.byId(dmRoomId), (room) =>
-      room ? { ...room, unreadCount: 0 } : room,
-    );
-  }, [markRead, queryClient]);
+  const markRoomAsRead = useCallback(
+    (dmRoomId: string): void => {
+      markRead({ dmRoomId });
+      queryClient.setQueryData<DmRoomDto[]>(
+        qk.dms.list(),
+        (rooms) =>
+          rooms?.map((room) => (room.id === dmRoomId ? { ...room, unreadCount: 0 } : room)) ??
+          rooms,
+      );
+      queryClient.setQueryData<DmRoomDto>(qk.dms.byId(dmRoomId), (room) =>
+        room ? { ...room, unreadCount: 0 } : room,
+      );
+    },
+    [markRead, queryClient],
+  );
 
   useEffect(() => {
     if (!dmRoomId) return;
@@ -122,23 +128,22 @@ export function DmChatView({ room }: DmChatViewProps): React.JSX.Element {
             💬
           </div>
           <p className="text-ink text-subhead font-semibold">
-            This is the start of your direct message history with {room.recipient.displayName || room.recipient.username}
+            This is the start of your direct message history with{' '}
+            {room.recipient.displayName || room.recipient.username}
           </p>
           <p className="text-ink-muted text-body max-w-sm">
             Say hello and start studying together!
           </p>
         </div>
       ) : (
-        <div
-          ref={scrollRef}
-          className="flex flex-1 flex-col-reverse overflow-y-auto px-1 py-3"
-        >
-          <div ref={listParent} className="flex flex-col-reverse w-full">
-            {allMessages.map((message) => (
+        <div ref={scrollRef} className="flex flex-1 flex-col-reverse overflow-y-auto px-1 py-3">
+          <div ref={listParent} className="flex w-full flex-col-reverse flex-grow">
+            {allMessages.map((message, index) => (
               <ChannelChatMessageRow
                 key={message.id}
                 message={message}
                 isOwn={message.authorId === userId}
+                isCompact={isCompactMessage(allMessages, index)}
               />
             ))}
           </div>

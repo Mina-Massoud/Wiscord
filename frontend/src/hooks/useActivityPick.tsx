@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useVoiceSessionStore } from '@/lib/voice-session-store';
+import { useVoiceSessionStore, useVoiceHome } from '@/lib/voice-session-store';
 import { toast } from '@/lib/toast';
 import { ApiError, type ActivityKind } from '@/queries/client';
 import { useMyProfile } from '@/queries/profile';
@@ -59,6 +59,7 @@ interface UseActivityPickResult {
 
 export function useActivityPick(): UseActivityPickResult {
   const channelId = useVoiceSessionStore((s) => s.channelId);
+  const voiceHome = useVoiceHome();
   const myActivityKind = useVoiceSessionStore((s) => s.myActivityKind);
   const activityQuery = useVoiceActivity(channelId ?? undefined);
   const activity = activityQuery.data ?? null;
@@ -83,9 +84,13 @@ export function useActivityPick(): UseActivityPickResult {
 
   const navigateToVoice = useCallback((): void => {
     if (!channelId) return;
-    if (location.pathname === `/app/labs/voice/${channelId}`) return;
-    void navigate(`/app/labs/voice/${channelId}`);
-  }, [channelId, location.pathname, navigate]);
+    // The channel's home route — set at join time — is where the activity
+    // surface lives. Falls back to the labs route only if a session somehow
+    // has no recorded home (defensive; every join path sets one).
+    const target = voiceHome ?? `/app/labs/voice/${channelId}`;
+    if (location.pathname === target) return;
+    void navigate(target);
+  }, [channelId, voiceHome, location.pathname, navigate]);
 
   const applyPick = useCallback(
     (definition: ActivityDefinition): void => {

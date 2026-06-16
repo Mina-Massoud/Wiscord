@@ -65,13 +65,14 @@ export function ServerChannelVoicePane({ channel }: ServerChannelVoicePaneProps)
 
   const handleJoin = useCallback((): void => {
     if (!tokenQuery.data) return;
-    useVoiceSessionStore.getState().joinChannel(channelId);
+    const home = `/app/servers/${channel.serverId}/channels/${channelId}`;
+    useVoiceSessionStore.getState().joinChannel(channelId, home);
     useVoiceSessionStore.getState().setSession({
       channelId,
       token: tokenQuery.data.token,
       livekitUrl: tokenQuery.data.livekitUrl,
     });
-  }, [channelId, tokenQuery.data]);
+  }, [channelId, channel.serverId, tokenQuery.data]);
 
   if (tokenQuery.isLoading) {
     return (

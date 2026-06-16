@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 
 import { useActivityPick } from '@/hooks/useActivityPick';
-import { useConnectedChannelId } from '@/lib/voice-session-store';
+import { useConnectedChannelId, useVoiceHome } from '@/lib/voice-session-store';
 import { VoiceUserPanelGroup } from '@/components/voice/VoiceUserPanelGroup';
 
 /**
@@ -21,16 +21,20 @@ import { VoiceUserPanelGroup } from '@/components/voice/VoiceUserPanelGroup';
  */
 export function GlobalUserPanel(): React.JSX.Element {
   const channelId = useConnectedChannelId();
+  const voiceHome = useVoiceHome();
   const location = useLocation();
   const navigate = useNavigate();
   const { pickActivity, confirmDialog } = useActivityPick();
 
-  const onChannelRoute = channelId ? location.pathname === `/app/labs/voice/${channelId}` : false;
+  // Where "jump to voice" lands — the channel's recorded home (server channel
+  // route or labs voice route), falling back to the labs route defensively.
+  const jumpTarget = voiceHome ?? (channelId ? `/app/labs/voice/${channelId}` : null);
+  const onChannelRoute = jumpTarget ? location.pathname === jumpTarget : false;
 
   const handleJump = useCallback(() => {
-    if (!channelId) return;
-    void navigate(`/app/labs/voice/${channelId}`);
-  }, [channelId, navigate]);
+    if (!jumpTarget) return;
+    void navigate(jumpTarget);
+  }, [jumpTarget, navigate]);
 
   return (
     <>

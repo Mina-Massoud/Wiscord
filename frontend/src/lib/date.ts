@@ -59,3 +59,36 @@ export function formatMessageTime(iso: string): string {
   if (Number.isNaN(target.getTime())) return '';
   return messageTimeFormatter?.format(target) ?? target.toISOString();
 }
+
+const messageDateFormatter =
+  typeof Intl !== 'undefined'
+    ? new Intl.DateTimeFormat(undefined, { month: '2-digit', day: '2-digit', year: 'numeric' })
+    : null;
+
+function isSameLocalDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+/**
+ * Discord-style message header timestamp: "Today at 3:42 PM",
+ * "Yesterday at 3:42 PM", otherwise "06/16/2026 3:42 PM". Anchor
+ * defaults to "now"; pass an explicit anchor in tests for determinism.
+ */
+export function formatMessageTimestamp(iso: string, anchor: Date = new Date()): string {
+  const target = new Date(iso);
+  if (Number.isNaN(target.getTime())) return '';
+
+  const time = formatMessageTime(iso);
+  const yesterday = new Date(anchor);
+  yesterday.setDate(anchor.getDate() - 1);
+
+  if (isSameLocalDay(target, anchor)) return `Today at ${time}`;
+  if (isSameLocalDay(target, yesterday)) return `Yesterday at ${time}`;
+
+  const date = messageDateFormatter?.format(target) ?? target.toISOString();
+  return `${date} ${time}`;
+}

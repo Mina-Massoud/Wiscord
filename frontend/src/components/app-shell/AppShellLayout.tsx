@@ -308,7 +308,7 @@ export function AppShellLayout({
 
           <div className="bg-glass-canvas flex min-w-0 flex-1 flex-col">
             {topBar || hasRightRail ? (
-              <div className="flex shrink-0 border-b border-glass-border items-stretch py-[4px]">
+              <div className="flex shrink-0 items-stretch py-[4px]">
                 {topBar ? <div className="min-w-0 flex-1">{topBar}</div> : null}
                 {hasRightRail ? (
                   <div

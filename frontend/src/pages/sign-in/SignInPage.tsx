@@ -33,7 +33,10 @@ function safeRedirectPath(next: string | null): string {
   return next;
 }
 
-const COPY: Record<Mode, { subtitle: string; heading: string; cta: string; switchPrompt: string; switchAction: string }> = {
+const COPY: Record<
+  Mode,
+  { subtitle: string; heading: string; cta: string; switchPrompt: string; switchAction: string }
+> = {
   signin: {
     subtitle: 'Welcome back — pick up where you left off.',
     heading: 'Sign in to Wiscord',

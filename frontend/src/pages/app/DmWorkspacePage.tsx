@@ -5,6 +5,7 @@ import { GlobalUserPanel } from '@/components/app-shell/GlobalUserPanel';
 import { ServerRail } from '@/components/server/ServerRail';
 import { DmSidebar } from '@/components/app-shell/friends/DmSidebar';
 import { DmChatView } from '@/components/dms/DmChatView';
+import { DmHeaderPresence } from '@/components/dms/DmHeaderPresence';
 import { useDmRoom } from '@/queries/dms';
 import { getIdenticonDataUrl } from '@/lib/avatar';
 
@@ -45,12 +46,8 @@ export default function DmWorkspacePage(): React.JSX.Element {
                   </span>
                 )}
               </div>
-              <div className="ml-auto flex items-center gap-1.5">
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                </span>
-                <span className="text-ink-subtle text-caption">Online</span>
+              <div className="ml-auto">
+                <DmHeaderPresence userId={recipient.id} />
               </div>
             </>
           )}

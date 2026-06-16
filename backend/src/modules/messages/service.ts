@@ -71,11 +71,21 @@ export async function sendMessage(
   channelId: string,
   authorId: string,
   content: string,
+  clientId?: string,
 ): Promise<MessageDto> {
   const target = await assertChannelMember(authorId, channelId);
 
   const mentions = await resolveMentions(content);
-  const msg = new Message({ channelId, authorId, content, mentions });
+
+  // Honor a client-minted id (keeps the sender's optimistic React key stable),
+  // but never let a collision reject the send — fall back to an auto id.
+  let id: Types.ObjectId | undefined;
+  if (clientId && Types.ObjectId.isValid(clientId)) {
+    const exists = await Message.exists({ _id: clientId });
+    if (!exists) id = new Types.ObjectId(clientId);
+  }
+
+  const msg = new Message({ ...(id ? { _id: id } : {}), channelId, authorId, content, mentions });
   await msg.save();
   await msg.populate('authorId', 'id username displayName avatarUrl');
 

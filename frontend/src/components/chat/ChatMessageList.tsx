@@ -92,8 +92,8 @@ export function ChatMessageList({ channelId }: ChatMessageListProps) {
   };
 
   return (
-    <div 
-      className="flex-1 overflow-y-auto flex flex-col-reverse p-4 gap-1"
+    <div
+      className="flex-1 overflow-y-auto flex flex-col-reverse py-4"
       ref={scrollRef}
     >
       <div ref={listRef} className="flex flex-col-reverse w-full">

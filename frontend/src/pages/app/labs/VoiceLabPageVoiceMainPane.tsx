@@ -107,6 +107,7 @@ export function VoiceMainPane({
             <ActiveActivitiesOverlay
               participants={presenceQuery.data ?? []}
               meIdentity={me?.id ?? null}
+              activity={activityQuery.data ?? null}
               onJoin={onJoinExisting}
             />
           </VoiceGrid>

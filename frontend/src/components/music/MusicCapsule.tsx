@@ -172,7 +172,7 @@ export function MusicCapsule(): React.JSX.Element | null {
             </Slot>
           ) : effectiveView === 'idle' ? (
             <Slot key="idle" shape={shape}>
-              <IdleSlot />
+              <IdleSlot connected={hasIntegration} />
             </Slot>
           ) : effectiveView === 'bar' && track ? (
             <Slot key="bar" shape={shape}>

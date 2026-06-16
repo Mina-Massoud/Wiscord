@@ -1,92 +1,77 @@
 import { cn } from '@/lib/cn';
+import { useAutoAnimate } from '@formkit/auto-animate/react';
+import { SmilePlus } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
-import { useAddReaction, useRemoveReaction } from '@/queries/messages';
-import { useAuth } from '@/hooks/useAuth';
+import { useMessageReactions } from '@/hooks/useMessageReactions';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { MessageReaction } from '@/types/message';
 
 interface ChatReactionsProps {
+  channelId: string;
   messageId: string;
-  reactions: { emoji: string; userIds: string[] }[];
+  reactions: MessageReaction[];
 }
 
-export function ChatReactions({ messageId, reactions }: ChatReactionsProps) {
-  const { user } = useAuth();
-  const { mutate: addReaction } = useAddReaction();
-  const { mutate: removeReaction } = useRemoveReaction();
+export function ChatReactions({ channelId, messageId, reactions }: ChatReactionsProps) {
+  const { toggle, hasReacted, describeReactors } = useMessageReactions(
+    channelId,
+    messageId,
+    reactions,
+  );
+  const [listRef] = useAutoAnimate<HTMLDivElement>();
 
-  const handleSelectEmoji = (emoji: string) => {
-    const existingReaction = reactions.find((r) => user && r.userIds.includes(user.id));
-
-    if (existingReaction) {
-      if (existingReaction.emoji === emoji) {
-        removeReaction({ messageId, emoji });
-        return;
-      }
-      removeReaction({ messageId, emoji: existingReaction.emoji });
-    }
-    addReaction({ messageId, emoji });
-  };
-
-  const handleToggleReaction = (emoji: string, hasReacted: boolean) => {
-    if (hasReacted) {
-      removeReaction({ messageId, emoji });
-    } else {
-      const existingReaction = reactions.find((r) => user && r.userIds.includes(user.id));
-      if (existingReaction) {
-        removeReaction({ messageId, emoji: existingReaction.emoji });
-      }
-      addReaction({ messageId, emoji });
-    }
-  };
-
-  if (reactions.length === 0) {
-    return (
-      <div className="absolute -top-3 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        <EmojiPicker onSelect={handleSelectEmoji} />
-      </div>
-    );
-  }
+  // No chips until the message has reactions — the hover toolbar's picker is
+  // how the first reaction gets added, keeping every row's resting height calm.
+  if (reactions.length === 0) return null;
 
   return (
-    <div className="flex flex-wrap gap-1 mt-1 relative">
+    <div ref={listRef} className="mt-1 flex flex-wrap items-center gap-1">
       <TooltipProvider delayDuration={400}>
         {reactions.map((reaction) => {
-          const hasReacted = user ? reaction.userIds.includes(user.id) : false;
-          const whoReactedText = reaction.userIds.map(id => id === user?.id ? user.username : 'User').join(', ');
+          const reacted = hasReacted(reaction);
           return (
             <Tooltip key={reaction.emoji}>
               <TooltipTrigger asChild>
-                <button
-                  onClick={() => handleToggleReaction(reaction.emoji, hasReacted)}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => toggle(reaction.emoji)}
+                  aria-pressed={reacted}
+                  aria-label={describeReactors(reaction)}
                   className={cn(
-                    "flex items-center gap-1 px-1.5 py-0.5 rounded-md text-xs border transition-colors",
-                    hasReacted 
-                      ? "bg-blurple/20 border-blurple/50 text-blurple-foreground" 
-                      : "bg-surface-2 border-border hover:border-border-strong text-muted-foreground hover:text-foreground"
+                    'text-caption h-6 gap-1 rounded-md border px-1.5 py-0 font-normal',
+                    reacted
+                      ? 'border-blurple/50 bg-blurple/20 text-ink hover:bg-blurple/30'
+                      : 'border-glass-border bg-glass-surface-2 text-ink-muted hover:border-glass-border-strong hover:text-ink',
                   )}
                 >
-                  <span>{reaction.emoji}</span>
-                  <span className="font-medium">{reaction.userIds.length}</span>
-                </button>
+                  <span className="leading-none">{reaction.emoji}</span>
+                  <span className="font-medium tabular-nums">{reaction.userIds.length}</span>
+                </Button>
               </TooltipTrigger>
               <TooltipContent side="top">
-                <p className="text-xs">{whoReactedText}</p>
+                <p className="text-caption">{describeReactors(reaction)}</p>
               </TooltipContent>
             </Tooltip>
           );
         })}
       </TooltipProvider>
-      
-      {!reactions.some((r) => user && r.userIds.includes(user.id)) && (
-        <EmojiPicker 
-          onSelect={handleSelectEmoji}
-          trigger={
-            <button className="flex items-center justify-center px-1.5 py-0.5 rounded-md bg-surface-2 border border-border hover:border-border-strong text-muted-foreground hover:text-foreground transition-colors">
-              <span className="text-xs">+</span>
-            </button>
-          }
-        />
-      )}
+
+      <EmojiPicker
+        onSelect={toggle}
+        trigger={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Add reaction"
+            className="text-ink-muted hover:text-ink border-glass-border bg-glass-surface-2 hover:border-glass-border-strong h-6 w-6 rounded-md border"
+          >
+            <SmilePlus className="h-3.5 w-3.5" />
+          </Button>
+        }
+      />
     </div>
   );
 }

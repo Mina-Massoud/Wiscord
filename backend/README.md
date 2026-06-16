@@ -2,7 +2,7 @@
 
 Node + Express + TypeScript + Mongoose backend for [Wiscord](../docs/overview.md), a Discord-style collaborative study app.
 
-This folder holds the HTTP API, Mongoose models, auth (magic-link + JWT cookie), and feature modules. The frontend lives in the sibling [`../frontend/`](../frontend) folder.
+This folder holds the HTTP API, Mongoose models, auth (email + password → JWT cookie), and feature modules. The frontend lives in the sibling [`../frontend/`](../frontend) folder.
 
 > The previous Supabase implementation is archived at [`./.legacy-supabase/`](./.legacy-supabase) for reference until the rest of the surface (channels, messages, realtime, AI, voice, storage) is re-implemented here.
 
@@ -12,8 +12,8 @@ This folder holds the HTTP API, Mongoose models, auth (magic-link + JWT cookie),
 
 Live endpoints:
 
-- `POST /auth/magic-link` — request a sign-in email (always returns `{ sent: true }`, anti-enumeration)
-- `GET /auth/callback?token=…` — verify token, set cookie, redirect to frontend
+- `POST /auth/sign-up` — create an account (email + password), set cookie, return profile
+- `POST /auth/sign-in` — verify email + password, set cookie, return profile
 - `POST /auth/signout` — clear cookie
 - `GET /auth/me` — current user (auth-gated)
 - `PATCH /auth/me` — update username / display name / avatar / `onboarded_at` (auth-gated)
@@ -28,8 +28,7 @@ See [`CLAUDE.md`](./CLAUDE.md) for the rules and conventions.
 | Runtime | Node ≥20, ESM (`"type": "module"`) |
 | HTTP | Express 4 |
 | DB | MongoDB 8 via Mongoose 9 |
-| Auth | Self-issued JWT (`jose`) in HttpOnly cookie |
-| Email | Resend (logs URL in dev when key is unset) |
+| Auth | Email + password (scrypt) → self-issued JWT (`jose`) in HttpOnly cookie |
 | Validation | Zod at every boundary |
 | Logging | Pino + pino-http |
 
@@ -37,9 +36,8 @@ See [`CLAUDE.md`](./CLAUDE.md) for the rules and conventions.
 
 1. **Node.js ≥20**
 2. **Docker Desktop** (for local MongoDB) — or a MongoDB Atlas free-tier connection string if you'd rather not run Docker
-3. **A Resend account** — optional in dev; required to actually send magic-link emails in prod
-4. **An Anthropic API key** — only needed once the AI module is wired back in
-5. **A LiveKit Cloud account** — only needed once the voice module is wired back in
+3. **An Anthropic API key** — only needed once the AI module is wired back in
+4. **A LiveKit Cloud account** — only needed once the voice module is wired back in
 
 ## Local setup
 
@@ -51,7 +49,7 @@ cp .env.example .env
 node -e "require('fs').appendFileSync('.env','JWT_SECRET=' + require('crypto').randomBytes(32).toString('hex') + '\n')"
 # Boot MongoDB on :27017
 npm run db:up
-# (optional) seed a dev user (dev@wiscord.local)
+# (optional) seed dev users — all with the password "password123"
 npm run db:seed
 # Start the API on http://localhost:3001
 npm run dev
@@ -59,7 +57,7 @@ npm run dev
 
 `docker info` must succeed before `db:up`. If you'd rather use Atlas, point `MONGODB_URI` at the cluster connection string and skip `db:up`.
 
-In dev, leave `RESEND_API_KEY` empty — magic-link URLs print to the server log so you can paste them straight into the browser without sending real email.
+`npm run db:seed` creates `dev@wiscord.local`, `alice@wiscord.local`, and `bob@wiscord.local`, all with the password `password123` — sign in with any of them.
 
 ## Daily commands
 
@@ -109,8 +107,7 @@ backend/
 
 | Model | Purpose |
 |---|---|
-| `User` | Account + profile (email, username, display name, avatar, `onboardedAt`) |
-| `MagicLinkToken` | Hashed one-time sign-in tokens with 15-minute TTL and `usedAt` lock |
+| `User` | Account + profile — email, scrypt `passwordHash` (`select: false`), username, display name, avatar, `onboardedAt` |
 
 The legacy Supabase schema (servers, channels, messages, focus sessions, goals, notes, invites) is the porting target for the next slices and lives in [`./.legacy-supabase/migrations/`](./.legacy-supabase/migrations).
 
