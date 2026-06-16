@@ -137,10 +137,10 @@ export function DmChatView({ room }: DmChatViewProps): React.JSX.Element {
         </div>
       ) : (
         <div ref={scrollRef} className="flex flex-1 flex-col-reverse overflow-y-auto px-1 py-3">
-          <div ref={listParent} className="flex w-full flex-col-reverse flex-grow">
+          <div ref={listParent} className="flex w-full flex-grow flex-col-reverse">
             {allMessages.map((message, index) => (
               <ChannelChatMessageRow
-                key={message.id}
+                key={message.nonce ?? message.id}
                 message={message}
                 isOwn={message.authorId === userId}
                 isCompact={isCompactMessage(allMessages, index)}

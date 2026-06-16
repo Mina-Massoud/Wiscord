@@ -22,13 +22,6 @@ interface CreateMentionArgs {
   fromUserId: string;
 }
 
-interface CreateDmArgs {
-  userId: string;
-  channelId: string;
-  messageId: string;
-  fromUserId: string;
-}
-
 function objectIdOrNull(value: string | null | undefined): Types.ObjectId | null {
   return value ? new Types.ObjectId(value) : null;
 }
@@ -67,19 +60,6 @@ class NotificationServiceImpl {
     });
   }
 
-  async createDMNotification(args: CreateDmArgs): Promise<NotificationDto | null> {
-    if (args.userId === args.fromUserId) return null;
-
-    return this.createNotification({
-      userId: args.userId,
-      type: 'dm',
-      serverId: null,
-      channelId: args.channelId,
-      messageId: args.messageId,
-      fromUserId: args.fromUserId,
-    });
-  }
-
   async markAsRead(userId: string, notificationId: string): Promise<NotificationDto> {
     const doc = await Notification.findById(notificationId);
     if (!doc) throw notFound('notification');
@@ -101,6 +81,9 @@ class NotificationServiceImpl {
   ): Promise<NotificationDto[]> {
     const docs = await Notification.find({
       userId,
+      // Legacy per-message DM notifications are no longer created; exclude any
+      // that linger in the DB so they stop polluting the mentions inbox.
+      type: { $ne: 'dm' },
       ...(options.unreadOnly ? { read: false } : {}),
     })
       .sort({ createdAt: -1, _id: -1 })

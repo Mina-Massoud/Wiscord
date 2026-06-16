@@ -7,10 +7,11 @@ const objectId = z.string().regex(/^[0-9a-fA-F]{24}$/, 'Invalid id');
 
 export const sendMessageBody = z.object({
   content: z.string().min(1).max(4000),
-  // Optional client-minted id so the sender's optimistic message and the
-  // persisted document share one id (stable React key, no re-animation on
-  // confirmation). Validated to ObjectId shape; ignored on collision.
-  clientId: objectId.optional(),
+  // Optional client-minted correlation token. The server keeps its own
+  // authoritative id and echoes this `nonce` back on the created message, so
+  // the sender can match its optimistic message to the persisted one and keep a
+  // stable React key (no re-animation on confirmation).
+  nonce: z.string().min(1).max(64).optional(),
 });
 
 export const updateMessageBody = z.object({
@@ -62,6 +63,7 @@ export interface MessageDto {
   content: string;
   mentions: string[];
   reactions: { emoji: string; userIds: string[] }[];
+  nonce: string | null;
   editedAt: string | null;
   deletedAt: string | null;
   createdAt: string;
@@ -107,6 +109,7 @@ export function toMessageDto(doc: MessageDoc): MessageDto {
       emoji: r.emoji,
       userIds: (r.userIds ?? []).map((id) => id.toString()),
     })),
+    nonce: doc.nonce ?? null,
     editedAt: doc.editedAt ? doc.editedAt.toISOString() : null,
     deletedAt: doc.deletedAt ? doc.deletedAt.toISOString() : null,
     createdAt: doc.createdAt.toISOString(),

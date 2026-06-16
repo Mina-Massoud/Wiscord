@@ -8,25 +8,26 @@ interface ChatMessageListProps {
 }
 
 export function ChatMessageList({ channelId }: ChatMessageListProps) {
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } = useChannelMessages(channelId);
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, status } =
+    useChannelMessages(channelId);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [listRef] = useAutoAnimate<HTMLDivElement>();
-  
+
   // Sentinel for infinite scroll
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!sentinelRef.current) return;
-    
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
           fetchNextPage();
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
-    
+
     observer.observe(sentinelRef.current);
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
@@ -43,17 +44,17 @@ export function ChatMessageList({ channelId }: ChatMessageListProps) {
 
   if (status === 'pending') {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-blurple border-t-transparent rounded-full animate-spin" />
+      <div className="flex flex-1 items-center justify-center">
+        <div className="border-blurple h-6 w-6 animate-spin rounded-full border-2 border-t-transparent" />
       </div>
     );
   }
 
   if (status === 'error') {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-        <p>Couldn't load messages.</p>
-        <button onClick={() => fetchNextPage()} className="text-blurple hover:underline mt-2">
+      <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center">
+        <p>Couldn&apos;t load messages.</p>
+        <button onClick={() => fetchNextPage()} className="text-blurple mt-2 hover:underline">
           Retry
         </button>
       </div>
@@ -64,11 +65,13 @@ export function ChatMessageList({ channelId }: ChatMessageListProps) {
 
   if (allMessages.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
-        <div className="w-16 h-16 rounded-full bg-surface-2 flex items-center justify-center mb-4 text-3xl">
+      <div className="text-muted-foreground flex flex-1 flex-col items-center justify-center p-8 text-center">
+        <div className="bg-surface-2 mb-4 flex h-16 w-16 items-center justify-center rounded-full text-3xl">
           👋
         </div>
-        <h3 className="text-lg font-medium text-foreground mb-1">Welcome to the beginning of the channel</h3>
+        <h3 className="text-foreground mb-1 text-lg font-medium">
+          Welcome to the beginning of the channel
+        </h3>
         <p>This is the start of the chat. Say hi to everyone!</p>
       </div>
     );
@@ -79,36 +82,30 @@ export function ChatMessageList({ channelId }: ChatMessageListProps) {
     if (index === allMessages.length - 1) return false;
     const currentMsg = allMessages[index];
     const previousMsg = allMessages[index + 1]; // because array is reversed (newest first)
-    
+
     // If the message is deleted, don't group it as compact
     if (currentMsg.deletedAt) return false;
-    
+
     const sameAuthor = currentMsg.authorId === previousMsg.authorId;
     // Assume 5 minutes threshold to break compactness
-    const timeDiff = new Date(currentMsg.createdAt).getTime() - new Date(previousMsg.createdAt).getTime();
+    const timeDiff =
+      new Date(currentMsg.createdAt).getTime() - new Date(previousMsg.createdAt).getTime();
     const withinTimeLimit = timeDiff < 5 * 60 * 1000;
-    
+
     return sameAuthor && withinTimeLimit;
   };
 
   return (
-    <div
-      className="flex-1 overflow-y-auto flex flex-col-reverse py-4"
-      ref={scrollRef}
-    >
-      <div ref={listRef} className="flex flex-col-reverse w-full">
+    <div className="flex flex-1 flex-col-reverse overflow-y-auto py-4" ref={scrollRef}>
+      <div ref={listRef} className="flex w-full flex-col-reverse">
         {allMessages.map((msg, index) => (
-          <ChatMessage 
-            key={msg.id} 
-            message={msg} 
-            isCompact={shouldBeCompact(index)} 
-          />
+          <ChatMessage key={msg.nonce ?? msg.id} message={msg} isCompact={shouldBeCompact(index)} />
         ))}
       </div>
-      
-      <div ref={sentinelRef} className="h-4 flex-shrink-0 flex items-center justify-center w-full">
+
+      <div ref={sentinelRef} className="flex h-4 w-full flex-shrink-0 items-center justify-center">
         {isFetchingNextPage && (
-          <div className="w-4 h-4 border-2 border-muted-foreground border-t-transparent rounded-full animate-spin" />
+          <div className="border-muted-foreground h-4 w-4 animate-spin rounded-full border-2 border-t-transparent" />
         )}
       </div>
     </div>

@@ -10,7 +10,7 @@ import { useEffect } from 'react';
 import { api, getSocket } from './client';
 import type { ApiError } from './client';
 
-export type NotificationType = 'mention' | 'dm' | 'system';
+export type NotificationType = 'mention' | 'system';
 
 export interface NotificationDto {
   id: string;

@@ -71,21 +71,14 @@ export async function sendMessage(
   channelId: string,
   authorId: string,
   content: string,
-  clientId?: string,
+  nonce?: string,
 ): Promise<MessageDto> {
   const target = await assertChannelMember(authorId, channelId);
 
   const mentions = await resolveMentions(content);
-
-  // Honor a client-minted id (keeps the sender's optimistic React key stable),
-  // but never let a collision reject the send — fall back to an auto id.
-  let id: Types.ObjectId | undefined;
-  if (clientId && Types.ObjectId.isValid(clientId)) {
-    const exists = await Message.exists({ _id: clientId });
-    if (!exists) id = new Types.ObjectId(clientId);
-  }
-
-  const msg = new Message({ ...(id ? { _id: id } : {}), channelId, authorId, content, mentions });
+  // The server owns the id; `nonce` is just echoed back so the sender can
+  // reconcile its optimistic message (stable React key, no re-animation).
+  const msg = new Message({ channelId, authorId, content, mentions, nonce: nonce ?? null });
   await msg.save();
   await msg.populate('authorId', 'id username displayName avatarUrl');
 
@@ -131,15 +124,10 @@ export async function sendMessage(
 
   const isDm = target.kind === 'dm';
 
-  if (isDm) {
-    const recipientId = target.userAId === authorId ? target.userBId : target.userAId;
-    await NotificationService.createDMNotification({
-      userId: recipientId,
-      channelId,
-      messageId: msg.id,
-      fromUserId: authorId,
-    });
-  } else {
+  // DMs surface as per-conversation unread badges (the room:updated events
+  // above), not as feed entries. Only server @mentions create a notification —
+  // mirroring Discord's mentions inbox.
+  if (!isDm) {
     const uniqueMentionedUserIds = new Set(mentions.map((id) => id.toString()));
     const mentionedMembers = await ServerMember.find({
       serverId: target.serverId,

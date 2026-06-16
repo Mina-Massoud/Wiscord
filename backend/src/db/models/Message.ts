@@ -14,6 +14,11 @@ const messageSchema = new Schema(
     channelId: { type: String, required: true, index: true },
     authorId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     content: { type: String, required: true, minlength: 1, maxlength: 4000 },
+    // Client-minted idempotency/reconciliation token (Discord-style nonce).
+    // Echoed back on the DTO so the sender can match its optimistic message to
+    // the persisted one and keep a stable React key. Server ids stay
+    // authoritative; this is only a correlation handle.
+    nonce: { type: String, default: null },
     editedAt: { type: Date, default: null },
     deletedAt: { type: Date, default: null },
     mentions: { type: [Schema.Types.ObjectId], ref: 'User', default: [] },

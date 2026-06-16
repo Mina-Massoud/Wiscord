@@ -32,23 +32,34 @@ export function useChannelSocket(channelId: string, options: UseChannelSocketOpt
         qk.messages.byChannel(channelId),
         (old) => {
           if (!old) return old;
+
+          // Already present (by id, or by the sender's optimistic nonce)? Replace
+          // it in place — same React key, no remount — to absorb both our own
+          // optimistic placeholder and any duplicate echo idempotently.
+          const matches = (m: MessageDto) =>
+            m.id === message.id || (!!message.nonce && m.nonce === message.nonce);
+          const exists = old.pages.some((page) => page.messages.some(matches));
+          if (exists) {
+            return {
+              ...old,
+              pages: old.pages.map((page) => ({
+                ...page,
+                messages: page.messages.map((m) => (matches(m) ? message : m)),
+              })),
+            };
+          }
+
+          // Otherwise it's a new message (typically from someone else): prepend
+          // to the first page, where the newest messages live.
           const newPages = [...old.pages];
           if (newPages.length > 0) {
-            // Remove optimistic message if present, or just prepend
-            const filteredMessages = newPages[0].messages.filter(
-              (m) => m.id !== `temp-${message.id}` && !m.id.startsWith('temp-')
-            );
-            
-            // Check if we already have this message (in case of race conditions)
-            if (!filteredMessages.find((m) => m.id === message.id)) {
-              newPages[0] = {
-                ...newPages[0],
-                messages: [message, ...filteredMessages],
-              };
-            }
+            newPages[0] = {
+              ...newPages[0],
+              messages: [message, ...newPages[0].messages],
+            };
           }
           return { ...old, pages: newPages };
-        }
+        },
       );
       onMessageCreatedCallback?.(message);
     };
@@ -67,7 +78,7 @@ export function useChannelSocket(channelId: string, options: UseChannelSocketOpt
               messages: page.messages.map((m) => (m.id === message.id ? message : m)),
             })),
           };
-        }
+        },
       );
     };
 
@@ -81,15 +92,23 @@ export function useChannelSocket(channelId: string, options: UseChannelSocketOpt
             pages: old.pages.map((page) => ({
               ...page,
               messages: page.messages.map((m) =>
-                m.id === messageId ? { ...m, deletedAt: new Date().toISOString() } : m
+                m.id === messageId ? { ...m, deletedAt: new Date().toISOString() } : m,
               ),
             })),
           };
-        }
+        },
       );
     };
 
-    const onReactionAdded = ({ messageId, emoji, userId }: { messageId: string; emoji: string; userId: string }) => {
+    const onReactionAdded = ({
+      messageId,
+      emoji,
+      userId,
+    }: {
+      messageId: string;
+      emoji: string;
+      userId: string;
+    }) => {
       queryClient.setQueryData<InfiniteData<MessagesResponse>>(
         qk.messages.byChannel(channelId),
         (old) => {
@@ -113,11 +132,19 @@ export function useChannelSocket(channelId: string, options: UseChannelSocketOpt
               }),
             })),
           };
-        }
+        },
       );
     };
 
-    const onReactionRemoved = ({ messageId, emoji, userId }: { messageId: string; emoji: string; userId: string }) => {
+    const onReactionRemoved = ({
+      messageId,
+      emoji,
+      userId,
+    }: {
+      messageId: string;
+      emoji: string;
+      userId: string;
+    }) => {
       queryClient.setQueryData<InfiniteData<MessagesResponse>>(
         qk.messages.byChannel(channelId),
         (old) => {
@@ -138,7 +165,7 @@ export function useChannelSocket(channelId: string, options: UseChannelSocketOpt
               }),
             })),
           };
-        }
+        },
       );
     };
 

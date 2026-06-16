@@ -11,6 +11,10 @@ export interface MessageDto {
   content: string;
   mentions: string[];
   reactions: MessageReaction[];
+  // Client-minted correlation token, echoed by the server. Present on the
+  // sender's optimistic message and its persisted twin so the list can key by
+  // `nonce ?? id` and avoid remounting (replayed animation) on confirmation.
+  nonce?: string | null;
   editedAt: string | null;
   deletedAt: string | null;
   createdAt: string;

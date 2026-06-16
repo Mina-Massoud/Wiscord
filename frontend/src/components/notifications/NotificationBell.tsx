@@ -1,4 +1,4 @@
-import { AtSign, Bell, Check, MessageCircle, X } from 'lucide-react';
+import { AtSign, Bell, Check, X } from 'lucide-react';
 import { useNavigate } from 'react-router';
 
 import { cn } from '@/lib/cn';
@@ -14,13 +14,11 @@ import { UnreadBadge } from '@/components/app-shell/atoms/UnreadBadge';
 
 function notificationLabel(notification: NotificationDto): string {
   if (notification.type === 'mention') return 'You were mentioned';
-  if (notification.type === 'dm') return 'New direct message';
   return 'System notification';
 }
 
 function NotificationIcon({ type }: { type: NotificationDto['type'] }): React.JSX.Element {
   if (type === 'mention') return <AtSign className="size-4" aria-hidden />;
-  if (type === 'dm') return <MessageCircle className="size-4" aria-hidden />;
   return <Bell className="size-4" aria-hidden />;
 }
 
@@ -33,9 +31,6 @@ export function NotificationBell(): React.JSX.Element {
   const navigate = useNavigate();
 
   const unreadCount = notifications.filter((notification) => !notification.read).length;
-  const mentionCount = notifications.filter(
-    (notification) => notification.type === 'mention' && !notification.read,
-  ).length;
   const hasReadNotifications = notifications.some((notification) => notification.read);
 
   const handleNotificationClick = (notification: NotificationDto): void => {
@@ -43,15 +38,9 @@ export function NotificationBell(): React.JSX.Element {
       markRead.mutate({ notificationId: notification.id });
     }
 
-    // Navigate to target location based on notification type
+    // Mentions jump to the server channel where the mention happened.
     if (notification.type === 'mention' && notification.serverId && notification.channelId) {
       const url = `/app/servers/${notification.serverId}/channels/${notification.channelId}`;
-      const withMessage = notification.messageId
-        ? `${url}?highlight=${notification.messageId}`
-        : url;
-      navigate(withMessage);
-    } else if (notification.type === 'dm' && notification.channelId) {
-      const url = `/app/dms/${notification.channelId}`;
       const withMessage = notification.messageId
         ? `${url}?highlight=${notification.messageId}`
         : url;
@@ -89,13 +78,7 @@ export function NotificationBell(): React.JSX.Element {
       >
         <div className="border-glass-border flex h-11 items-center justify-between border-b px-3">
           <div className="flex items-center gap-2">
-            <span className="text-control font-semibold">Notifications</span>
-            {mentionCount > 0 ? (
-              <span className="bg-blurple/15 text-blurple text-badge flex items-center gap-1 rounded px-1.5 py-0.5 font-semibold">
-                <AtSign className="size-3" aria-hidden />
-                {mentionCount}
-              </span>
-            ) : null}
+            <span className="text-control font-semibold">Mentions</span>
           </div>
           <div className="flex items-center gap-2">
             {hasReadNotifications && (
@@ -115,7 +98,7 @@ export function NotificationBell(): React.JSX.Element {
         <div className="max-h-96 overflow-y-auto">
           {notifications.length === 0 ? (
             <div className="text-ink-subtle text-caption px-3 py-8 text-center">
-              No notifications yet.
+              No mentions yet.
             </div>
           ) : (
             notifications.map((notification) => (

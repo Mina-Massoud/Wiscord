@@ -6,7 +6,6 @@ import {
 } from '@tanstack/react-query';
 import { api } from './client';
 import { qk } from './keys';
-import { generateObjectId } from '@/lib/objectId';
 import { toast } from '@/lib/toast';
 import type { MessageDto, MessageReaction } from '@/types/message';
 import type { Profile } from '@/types/auth';
@@ -44,27 +43,28 @@ export function useChannelMessages(channelId: string) {
 interface SendMessageVars {
   channelId: string;
   content: string;
-  // Minted in `onMutate` (if absent) and sent to the server as `clientId` so
-  // the optimistic message and the persisted message share one id — see
-  // `generateObjectId`. Optional at the call site; callers never pass it.
-  id?: string;
+  // Minted in `onMutate` (if absent) and sent to the server as `nonce`. The
+  // server keeps its own id and echoes the nonce back, so the optimistic
+  // message and its persisted twin share a stable React key (`nonce ?? id`) and
+  // the row isn't remounted — and re-animated — on confirmation. Callers never
+  // pass this; it lives on the shared `variables` object so `mutationFn` sees
+  // the same value `onMutate` rendered with.
+  nonce?: string;
 }
 
 export function useSendMessage() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ channelId, content, id }: SendMessageVars) => {
+    mutationFn: async ({ channelId, content, nonce }: SendMessageVars) => {
       return api<MessageDto>(`/channels/${channelId}/messages`, {
         method: 'POST',
-        body: { content, clientId: id },
+        body: { content, nonce },
       });
     },
     onMutate: async (variables: SendMessageVars) => {
-      // Mint the id once, on the shared `variables` object, so `mutationFn`
-      // (which receives the same reference) sends the same id we render with.
-      variables.id ??= generateObjectId();
-      const { channelId, content, id } = variables;
+      variables.nonce ??= crypto.randomUUID();
+      const { channelId, content, nonce } = variables;
 
       await queryClient.cancelQueries({ queryKey: qk.messages.byChannel(channelId) });
       const previousMessages = queryClient.getQueryData<InfiniteData<MessagesResponse>>(
@@ -80,7 +80,9 @@ export function useSendMessage() {
         // message arrived and replaced them.
         const me = queryClient.getQueryData<Profile>(qk.auth.session());
         const optimisticMsg: MessageDto = {
-          id: id!,
+          // Provisional id until the server responds; the list keys by `nonce`
+          // so this never becomes a visible React key.
+          id: `pending-${nonce}`,
           channelId,
           authorId: me?.id ?? 'optimistic',
           author: me
@@ -94,6 +96,7 @@ export function useSendMessage() {
           content,
           mentions: [],
           reactions: [],
+          nonce,
           editedAt: null,
           deletedAt: null,
           createdAt: new Date().toISOString(),
@@ -118,6 +121,25 @@ export function useSendMessage() {
       }
 
       return { previousMessages };
+    },
+    onSuccess: (saved, variables) => {
+      // Reconcile in place by nonce: upgrade the optimistic placeholder to the
+      // server's authoritative message (real id, server timestamps) without
+      // changing the React key, so no remount/re-animation occurs. The socket
+      // `message:created` echo is idempotent with this (matches same nonce/id).
+      queryClient.setQueryData<InfiniteData<MessagesResponse>>(
+        qk.messages.byChannel(variables.channelId),
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              messages: page.messages.map((m) => (m.nonce && m.nonce === saved.nonce ? saved : m)),
+            })),
+          };
+        },
+      );
     },
     onError: (_err, variables, context) => {
       if (context?.previousMessages) {

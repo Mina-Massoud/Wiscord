@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { Loader2, Send } from 'lucide-react';
+import { Loader2, Send, Smile } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { EmojiPicker } from '@/components/chat/EmojiPicker';
 import { getIdenticonDataUrl } from '@/lib/avatar';
 import { MediaImg } from '@/components/ui/media-img';
 import { cn } from '@/lib/cn';
@@ -40,6 +41,30 @@ export function ChannelChatComposer({
     setDraft('');
     setSending(false);
     setShowSuggestions(false);
+  }
+
+  // Grow the input with its content up to a cap (Discord-style), then scroll.
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 160)}px`;
+  }, [draft]);
+
+  function insertEmoji(emoji: string): void {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setDraft((prev) => prev + emoji);
+      return;
+    }
+    const start = textarea.selectionStart ?? draft.length;
+    const end = textarea.selectionEnd ?? draft.length;
+    setDraft(draft.slice(0, start) + emoji + draft.slice(end));
+    const nextPos = start + emoji.length;
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(nextPos, nextPos);
+    }, 0);
   }
 
   // Handle autocomplete matching when input changes
@@ -134,7 +159,7 @@ export function ChannelChatComposer({
               key={member.id}
               onClick={() => selectMember(member)}
               className={cn(
-                'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-ink transition-colors hover:bg-surface-hover/60',
+                'text-ink hover:bg-surface-hover/60 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors',
                 idx === activeIndex && 'bg-surface-hover/80 font-medium',
               )}
             >
@@ -148,9 +173,7 @@ export function ChannelChatComposer({
                   {member.user.displayName || member.user.username}
                 </div>
                 {member.user.displayName && (
-                  <div className="text-ink-subtle truncate text-xs">
-                    @{member.user.username}
-                  </div>
+                  <div className="text-ink-subtle truncate text-xs">@{member.user.username}</div>
                 )}
               </div>
             </button>
@@ -158,7 +181,7 @@ export function ChannelChatComposer({
         </div>
       )}
 
-      <div className="flex items-end gap-2">
+      <div className="bg-surface-composer flex items-end gap-1 rounded-lg px-2">
         <Textarea
           ref={textareaRef}
           value={draft}
@@ -167,23 +190,42 @@ export function ChannelChatComposer({
           placeholder={`Message #${channelLabel}`}
           disabled={disabled || sending}
           rows={1}
-          className="max-h-40 min-h-10 resize-none py-2.5"
+          className="text-body max-h-40 min-h-11 flex-1 resize-none border-0 bg-transparent px-1 py-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
           aria-label={`Message #${channelLabel}`}
         />
-        <Button
-          type="button"
-          size="icon"
-          aria-label="Send message"
-          disabled={disabled || sending || draft.trim().length === 0}
-          onClick={handleSend}
-          className="shrink-0"
-        >
-          {sending ? (
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-          ) : (
-            <Send className="size-4" aria-hidden />
+        <div className="flex shrink-0 items-center gap-0.5 self-end pb-2">
+          <EmojiPicker
+            onSelect={insertEmoji}
+            trigger={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Insert emoji"
+                disabled={disabled || sending}
+                className="text-ink-muted hover:text-ink size-8 rounded-md"
+              >
+                <Smile className="size-5" aria-hidden />
+              </Button>
+            }
+          />
+          {draft.trim().length > 0 && (
+            <Button
+              type="button"
+              size="icon"
+              aria-label="Send message"
+              disabled={disabled || sending}
+              onClick={handleSend}
+              className="size-8 rounded-md"
+            >
+              {sending ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <Send className="size-4" aria-hidden />
+              )}
+            </Button>
           )}
-        </Button>
+        </div>
       </div>
     </div>
   );
