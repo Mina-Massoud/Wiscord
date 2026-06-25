@@ -63,10 +63,10 @@ export default function VoiceLabPage(): React.JSX.Element {
 
   const activity = activityQuery.data ?? null;
   const isHost = activity ? me?.id === activity.hostUserId : false;
-  
+
   const state = useConnectionState();
   const isIdle = !isThisChannelConnected || state === ConnectionState.Disconnected;
-  
+
   const [searchParams] = useSearchParams();
   const chatOnly = searchParams.get('chat') === 'true';
 
@@ -143,9 +143,11 @@ export default function VoiceLabPage(): React.JSX.Element {
         }
         userPanel={<VoiceUserPanelGroup onActivitySelect={pickActivity} />}
         main={
-          <div className={`flex w-full h-full items-stretch flex-row`}>
+          <div className={`flex h-full w-full flex-row items-stretch`}>
             {!(isIdle && chatOnly) && (
-              <div className={`border-glass-border flex flex-col ${isIdle ? 'lg:w-[70%] border-b' : 'flex-1 min-w-0 border-r'}`}>
+              <div
+                className={`border-glass-border flex flex-col ${isIdle ? 'border-b lg:w-[70%]' : 'min-w-0 flex-1 border-r'}`}
+              >
                 <VoiceMainPane
                   channelId={channelId}
                   isThisChannelConnected={isThisChannelConnected}
@@ -157,7 +159,9 @@ export default function VoiceLabPage(): React.JSX.Element {
                 />
               </div>
             )}
-            <div className={`flex flex-col relative z-10 ${isIdle ? 'flex-1 min-h-0' : 'w-[350px] flex-shrink-0'}`}>
+            <div
+              className={`relative z-10 flex flex-col ${isIdle ? 'min-h-0 flex-1' : 'w-[350px] flex-shrink-0'}`}
+            >
               <ChatPane channelId={channelId} />
             </div>
           </div>

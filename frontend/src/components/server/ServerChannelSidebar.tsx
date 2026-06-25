@@ -102,7 +102,7 @@ export function ServerChannelSidebar({
   return (
     <>
       <Sidebar.Root>
-        <div className="border-b border-glass-border">
+        <div className="border-glass-border border-b">
           <ServerSettingsDropdown
             server={server}
             currentUserId={currentUserId}
@@ -126,7 +126,7 @@ export function ServerChannelSidebar({
               <Calendar className="text-ink-muted size-4 shrink-0" aria-hidden />
               <span className="text-ink text-tab min-w-0 truncate font-semibold">Events</span>
               {upcomingEventsCount > 0 && (
-                <span className="ml-auto bg-blurple text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0">
+                <span className="bg-blurple ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-bold text-white">
                   {upcomingEventsCount}
                 </span>
               )}
@@ -196,18 +196,16 @@ export function ServerChannelSidebar({
         onOpenChange={setInviteOpen}
       />
 
-      <EditServerDialog
-        server={server}
-        open={settingsOpen}
-        onOpenChange={setSettingsOpen}
-      />
+      <EditServerDialog server={server} open={settingsOpen} onOpenChange={setSettingsOpen} />
 
       <AlertDialog
         open={confirmAction !== null}
-        onOpenChange={(open: boolean) => { if (!open) setConfirmAction(null); }}
+        onOpenChange={(open: boolean) => {
+          if (!open) setConfirmAction(null);
+        }}
       >
         <AlertDialogContent className="border-glass-border bg-canvas max-w-md">
-          <AlertDialogTitle className="text-body font-bold text-ink">
+          <AlertDialogTitle className="text-body text-ink font-bold">
             {confirmAction === 'delete' ? `Delete "${server.name}"?` : `Leave "${server.name}"?`}
           </AlertDialogTitle>
           <AlertDialogDescription className="text-ink-muted text-control mt-2">
@@ -223,11 +221,7 @@ export function ServerChannelSidebar({
             >
               Cancel
             </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirm}
-              disabled={isConfirmPending}
-            >
+            <Button variant="destructive" onClick={handleConfirm} disabled={isConfirmPending}>
               {isConfirmPending ? (
                 <>
                   <RefreshCw className="size-4 animate-spin" aria-hidden />

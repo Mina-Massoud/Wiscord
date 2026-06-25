@@ -14,7 +14,8 @@ export default function DmWorkspacePage(): React.JSX.Element {
   const { data: room, isLoading, isError } = useDmRoom(dmRoomId);
 
   const recipient = room?.recipient;
-  const avatarSrc = recipient?.avatarUrl || (recipient?.id ? getIdenticonDataUrl(recipient.id) : '');
+  const avatarSrc =
+    recipient?.avatarUrl || (recipient?.id ? getIdenticonDataUrl(recipient.id) : '');
 
   const titleBarText = recipient
     ? `${recipient.displayName || recipient.username}`
@@ -27,7 +28,7 @@ export default function DmWorkspacePage(): React.JSX.Element {
       sidebar={<DmSidebar />}
       userPanel={<GlobalUserPanel />}
       topBar={
-        <div className="flex h-12 w-full items-center gap-3 border-b border-glass-border px-4 bg-glass-surface-chrome backdrop-blur-md">
+        <div className="border-glass-border bg-glass-surface-chrome flex h-12 w-full items-center gap-3 border-b px-4 backdrop-blur-md">
           {recipient && (
             <>
               <img
@@ -36,8 +37,8 @@ export default function DmWorkspacePage(): React.JSX.Element {
                 className="size-7 rounded-full object-cover"
                 loading="eager"
               />
-              <div className="flex items-baseline gap-1.5 min-w-0">
-                <span className="font-semibold text-foreground text-subhead truncate">
+              <div className="flex min-w-0 items-baseline gap-1.5">
+                <span className="text-foreground text-subhead truncate font-semibold">
                   {recipient.displayName || recipient.username}
                 </span>
                 {recipient.displayName && (

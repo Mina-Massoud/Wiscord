@@ -14,7 +14,11 @@ import type { ChannelDto } from '@/queries/channels';
 import type { ActivityKind } from '@/queries/client';
 import { useMyProfile } from '@/queries/profile';
 import { useVoiceToken } from '@/queries/voice';
-import { useSetActivityPresence, useStopActivity, useVoiceActivity } from '@/queries/voice-activity';
+import {
+  useSetActivityPresence,
+  useStopActivity,
+  useVoiceActivity,
+} from '@/queries/voice-activity';
 
 const HOST_LED_KINDS: ReadonlySet<ActivityKind> = new Set(['youtube', 'screen-share', 'quiz']);
 
@@ -32,7 +36,9 @@ interface ServerChannelVoicePaneProps {
  * This is the same wiring the labs voice page uses — server voice channels and
  * lab voice channels are the same channel id behind the same `/voice/token`.
  */
-export function ServerChannelVoicePane({ channel }: ServerChannelVoicePaneProps): React.JSX.Element {
+export function ServerChannelVoicePane({
+  channel,
+}: ServerChannelVoicePaneProps): React.JSX.Element {
   const channelId = channel.id;
   const tokenQuery = useVoiceToken(channelId);
 

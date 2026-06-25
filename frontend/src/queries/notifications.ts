@@ -76,7 +76,12 @@ export function useDeleteNotification(): UseMutationResult<
 > {
   const qc = useQueryClient();
 
-  return useMutation<void, ApiError, { notificationId: string }, { previousNotifications: NotificationDto[] | undefined }>({
+  return useMutation<
+    void,
+    ApiError,
+    { notificationId: string },
+    { previousNotifications: NotificationDto[] | undefined }
+  >({
     mutationFn: async ({ notificationId }) => {
       await api(`/notifications/${notificationId}`, { method: 'DELETE' });
     },
@@ -107,9 +112,16 @@ export function useClearReadNotifications(): UseMutationResult<
 > {
   const qc = useQueryClient();
 
-  return useMutation<{ deletedCount: number }, ApiError, void, { previousNotifications: NotificationDto[] | undefined }>({
+  return useMutation<
+    { deletedCount: number },
+    ApiError,
+    void,
+    { previousNotifications: NotificationDto[] | undefined }
+  >({
     mutationFn: async () => {
-      const result = await api<{ deletedCount: number }>('/notifications/read', { method: 'DELETE' });
+      const result = await api<{ deletedCount: number }>('/notifications/read', {
+        method: 'DELETE',
+      });
       return result;
     },
     onMutate: async () => {
